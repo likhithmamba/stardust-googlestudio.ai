@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Stardust Canvas 2.0",
+  "description": "An infinite canvas note-taking application powered by React, TypeScript, and the Gemini API. It offers a feature-rich, offline-first experience with AI-powered tools, advanced search, and customizable themes, all running entirely in the browser using free technologies.",
+  "requestFramePermissions": []
+}

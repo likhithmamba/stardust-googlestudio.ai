@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stardust Canvas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'cosmic-bg': '#0f0c29',
+              'cosmic-bg-dark': '#0a081a',
+              'glass-edge': 'rgba(255, 255, 255, 0.2)',
+            },
+            fontFamily: {
+              inter: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+              mono: ['Space Mono', 'monospace'],
+              serif: ['Spectral', 'Georgia', 'serif'],
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Space+Mono&family=Spectral&display=swap');
+      :root {
+        --note-font-color: #FFFFFF; /* A sensible default */
+      }
+      .note-content, .prose {
+        color: var(--note-font-color) !important;
+      }
+      .prose h1, .prose h2, .prose h3, .prose strong, .prose b, .prose ul, .prose li, .prose p {
+        color: var(--note-font-color) !important;
+      }
+
+      @keyframes glitter-animation {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+
+      @keyframes shimmer-animation {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+      }
+
+      .font-effect-cosmic .note-content, .font-effect-cosmic .prose, .font-effect-cosmic .prose h1, .font-effect-cosmic .prose h2, .font-effect-cosmic .prose h3, .font-effect-cosmic .prose strong, .font-effect-cosmic .prose b, .font-effect-cosmic .prose ul, .font-effect-cosmic .prose li, .font-effect-cosmic .prose p {
+        background: linear-gradient(90deg, #93c5fd, #c084fc, #f472b6, #fb923c);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent !important;
+      }
+
+      .font-effect-glitter-gold .note-content, .font-effect-glitter-gold .prose, .font-effect-glitter-gold .prose h1, .font-effect-glitter-gold .prose h2, .font-effect-glitter-gold .prose h3, .font-effect-glitter-gold .prose strong, .font-effect-glitter-gold .prose b, .font-effect-glitter-gold .prose ul, .font-effect-glitter-gold .prose li, .font-effect-glitter-gold .prose p {
+        background: linear-gradient(90deg, #fcd34d, #fef08a, #fde047, #fcd34d);
+        background-size: 200% 200%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent !important;
+        animation: glitter-animation 4s ease infinite;
+      }
+
+      .font-effect-shimmer-nebula .note-content, .font-effect-shimmer-nebula .prose, .font-effect-shimmer-nebula .prose h1, .font-effect-shimmer-nebula .prose h2, .font-effect-shimmer-nebula .prose h3, .font-effect-shimmer-nebula .prose strong, .font-effect-shimmer-nebula .prose b, .font-effect-shimmer-nebula .prose ul, .font-effect-shimmer-nebula .prose li, .font-effect-shimmer-nebula .prose p {
+        background: linear-gradient(110deg, #f472b6 8%, #c084fc 18%, #93c5fd 33%, #86efac 45%, #f472b6 55%, #c084fc 68%, #93c5fd 83%);
+        background-size: 200% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent !important;
+        animation: shimmer-animation 7s linear infinite;
+      }
+
+      .font-effect-ocean-wave .note-content, .font-effect-ocean-wave .prose, .font-effect-ocean-wave .prose h1, .font-effect-ocean-wave .prose h2, .font-effect-ocean-wave .prose h3, .font-effect-ocean-wave .prose strong, .font-effect-ocean-wave .prose b, .font-effect-ocean-wave .prose ul, .font-effect-ocean-wave .prose li, .font-effect-ocean-wave .prose p {
+        background: linear-gradient(90deg, #00C9FF, #92FE9D);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent !important;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.552.0",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24",
+    "fuse.js": "https://aistudiocdn.com/fuse.js@^7.1.0",
+    "idb": "https://aistudiocdn.com/idb@^8.0.3",
+    "zustand": "https://aistudiocdn.com/zustand@^5.0.8",
+    "zustand/": "https://aistudiocdn.com/zustand@^5.0.8/",
+    "zustand/middleware": "https://aistudiocdn.com/zustand@^5.0.8/middleware",
+    "nanoid": "https://aistudiocdn.com/nanoid@^5.1.6"
+  }
+}
+</script>
+</head>
+  <body class="bg-gray-100 dark:bg-cosmic-bg-dark font-inter">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
