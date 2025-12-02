@@ -2,6 +2,8 @@ export enum NoteType {
     // Cosmic Structures
     Galaxy = 'Galaxy',
     Nebula = 'Nebula', // New group container
+    BlackHole = 'BlackHole', // Absorbs other notes
+    
     // Stars
     Sun = 'Sun',
     RedGiant = 'RedGiant',
@@ -18,6 +20,7 @@ export enum NoteType {
     Venus = 'Venus',
     Mars = 'Mars',
     Mercury = 'Mercury',
+    Planet = 'Planet', // Generic Planet
     // Dwarf Planets
     Pluto = 'Pluto',
     Ceres = 'Ceres',
@@ -47,6 +50,7 @@ export interface Settings {
     theme: 'cosmic' | 'light' | 'dark';
     font: 'inter' | 'serif' | 'mono';
     fontColor: string;
+    fontSize: number; // Font size scale factor (0.5 to 2.0)
     showConnections: boolean;
     showMinimap: boolean;
 }

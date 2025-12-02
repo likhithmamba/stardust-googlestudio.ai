@@ -6,6 +6,7 @@ export const NOTE_STYLES: Record<NoteType, { size: { diameter: number }; colors:
   // Cosmic Structures
   [NoteType.Galaxy]:     { size: { diameter: 1200 }, colors: 'bg-transparent border-2 border-indigo-400/30', glow: 'shadow-[0_0_120px_20px_rgba(129,140,248,0.3)]' },
   [NoteType.Nebula]:     { size: { diameter: 1600 }, colors: '', glow: '' },
+  [NoteType.BlackHole]:  { size: { diameter: 300 }, colors: 'bg-black border-2 border-purple-900', glow: 'shadow-[0_0_60px_30px_rgba(147,51,234,0.4)]' },
   
   // Stars
   [NoteType.Sun]:        { size: { diameter: 800 }, colors: 'bg-gradient-radial from-yellow-200 via-orange-500 to-red-600 border-amber-200',       glow: 'shadow-[0_0_150px_40px_rgba(252,211,77,0.7)]' },
@@ -26,7 +27,8 @@ export const NOTE_STYLES: Record<NoteType, { size: { diameter: number }; colors:
   [NoteType.Venus]:      { size: { diameter: 390 }, colors: 'bg-gradient-radial from-yellow-50 via-orange-100 to-amber-300 border-yellow-200', glow: 'shadow-[0_0_55px_11px_rgba(234,179,8,0.5)]' },
   [NoteType.Mars]:       { size: { diameter: 340 }, colors: 'bg-gradient-radial from-orange-400 via-red-600 to-rose-900 border-red-300',           glow: 'shadow-[0_0_50px_10px_rgba(239,68,68,0.6)]' },
   [NoteType.Mercury]:    { size: { diameter: 300 }, colors: 'bg-gradient-radial from-slate-300 via-gray-500 to-slate-800 border-gray-300',       glow: 'shadow-[0_0_45px_9px_rgba(156,163,175,0.5)]' },
-  
+  [NoteType.Planet]:     { size: { diameter: 380 }, colors: 'bg-gradient-radial from-indigo-300 via-purple-500 to-indigo-900 border-indigo-300',     glow: 'shadow-[0_0_50px_10px_rgba(99,102,241,0.6)]' },
+
   // Dwarf Planets
   [NoteType.Pluto]:      { size: { diameter: 260 }, colors: 'bg-gradient-radial from-slate-100 via-sky-200 to-slate-400 border-sky-100',         glow: 'shadow-[0_0_30px_6px_rgba(164,206,238,0.5)]' },
   [NoteType.Ceres]:      { size: { diameter: 230 }, colors: 'bg-gradient-radial from-stone-400 via-stone-600 to-stone-800 border-stone-300',        glow: 'shadow-[0_0_25px_5px_rgba(120,113,108,0.5)]' },
@@ -41,6 +43,7 @@ export const CELESTIAL_DESCRIPTIONS: Record<NoteType, string> = {
   // Cosmic Structures
   [NoteType.Galaxy]: "A vast system of stars, stellar remnants, interstellar gas, dust, and dark matter bound together by gravity.",
   [NoteType.Nebula]: "A diffuse cloud of interstellar dust and gas. Drag other celestial bodies into a nebula to form a gravitationally-bound cluster.",
+  [NoteType.BlackHole]: "A region of spacetime where gravity is so strong that nothing can escape. It absorbs nearby celestial bodies.",
 
   // Stars
   [NoteType.Sun]: "The star at the center of our solar system, providing light and heat.",
@@ -61,7 +64,8 @@ export const CELESTIAL_DESCRIPTIONS: Record<NoteType, string> = {
   [NoteType.Venus]: "Earth's 'sister planet' due to their similar size, but with a thick, toxic atmosphere.",
   [NoteType.Mars]: "The 'Red Planet,' known for its dusty, cold, desert world with a very thin atmosphere.",
   [NoteType.Mercury]: "The smallest planet in our solar system and nearest to the Sun.",
-  
+  [NoteType.Planet]: "A generic terrestrial world, ready to support life or hold your next big idea.",
+
   // Dwarf Planets
   [NoteType.Pluto]: "An icy dwarf planet in the Kuiper Belt, a ring of bodies beyond the orbit of Neptune.",
   [NoteType.Ceres]: "The largest object in the asteroid belt between Mars and Jupiter, and the only dwarf planet located in the inner solar system.",

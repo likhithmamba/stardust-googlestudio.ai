@@ -4,7 +4,7 @@ import useStore from '../hooks/useStore';
 import { Note, NoteType, Settings } from '../types';
 import { NOTE_STYLES } from '../constants';
 import Fuse from 'fuse.js';
-import { Map, Frame, HelpCircle, Sun, Moon, Sparkles, Search as SearchIcon, X, Link as LinkIcon, GitBranch, Brush, Plus, Download, Upload, Zap } from 'lucide-react';
+import { Map, Frame, HelpCircle, Sun, Moon, Sparkles, Search as SearchIcon, X, Link as LinkIcon, GitBranch, Brush, Plus, Download, Upload, Zap, Type } from 'lucide-react';
 
 // About Modal Component
 const AboutModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
@@ -33,7 +33,7 @@ const AboutModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen
                                 <Sparkles className="text-purple-400" size={40} />
                                 <div>
                                     <h2 className="text-2xl font-bold">Stardust Canvas</h2>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">Version 2.2.0</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">Version 2.3.0</p>
                                 </div>
                             </div>
                             <p className="mt-4 text-base text-gray-700 dark:text-gray-300">
@@ -77,6 +77,13 @@ const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
         { name: 'mono', className: 'font-mono' },
     ];
 
+    const fontSizes = [
+        { label: 'S', value: 0.8 },
+        { label: 'M', value: 1.0 },
+        { label: 'L', value: 1.25 },
+        { label: 'XL', value: 1.5 },
+    ];
+
     const fontColors = [
         { name: 'Starlight White', hex: '#FFFFFF' },
         { name: 'Nebula Pink', hex: '#f5d0fe' },
@@ -106,7 +113,7 @@ const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
                     onClick={onClose}
                 >
                     <motion.div
-                        className="w-full max-w-md bg-gray-100/80 dark:bg-cosmic-bg-dark/80 backdrop-blur-xl border border-glass-edge rounded-lg shadow-2xl text-black dark:text-white"
+                        className="w-full max-w-md bg-gray-100/80 dark:bg-cosmic-bg-dark/80 backdrop-blur-xl border border-glass-edge rounded-lg shadow-2xl text-black dark:text-white max-h-[90vh] overflow-y-auto"
                         initial={{ scale: 0.9, y: -20, opacity: 0 }}
                         animate={{ scale: 1, y: 0, opacity: 1 }}
                         exit={{ scale: 0.9, y: 20, opacity: 0 }}
@@ -135,6 +142,17 @@ const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
                                         <button key={font.name} onClick={() => setSettings({ font: font.name })} className={`w-full p-2 rounded-md text-sm transition-colors ${settings.font === font.name ? 'bg-white dark:bg-black/50 shadow' : 'hover:bg-gray-300/50 dark:hover:bg-white/10'}`}>
                                             <span className={font.className}>Aa</span>
                                             <span className="capitalize ml-2">{font.name}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            <div className="mb-6">
+                                <h3 className="font-semibold text-md mb-3 text-gray-700 dark:text-gray-300">Font Size</h3>
+                                <div className="flex space-x-2 rounded-lg bg-gray-200 dark:bg-gray-900/50 p-1">
+                                    {fontSizes.map(size => (
+                                        <button key={size.label} onClick={() => setSettings({ fontSize: size.value })} className={`w-full p-2 rounded-md text-sm transition-colors ${settings.fontSize === size.value ? 'bg-white dark:bg-black/50 shadow font-bold' : 'hover:bg-gray-300/50 dark:hover:bg-white/10'}`}>
+                                            <span className="flex items-center justify-center gap-1"><Type size={12 + (size.value * 2)} /> {size.label}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -265,7 +283,12 @@ export const Toolbar: React.FC = () => {
 
 // Minimap Component
 export const Minimap: React.FC = () => {
-    const { notes, canvasState, setCanvasState, selectedNoteIds } = useStore();
+    // Only subscribe to what we need
+    const notes = useStore(state => state.notes);
+    const canvasState = useStore(state => state.canvasState);
+    const selectedNoteIds = useStore(state => state.selectedNoteIds);
+    const setCanvasState = useStore(state => state.setCanvasState);
+
     const mapRef = useRef<HTMLDivElement>(null);
     const mapSize = { width: 220, height: 160 };
 
@@ -293,6 +316,7 @@ export const Minimap: React.FC = () => {
     const minimapDotColors: Record<NoteType, string> = {
         [NoteType.Galaxy]: '#a78bfa',
         [NoteType.Nebula]: '#c084fc',
+        [NoteType.BlackHole]: '#000000',
         [NoteType.Sun]: '#facc15',
         [NoteType.RedGiant]: '#f87171',
         [NoteType.WhiteDwarf]: '#e0f2fe',
@@ -305,6 +329,7 @@ export const Minimap: React.FC = () => {
         [NoteType.Venus]: '#fde047',
         [NoteType.Mars]: '#fca5a5',
         [NoteType.Mercury]: '#9ca3af',
+        [NoteType.Planet]: '#6366f1',
         [NoteType.Pluto]: '#d1d5db',
         [NoteType.Ceres]: '#a8a29e',
         [NoteType.Moon]: '#e5e7eb',
@@ -344,7 +369,7 @@ export const Minimap: React.FC = () => {
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
             >
-              <svg width={mapSize.width} height={mapSize.height} className="absolute inset-0">
+              <svg width={mapSize.width} height={mapSize.height} className="absolute inset-0 pointer-events-none">
                   <g>
                       {Object.values(notes).flatMap((note: Note) => {
                           const parent = note.parentId ? notes[note.parentId] : null;
@@ -411,7 +436,13 @@ export const Minimap: React.FC = () => {
 // Search Component
 export const Search: React.FC = () => {
     const [query, setQuery] = useState('');
-    const { notes, setCanvasState, isSearchOpen, setSearchOpen, searchBranchRootId, setSearchBranchRootId } = useStore();
+    // Granular selection
+    const notes = useStore(state => state.notes);
+    const setCanvasState = useStore(state => state.setCanvasState);
+    const isSearchOpen = useStore(state => state.isSearchOpen);
+    const setSearchOpen = useStore(state => state.setSearchOpen);
+    const searchBranchRootId = useStore(state => state.searchBranchRootId);
+    const setSearchBranchRootId = useStore(state => state.setSearchBranchRootId);
 
     const getBranchNotes = useCallback((rootId: string, allNotes: Record<string, Note>): Note[] => {
         const rootNote = allNotes[rootId];

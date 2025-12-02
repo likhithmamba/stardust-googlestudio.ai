@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { NoteType } from '../types';
@@ -14,6 +13,7 @@ interface CreationMenuProps {
 const celestialBodies: NoteType[] = [
     NoteType.Galaxy,
     NoteType.Nebula,
+    NoteType.BlackHole,
     NoteType.Sun,
     NoteType.RedGiant,
     NoteType.WhiteDwarf,
@@ -26,6 +26,7 @@ const celestialBodies: NoteType[] = [
     NoteType.Venus,
     NoteType.Mars,
     NoteType.Mercury,
+    NoteType.Planet,
     NoteType.Pluto,
     NoteType.Ceres,
     NoteType.Moon,
@@ -102,6 +103,7 @@ const CreationMenu: React.FC<CreationMenuProps> = ({ x, y, onSelect, onClose }) 
                                         width: previewDiameter,
                                         height: previewDiameter,
                                         borderRadius: type === NoteType.Nebula ? '40% 60% 60% 40% / 70% 30% 70% 30%' : '9999px',
+                                        background: type === NoteType.BlackHole ? 'black' : undefined
                                     }}
                                     title={type}
                                 >
@@ -110,6 +112,9 @@ const CreationMenu: React.FC<CreationMenuProps> = ({ x, y, onSelect, onClose }) 
                                             <div className="w-[180%] h-[180%] border-[2px] border-amber-200/70 rounded-full" style={{ transform: 'rotateX(70deg)' }} />
                                             <div className="w-[150%] h-[150%] border-[1px] border-amber-100/50 rounded-full" style={{ transform: 'rotateX(70deg)' }} />
                                         </div>
+                                    )}
+                                    {type === NoteType.BlackHole && (
+                                        <div className="absolute inset-0 rounded-full shadow-[inset_0_0_10px_2px_rgba(147,51,234,0.8)]" />
                                     )}
                                     <span className="absolute -bottom-6 text-xs text-white bg-black/30 px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">{type}</span>
                                 </button>

@@ -23,15 +23,95 @@ interface LinkDragState {
     toMousePos: { x: number; y: number };
 }
 
+// ---------------- Helper Functions for Connections ----------------
+const getCurvePath = (p1: {x:number, y:number}, p2: {x:number, y:number}) => {
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    // Simple midpoint curve logic is faster than complex bezier if called frequently
+    const midX = (p1.x + p2.x) / 2 - dy * 0.2;
+    const midY = (p1.y + p2.y) / 2 + dx * 0.2;
+    return `M ${p1.x} ${p1.y} Q ${midX} ${midY} ${p2.x} ${p2.y}`;
+};
+
+const calculateEdgePoints = (noteA: Note, noteB: Note) => {
+    const styleA = NOTE_STYLES[noteA.type];
+    const styleB = NOTE_STYLES[noteB.type];
+    const centerA = { x: noteA.position.x + styleA.size.diameter / 2, y: noteA.position.y + styleA.size.diameter / 2 };
+    const centerB = { x: noteB.position.x + styleB.size.diameter / 2, y: noteB.position.y + styleB.size.diameter / 2 };
+    const angle = Math.atan2(centerB.y - centerA.y, centerB.x - centerA.x);
+    const p1 = { x: centerA.x + (styleA.size.diameter / 2) * Math.cos(angle), y: centerA.y + (styleA.size.diameter / 2) * Math.sin(angle) };
+    const p2 = { x: centerB.x - (styleB.size.diameter / 2) * Math.cos(angle), y: centerB.y - (styleB.size.diameter / 2) * Math.sin(angle) };
+    return { p1, p2 };
+};
+
+// ---------------- Isolated Connection Layer Component ----------------
+// Memoized to prevent re-rendering if props are identical
+const ConnectionLayer = React.memo(({ notes, visibleNoteIds, hoveredConnectionId, setHoveredConnectionId, removeParentLink, removeLink }: any) => {
+    const hierarchicalConnections = useMemo(() => {
+        return (Object.values(notes) as Note[])
+          .filter(note => note.parentId && notes[note.parentId] && (visibleNoteIds.has(note.id) || visibleNoteIds.has(note.parentId)))
+          .map(note => {
+            const parent = notes[note.parentId!];
+            const { p1, p2 } = calculateEdgePoints(parent, note);
+            const connId = `h-conn-${parent.id}-${note.id}`;
+            const isHovered = hoveredConnectionId === connId;
+            const midX = (p1.x + p2.x) / 2;
+            const midY = (p1.y + p2.y) / 2;
+            
+            return (
+              <g key={connId} onMouseEnter={() => setHoveredConnectionId(connId)} onMouseLeave={() => setHoveredConnectionId(null)} className="cursor-pointer">
+                <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={isHovered ? "rgba(239, 68, 68, 0.9)" : "rgba(192, 132, 252, 0.5)"} strokeWidth={isHovered ? "4" : "2"} strokeDasharray="5,5" className="transition-all duration-200" />
+                <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="transparent" strokeWidth="20" />
+                 {isHovered && (
+                   <foreignObject x={midX - 12} y={midY - 12} width="24" height="24">
+                      <button onClick={() => removeParentLink(note.id)} className="w-6 h-6 rounded-full bg-red-500/80 text-white border border-white/50 flex items-center justify-center leading-none hover:bg-red-500 transition-colors">&times;</button>
+                  </foreignObject>
+                 )}
+              </g>
+            );
+          });
+    }, [notes, visibleNoteIds, hoveredConnectionId, removeParentLink]);
+    
+    const arbitraryLinks = useMemo(() => {
+        return (Object.values(notes) as Note[]).flatMap(note => {
+            if (!note.linkedNoteIds) return [];
+            return note.linkedNoteIds.map(linkedId => {
+                const targetNote = notes[linkedId];
+                if (!targetNote || note.id > linkedId) return null;
+                if (!visibleNoteIds.has(note.id) && !visibleNoteIds.has(linkedId)) return null;
+
+                const { p1, p2 } = calculateEdgePoints(note, targetNote);
+                const path = getCurvePath(p1, p2);
+                const connId = `a-conn-${note.id}-${linkedId}`;
+                const isHovered = hoveredConnectionId === connId;
+                const controlX = ((p1.x + p2.x) / 2) - (p2.y - p1.y) * 0.2;
+                const controlY = ((p1.y + p2.y) / 2) + (p2.x - p1.x) * 0.2;
+                const midCurveX = 0.25 * p1.x + 0.5 * controlX + 0.25 * p2.x;
+                const midCurveY = 0.25 * p1.y + 0.5 * controlY + 0.25 * p2.y;
+                
+                return (
+                  <g key={connId} onMouseEnter={() => setHoveredConnectionId(connId)} onMouseLeave={() => setHoveredConnectionId(null)} className="cursor-pointer">
+                    <path d={path} fill="none" stroke={isHovered ? "rgba(239, 68, 68, 0.9)" : "rgba(59, 130, 246, 0.7)"} strokeWidth={isHovered ? "4" : "2"} className="transition-all duration-200" />
+                    <path d={path} fill="none" stroke="transparent" strokeWidth="20" />
+                    {isHovered && (
+                        <foreignObject x={midCurveX - 12} y={midCurveY - 12} width="24" height="24">
+                            <button onClick={() => removeLink(note.id, linkedId)} className="w-6 h-6 rounded-full bg-red-500/80 text-white border border-white/50 flex items-center justify-center leading-none hover:bg-red-500 transition-colors">&times;</button>
+                        </foreignObject>
+                    )}
+                  </g>
+                );
+            });
+        });
+    }, [notes, visibleNoteIds, hoveredConnectionId, removeLink]);
+
+    return <g>{hierarchicalConnections}{arbitraryLinks}</g>;
+});
+
+// ---------------- Main App Component ----------------
 const useWindowSize = () => {
-    const [size, setSize] = useState({
-        width: typeof window !== 'undefined' ? window.innerWidth : 1920,
-        height: typeof window !== 'undefined' ? window.innerHeight : 1080,
-    });
+    const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
     useEffect(() => {
-        const handleResize = () => {
-            setSize({ width: window.innerWidth, height: window.innerHeight });
-        };
+        const handleResize = () => setSize({ width: window.innerWidth, height: window.innerHeight });
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
@@ -39,7 +119,24 @@ const useWindowSize = () => {
 };
 
 const App: React.FC = () => {
-  const { notes, canvasState, setCanvasState, init, isLoaded, settings, focusedNoteId, setFocusedNoteId, updateNoteContent, createLink, addNote, edgePan, setEdgePan, selectedNoteIds, setSelectedNoteIds, removeLink, removeParentLink } = useStore();
+  const notes = useStore(state => state.notes);
+  const canvasState = useStore(state => state.canvasState);
+  const setCanvasState = useStore(state => state.setCanvasState);
+  const init = useStore(state => state.init);
+  const isLoaded = useStore(state => state.isLoaded);
+  const settings = useStore(state => state.settings);
+  const focusedNoteId = useStore(state => state.focusedNoteId);
+  const setFocusedNoteId = useStore(state => state.setFocusedNoteId);
+  const updateNoteContent = useStore(state => state.updateNoteContent);
+  const createLink = useStore(state => state.createLink);
+  const addNote = useStore(state => state.addNote);
+  const edgePan = useStore(state => state.edgePan);
+  const setEdgePan = useStore(state => state.setEdgePan);
+  const selectedNoteIds = useStore(state => state.selectedNoteIds);
+  const setSelectedNoteIds = useStore(state => state.setSelectedNoteIds);
+  const removeLink = useStore(state => state.removeLink);
+  const removeParentLink = useStore(state => state.removeParentLink);
+
   const [creationMenu, setCreationMenu] = useState<CreationMenuState>({ visible: false, x: 0, y: 0 });
   const appRef = useRef<HTMLDivElement>(null);
   const focusedEditorRef = useRef<HTMLDivElement>(null);
@@ -51,72 +148,47 @@ const App: React.FC = () => {
   const [hoveredConnectionId, setHoveredConnectionId] = useState<string | null>(null);
   const windowSize = useWindowSize();
 
-  useEffect(() => {
-    init();
-  }, [init]);
+  useEffect(() => { init(); }, [init]);
 
   useEffect(() => {
-    const root = document.documentElement;
-    root.classList.remove('light', 'dark', 'cosmic');
-    root.classList.add(settings.theme);
+    document.documentElement.className = settings.theme;
   }, [settings.theme]);
 
   useEffect(() => {
-    const body = document.body;
-    body.classList.remove('font-inter', 'font-serif', 'font-mono');
-    body.classList.add(`font-${settings.font}`);
+    document.body.className = `bg-gray-100 dark:bg-cosmic-bg-dark font-${settings.font}`;
   }, [settings.font]);
 
   useEffect(() => {
     const body = document.body;
-    // Clean up any previously applied font effect classes
-    const classesToRemove = Array.from(body.classList).filter(cls => cls.startsWith('font-effect-'));
-    body.classList.remove(...classesToRemove);
-
+    body.classList.forEach(cls => cls.startsWith('font-effect-') && body.classList.remove(cls));
     if (settings.fontColor.startsWith('font-effect-')) {
-      // Apply the new effect class
       body.classList.add(settings.fontColor);
-      // When an effect is active, the CSS variable should be cleared.
-      // The effect's CSS sets `color: transparent !important`.
       document.documentElement.style.removeProperty('--note-font-color');
     } else {
-      // It's a solid color, so set the CSS variable.
-      // The lack of an effect class on the body means the default color rule will apply.
       document.documentElement.style.setProperty('--note-font-color', settings.fontColor);
     }
   }, [settings.fontColor]);
 
+  // Apply Font Size setting
   useEffect(() => {
+      document.documentElement.style.setProperty('--note-font-size', `${settings.fontSize}rem`);
+  }, [settings.fontSize]);
+
+  useEffect(() => {
+    if (edgePan.x === 0 && edgePan.y === 0) return;
     let animationFrameId: number;
-
-    if (edgePan.x === 0 && edgePan.y === 0) {
-        return;
-    }
-
     const panLoop = () => {
         const currentPan = useStore.getState().canvasState.pan;
-        useStore.getState().setCanvasState({
-            pan: {
-                x: currentPan.x - edgePan.x,
-                y: currentPan.y - edgePan.y,
-            }
-        });
+        useStore.getState().setCanvasState({ pan: { x: currentPan.x - edgePan.x, y: currentPan.y - edgePan.y } });
         animationFrameId = requestAnimationFrame(panLoop);
     };
-
     animationFrameId = requestAnimationFrame(panLoop);
-
-    return () => {
-        cancelAnimationFrame(animationFrameId);
-    };
+    return () => cancelAnimationFrame(animationFrameId);
   }, [edgePan]);
-
 
   useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
-          if (e.key === ' ' && !e.repeat) {
-            setIsSpacePressed(true);
-          }
+          if (e.key === ' ' && !e.repeat) setIsSpacePressed(true);
           if (e.key === 'Escape') {
               if (creationMenu.visible) setCreationMenu({ ...creationMenu, visible: false });
               if (linkDragState) setLinkDragState(null);
@@ -138,38 +210,20 @@ const App: React.FC = () => {
       };
   }, [linkDragState, creationMenu, selectionBox, setSelectedNoteIds]);
 
-  useEffect(() => {
-    if (focusedNoteId && focusedEditorRef.current) {
-      const editor = focusedEditorRef.current;
-      setTimeout(() => {
-        editor.focus();
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(editor);
-        range.collapse(false); // Collapse to the end
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-      }, 50);
-    }
-  }, [focusedNoteId]);
-
+  // Optimization: Memoize visible IDs so we don't recalculate on every micro-update unless pan/zoom changes significantly
   const visibleNoteIds = useMemo(() => {
     const { pan, zoom } = canvasState;
     const { width, height } = windowSize;
-    const padding = 200; // Render connections for notes just outside the viewport
-
+    const padding = 200; 
     const viewLeft = -pan.x / zoom - padding;
     const viewTop = -pan.y / zoom - padding;
     const viewRight = (-pan.x + width) / zoom + padding;
     const viewBottom = (-pan.y + height) / zoom + padding;
-
     const visibleIds = new Set<string>();
-
     for (const note of Object.values(notes) as Note[]) {
         const style = NOTE_STYLES[note.type];
         const noteRight = note.position.x + style.size.diameter;
         const noteBottom = note.position.y + style.size.diameter;
-
         if (noteRight > viewLeft && note.position.x < viewRight && noteBottom > viewTop && note.position.y < viewBottom) {
             visibleIds.add(note.id);
         }
@@ -177,46 +231,38 @@ const App: React.FC = () => {
     return visibleIds;
   }, [canvasState.pan.x, canvasState.pan.y, canvasState.zoom, notes, windowSize]);
 
-
-  const handleWheel = (e: React.WheelEvent) => {
+  const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
-    const { zoom, pan } = canvasState;
+    const { zoom, pan } = useStore.getState().canvasState;
     const scrollMultiplier = 0.001;
     const newZoom = Math.max(ZOOM_LEVELS.MIN, Math.min(ZOOM_LEVELS.MAX, zoom * (1 - e.deltaY * scrollMultiplier)));
     
     const rect = appRef.current!.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-
     const newPanX = mouseX - (mouseX - pan.x) * (newZoom / zoom);
     const newPanY = mouseY - (mouseY - pan.y) * (newZoom / zoom);
     
     setCanvasState({ zoom: newZoom, pan: {x: newPanX, y: newPanY } });
-  };
+  }, [setCanvasState]);
   
   const handleMouseDown = (e: React.MouseEvent) => {
-    // This handler should only fire for the canvas background.
     if (e.target !== e.currentTarget && !(e.target as HTMLElement).classList.contains('canvas-bg')) return;
-    
     if (isSpacePressed) {
       setIsPanning(true);
     } else {
-      setSelectionBox({
-        startX: e.clientX,
-        startY: e.clientY,
-        endX: e.clientX,
-        endY: e.clientY,
-      });
-      if (!e.shiftKey) {
-        setSelectedNoteIds(() => []);
-      }
+      setSelectionBox({ startX: e.clientX, startY: e.clientY, endX: e.clientX, endY: e.clientY });
+      if (!e.shiftKey) setSelectedNoteIds(() => []);
     }
   };
   
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isPanning) {
       setCanvasState({ pan: { x: canvasState.pan.x + e.movementX, y: canvasState.pan.y + e.movementY }});
-    } else if (selectionBox) {
+      return;
+    } 
+    
+    if (selectionBox) {
       setSelectionBox({ ...selectionBox, endX: e.clientX, endY: e.clientY });
     } else if (linkDragState && appRef.current) {
       const rect = appRef.current.getBoundingClientRect();
@@ -225,46 +271,28 @@ const App: React.FC = () => {
       setLinkDragState(prev => prev ? { ...prev, toMousePos: { x: mouseX, y: mouseY } } : null);
     }
 
-    const isEdgePanPossible = selectionBox || linkDragState;
-    let panX = 0;
-    let panY = 0;
-
-    if (isEdgePanPossible) {
+    if (selectionBox || linkDragState) {
         const EDGE_MARGIN = 60;
         const MAX_PAN_SPEED = 15;
         const { clientX, clientY } = e;
         const { innerWidth, innerHeight } = window;
-
-        if (clientX < EDGE_MARGIN) {
-            panX = (EDGE_MARGIN - clientX) / EDGE_MARGIN * MAX_PAN_SPEED;
-        } else if (clientX > innerWidth - EDGE_MARGIN) {
-            panX = -(clientX - (innerWidth - EDGE_MARGIN)) / EDGE_MARGIN * MAX_PAN_SPEED;
-        }
-
-        if (clientY < EDGE_MARGIN) {
-            panY = (EDGE_MARGIN - clientY) / EDGE_MARGIN * MAX_PAN_SPEED;
-        } else if (clientY > innerHeight - EDGE_MARGIN) {
-            panY = -(clientY - (innerHeight - EDGE_MARGIN)) / EDGE_MARGIN * MAX_PAN_SPEED;
-        }
-    }
-    
-    if (panX !== edgePan.x || panY !== edgePan.y) {
-        setEdgePan({ x: panX, y: panY });
+        let panX = 0, panY = 0;
+        if (clientX < EDGE_MARGIN) panX = (EDGE_MARGIN - clientX) / EDGE_MARGIN * MAX_PAN_SPEED;
+        else if (clientX > innerWidth - EDGE_MARGIN) panX = -(clientX - (innerWidth - EDGE_MARGIN)) / EDGE_MARGIN * MAX_PAN_SPEED;
+        if (clientY < EDGE_MARGIN) panY = (EDGE_MARGIN - clientY) / EDGE_MARGIN * MAX_PAN_SPEED;
+        else if (clientY > innerHeight - EDGE_MARGIN) panY = -(clientY - (innerHeight - EDGE_MARGIN)) / EDGE_MARGIN * MAX_PAN_SPEED;
+        if (panX !== edgePan.x || panY !== edgePan.y) setEdgePan({ x: panX, y: panY });
     }
   };
 
   const handleMouseUp = () => {
     setIsPanning(false);
     setEdgePan({ x: 0, y: 0 });
-    if (linkDragState) {
-        setLinkDragState(null);
-    }
+    if (linkDragState) setLinkDragState(null);
     if (selectionBox) {
         const { startX, startY, endX, endY } = selectionBox;
-        const left = Math.min(startX, endX);
-        const right = Math.max(startX, endX);
-        const top = Math.min(startY, endY);
-        const bottom = Math.max(startY, endY);
+        const left = Math.min(startX, endX), right = Math.max(startX, endX);
+        const top = Math.min(startY, endY), bottom = Math.max(startY, endY);
         
         if (Math.abs(startX - endX) > 5 || Math.abs(startY - endY) > 5) {
             const newlySelectedIds = (Object.values(notes) as Note[])
@@ -279,7 +307,6 @@ const App: React.FC = () => {
                     return noteRect.left < right && noteRect.right > left && noteRect.top < bottom && noteRect.bottom > top;
                 })
                 .map(note => note.id);
-            
             setSelectedNoteIds(prevIds => [...new Set([...prevIds, ...newlySelectedIds])]);
         }
         setSelectionBox(null);
@@ -290,29 +317,25 @@ const App: React.FC = () => {
     setSelectedNoteIds(prev => {
         if (isShiftPressed) {
             const newSelection = new Set(prev);
-            if (newSelection.has(id)) {
-                newSelection.delete(id);
-            } else {
-                newSelection.add(id);
-            }
+            if (newSelection.has(id)) newSelection.delete(id);
+            else newSelection.add(id);
             return Array.from(newSelection);
         }
         return prev.includes(id) && prev.length === 1 ? [] : [id];
     });
   }, [setSelectedNoteIds]);
-  
+
   const handleCanvasDoubleClick = (e: React.MouseEvent) => {
     if (!(e.target as HTMLElement).classList.contains('canvas-bg')) return;
     setCreationMenu({ visible: true, x: e.clientX, y: e.clientY });
   };
 
   const handleCreateNoteFromMenu = useCallback((type: NoteType) => {
-    const noteSize = NOTE_STYLES[type].size.diameter;
     if (!appRef.current) return;
     const rect = appRef.current.getBoundingClientRect();
+    const noteSize = NOTE_STYLES[type].size.diameter;
     const x = (creationMenu.x - rect.left - canvasState.pan.x) / canvasState.zoom - (noteSize / 2);
     const y = (creationMenu.y - rect.top - canvasState.pan.y) / canvasState.zoom - (noteSize / 2);
-
     addNote({ type, position: { x, y } }, false);
     setCreationMenu({ visible: false, x: 0, y: 0 });
   }, [addNote, canvasState, creationMenu]);
@@ -322,184 +345,20 @@ const App: React.FC = () => {
   }, []);
 
   const handleNoteMouseUp = useCallback((noteId: string) => {
-    if (linkDragState && linkDragState.fromId !== noteId) {
-      createLink(linkDragState.fromId, noteId);
-    }
+    if (linkDragState && linkDragState.fromId !== noteId) createLink(linkDragState.fromId, noteId);
     setLinkDragState(null);
   }, [createLink, linkDragState]);
 
-  const getCurvePath = (p1: {x:number, y:number}, p2: {x:number, y:number}) => {
-    const midX = (p1.x + p2.x) / 2;
-    const midY = (p1.y + p2.y) / 2;
-    const dx = p2.x - p1.x;
-    const dy = p2.y - p1.y;
-    
-    const controlPointOffset = Math.sqrt(dx*dx + dy*dy) * 0.2;
-    
-    const controlX = midX - dy * 0.2;
-    const controlY = midY + dx * 0.2;
-
-    return `M ${p1.x} ${p1.y} Q ${controlX} ${controlY} ${p2.x} ${p2.y}`;
-  };
-
-  const calculateEdgePoints = (noteA: Note, noteB: Note) => {
-      const styleA = NOTE_STYLES[noteA.type];
-      const styleB = NOTE_STYLES[noteB.type];
-
-      const centerA = { x: noteA.position.x + styleA.size.diameter / 2, y: noteA.position.y + styleA.size.diameter / 2 };
-      const centerB = { x: noteB.position.x + styleB.size.diameter / 2, y: noteB.position.y + styleB.size.diameter / 2 };
-
-      const angle = Math.atan2(centerB.y - centerA.y, centerB.x - centerA.x);
-      
-      const p1 = {
-          x: centerA.x + (styleA.size.diameter / 2) * Math.cos(angle),
-          y: centerA.y + (styleA.size.diameter / 2) * Math.sin(angle),
-      };
-      
-      const p2 = {
-          x: centerB.x - (styleB.size.diameter / 2) * Math.cos(angle),
-          y: centerB.y - (styleB.size.diameter / 2) * Math.sin(angle),
-      };
-
-      return { p1, p2 };
-  };
-
-  const hierarchicalConnections = useMemo(() => {
-    return (Object.values(notes) as Note[])
-      .filter(note => note.parentId && notes[note.parentId] && (visibleNoteIds.has(note.id) || visibleNoteIds.has(note.parentId)))
-      .map(note => {
-        const parent = notes[note.parentId!];
-        const { p1, p2 } = calculateEdgePoints(parent, note);
-        const connId = `h-conn-${parent.id}-${note.id}`;
-        const isHovered = hoveredConnectionId === connId;
-        const midX = (p1.x + p2.x) / 2;
-        const midY = (p1.y + p2.y) / 2;
-        
-        return (
-          <g 
-            key={connId}
-            onMouseEnter={() => setHoveredConnectionId(connId)}
-            onMouseLeave={() => setHoveredConnectionId(null)}
-            className="cursor-pointer"
-          >
-            <line
-              x1={p1.x} y1={p1.y}
-              x2={p2.x} y2={p2.y}
-              stroke={isHovered ? "rgba(239, 68, 68, 0.9)" : "rgba(192, 132, 252, 0.5)"}
-              strokeWidth={isHovered ? "4" : "2"}
-              strokeDasharray="5,5"
-              className="transition-all duration-200"
-            />
-            <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="transparent" strokeWidth="20" />
-             {isHovered && (
-               <foreignObject x={midX - 12} y={midY - 12} width="24" height="24">
-                  <button
-                      onClick={() => removeParentLink(note.id)}
-                      className="w-6 h-6 rounded-full bg-red-500/80 text-white border border-white/50 flex items-center justify-center leading-none hover:bg-red-500 transition-colors"
-                  >&times;</button>
-              </foreignObject>
-             )}
-          </g>
-        );
-      });
-  }, [notes, hoveredConnectionId, removeParentLink, visibleNoteIds]);
-  
-  const arbitraryLinks = useMemo(() => {
-    return (Object.values(notes) as Note[]).flatMap(note => {
-        if (!note.linkedNoteIds) return [];
-        return note.linkedNoteIds.map(linkedId => {
-            const targetNote = notes[linkedId];
-            if (!targetNote || note.id > linkedId) return null;
-            
-            if (!visibleNoteIds.has(note.id) && !visibleNoteIds.has(linkedId)) {
-                return null;
-            }
-
-            const { p1, p2 } = calculateEdgePoints(note, targetNote);
-            const path = getCurvePath(p1, p2);
-            const connId = `a-conn-${note.id}-${linkedId}`;
-            const isHovered = hoveredConnectionId === connId;
-
-            const controlX = ((p1.x + p2.x) / 2) - (p2.y - p1.y) * 0.2;
-            const controlY = ((p1.y + p2.y) / 2) + (p2.x - p1.x) * 0.2;
-            const midCurveX = 0.25 * p1.x + 0.5 * controlX + 0.25 * p2.x;
-            const midCurveY = 0.25 * p1.y + 0.5 * controlY + 0.25 * p2.y;
-            
-            return (
-              <g 
-                key={connId}
-                onMouseEnter={() => setHoveredConnectionId(connId)}
-                onMouseLeave={() => setHoveredConnectionId(null)}
-                className="cursor-pointer"
-              >
-                <path
-                    d={path}
-                    fill="none"
-                    stroke={isHovered ? "rgba(239, 68, 68, 0.9)" : "rgba(59, 130, 246, 0.7)"}
-                    strokeWidth={isHovered ? "4" : "2"}
-                    className="transition-all duration-200"
-                />
-                <path d={path} fill="none" stroke="transparent" strokeWidth="20" />
-                {isHovered && (
-                    <foreignObject x={midCurveX - 12} y={midCurveY - 12} width="24" height="24">
-                        <button
-                            onClick={() => removeLink(note.id, linkedId)}
-                            className="w-6 h-6 rounded-full bg-red-500/80 text-white border border-white/50 flex items-center justify-center leading-none hover:bg-red-500 transition-colors"
-                        >&times;</button>
-                    </foreignObject>
-                )}
-              </g>
-            );
-        });
-    });
-  }, [notes, hoveredConnectionId, removeLink, visibleNoteIds]);
-
-  const renderLinkPreview = () => {
-    if (!linkDragState) return null;
-    const path = getCurvePath(linkDragState.fromPosition, linkDragState.toMousePos);
-    return (
-        <path
-            d={path}
-            fill="none"
-            stroke="rgba(59, 130, 246, 0.9)"
-            strokeWidth="3"
-            strokeDasharray="8 4"
-        />
-    )
-  }
-  
   const handleCloseFocusView = () => {
     if (focusedNoteId && focusedEditorRef.current) {
         const currentContent = focusedEditorRef.current.innerHTML;
-        const originalContent = notes[focusedNoteId].content;
-        if (currentContent !== originalContent) {
-            updateNoteContent(focusedNoteId, currentContent);
-        }
+        if (currentContent !== notes[focusedNoteId].content) updateNoteContent(focusedNoteId, currentContent);
     }
     setFocusedNoteId(null);
   };
 
-  const handleFocusEditorKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation(); // Prevent other escape handlers from firing
-      handleCloseFocusView();
-    }
-  };
-
-
-  if (!isLoaded) {
-    return <div className="w-screen h-screen flex items-center justify-center bg-cosmic-bg-dark text-white">Loading Stardust Canvas...</div>;
-  }
-  
+  if (!isLoaded) return <div className="w-screen h-screen flex items-center justify-center bg-cosmic-bg-dark text-white">Loading Stardust Canvas...</div>;
   const focusedNote = focusedNoteId ? notes[focusedNoteId] : null;
-
-  const getCursorClass = () => {
-    if (linkDragState) return 'cursor-crosshair';
-    if (isSpacePressed) return isPanning ? 'cursor-grabbing' : 'cursor-grab';
-    if (selectionBox) return 'cursor-crosshair';
-    return '';
-  };
-
   const selectedGroupIds = new Set(selectedNoteIds.map(id => notes[id]?.groupId).filter(Boolean));
   const showConnectionTargets = selectedNoteIds.length > 0 || !!linkDragState;
 
@@ -508,10 +367,9 @@ const App: React.FC = () => {
       {settings.theme === 'cosmic' && <Starfield />}
       {settings.theme === 'light' && <LightModeFX />}
       
-      {/* Canvas Interaction Area */}
       <div
         ref={appRef}
-        className={`w-full h-full absolute inset-0 ${getCursorClass()}`}
+        className={`w-full h-full absolute inset-0 ${linkDragState ? 'cursor-crosshair' : isSpacePressed ? (isPanning ? 'cursor-grabbing' : 'cursor-grab') : selectionBox ? 'cursor-crosshair' : ''}`}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -530,15 +388,21 @@ const App: React.FC = () => {
         >
           <svg className="absolute top-0 left-0 w-px h-px overflow-visible pointer-events-none">
               {settings.showConnections && (
-                <>
-                  {hierarchicalConnections}
-                  {arbitraryLinks}
-                </>
+                  <ConnectionLayer 
+                    notes={notes} 
+                    visibleNoteIds={visibleNoteIds}
+                    hoveredConnectionId={hoveredConnectionId} 
+                    setHoveredConnectionId={setHoveredConnectionId} 
+                    removeParentLink={removeParentLink} 
+                    removeLink={removeLink} 
+                  />
               )}
-              {renderLinkPreview()}
+              {linkDragState && (
+                  <path d={getCurvePath(linkDragState.fromPosition, linkDragState.toMousePos)} fill="none" stroke="rgba(59, 130, 246, 0.9)" strokeWidth="3" strokeDasharray="8 4" />
+              )}
           </svg>
           <AnimatePresence>
-              {Object.values(notes)
+              {(Object.values(notes) as Note[])
                 .filter(note => visibleNoteIds.has(note.id))
                 .map((note) => (
                 <NoteComponent 
@@ -569,15 +433,7 @@ const App: React.FC = () => {
         )}
       </div>
       
-      {/* UI Components */}
-      {creationMenu.visible && (
-        <CreationMenu 
-            x={creationMenu.x}
-            y={creationMenu.y}
-            onSelect={handleCreateNoteFromMenu}
-            onClose={() => setCreationMenu({ ...creationMenu, visible: false })}
-        />
-      )}
+      {creationMenu.visible && <CreationMenu x={creationMenu.x} y={creationMenu.y} onSelect={handleCreateNoteFromMenu} onClose={() => setCreationMenu({ ...creationMenu, visible: false })} />}
 
       <Toolbar />
       {settings.showMinimap && <Minimap />}
@@ -601,32 +457,23 @@ const App: React.FC = () => {
             transition={{ duration: 0.2 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-                onClick={handleCloseFocusView}
-                className="absolute top-0 right-0 text-gray-400 hover:text-white transition-colors z-50"
-                aria-label="Close focused view"
-            >
-                <X size={32} />
-            </button>
+            <button onClick={handleCloseFocusView} className="absolute top-0 right-0 text-gray-400 hover:text-white transition-colors z-50" aria-label="Close"><X size={32} /></button>
             <div className="w-full h-full flex flex-col items-center pt-12 md:pt-20">
-                <h2 className="text-4xl font-bold mb-8" style={{ textShadow: '0 2px 15px rgba(0,0,0,0.8)' }}>
-                    {focusedNote.type}
-                </h2>
+                <h2 className="text-4xl font-bold mb-8" style={{ textShadow: '0 2px 15px rgba(0,0,0,0.8)' }}>{focusedNote.type}</h2>
                 <div 
                   ref={focusedEditorRef}
                   contentEditable
                   suppressContentEditableWarning
                   dangerouslySetInnerHTML={{ __html: focusedNote.content }}
-                  className="w-full max-w-3xl h-full overflow-y-auto text-lg focus:outline-none prose prose-invert prose-lg prose-p:text-gray-200 prose-li:text-gray-300"
-                  style={{ textShadow: '0 1px 5px rgba(0,0,0,0.5)' }}
-                  onKeyDown={handleFocusEditorKeyDown}
+                  className="w-full max-w-3xl h-full overflow-y-auto text-lg focus:outline-none prose prose-invert prose-lg"
+                  style={{ textShadow: '0 1px 5px rgba(0,0,0,0.5)', fontSize: `calc(1.125rem * var(--note-font-size))` }}
+                  onKeyDown={(e) => e.key === 'Escape' && handleCloseFocusView()}
                 />
             </div>
           </motion.div>
         </motion.div>
       )}
       </AnimatePresence>
-
     </div>
   );
 };

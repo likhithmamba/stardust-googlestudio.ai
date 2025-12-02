@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect } from 'react';
 
 const Starfield: React.FC = () => {
@@ -7,7 +6,7 @@ const Starfield: React.FC = () => {
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize for opaque background
         if (!ctx) return;
 
         let width = window.innerWidth;
@@ -15,38 +14,46 @@ const Starfield: React.FC = () => {
         canvas.width = width;
         canvas.height = height;
 
-        const stars: { x: number; y: number; z: number }[] = [];
         const numStars = 500;
+        const stars = new Float32Array(numStars * 3); // x, y, z
 
         for (let i = 0; i < numStars; i++) {
-            stars.push({
-                x: Math.random() * width,
-                y: Math.random() * height,
-                z: Math.random() * width,
-            });
+            stars[i * 3] = Math.random() * width;
+            stars[i * 3 + 1] = Math.random() * height;
+            stars[i * 3 + 2] = Math.random() * width;
         }
 
         let animationFrameId: number;
 
         const draw = () => {
-            ctx.fillStyle = 'rgba(15, 12, 41, 1)';
+            // Fill background
+            ctx.fillStyle = '#0f0c29';
             ctx.fillRect(0, 0, width, height);
 
             ctx.fillStyle = 'white';
-            for (let i = 0; i < numStars; i++) {
-                const star = stars[i];
-                star.z -= 1;
-                if (star.z <= 0) {
-                    star.z = width;
-                }
-                const x = (star.x - width / 2) * (width / star.z) + width / 2;
-                const y = (star.y - height / 2) * (width / star.z) + height / 2;
-                const r = Math.max(0.1, (width / star.z) / 2);
+            ctx.beginPath(); // Batch all stars into one path
 
-                ctx.beginPath();
-                ctx.arc(x, y, r, 0, Math.PI * 2);
-                ctx.fill();
+            for (let i = 0; i < numStars; i++) {
+                const i3 = i * 3;
+                stars[i3 + 2] -= 1; // z
+                if (stars[i3 + 2] <= 0) {
+                    stars[i3 + 2] = width;
+                    stars[i3] = Math.random() * width; // Reset x
+                    stars[i3 + 1] = Math.random() * height; // Reset y
+                }
+
+                const z = stars[i3 + 2];
+                const x = (stars[i3] - width / 2) * (width / z) + width / 2;
+                const y = (stars[i3 + 1] - height / 2) * (width / z) + height / 2;
+                
+                // Only draw if within bounds
+                if (x > 0 && x < width && y > 0 && y < height) {
+                    const r = Math.max(0.1, (width / z) / 2);
+                    ctx.moveTo(x, y);
+                    ctx.arc(x, y, r, 0, Math.PI * 2);
+                }
             }
+            ctx.fill();
             animationFrameId = requestAnimationFrame(draw);
         };
         draw();

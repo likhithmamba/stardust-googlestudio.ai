@@ -45,6 +45,7 @@ const useStore = create<AppState>()(
         theme: 'cosmic',
         font: 'inter',
         fontColor: '#FFFFFF',
+        fontSize: 1,
         showConnections: true,
         showMinimap: true,
       },
@@ -58,9 +59,6 @@ const useStore = create<AppState>()(
       edgePan: { x: 0, y: 0 },
       
       init: () => {
-        // GUARANTEED FIX: The simplest possible initialization.
-        // This just flips the 'isLoaded' flag and centers the canvas,
-        // ensuring the app never gets stuck on the loading screen.
         set({
           isLoaded: true,
           canvasState: { zoom: 1, pan: { x: window.innerWidth / 2, y: window.innerHeight / 2 } },
@@ -80,7 +78,6 @@ const useStore = create<AppState>()(
         if (orbital && !note.parentId) {
             const notesCount = Object.keys(get().notes).length;
             const angle = notesCount * (Math.PI * (3 - Math.sqrt(5)));
-            // Increased radius factor to accommodate larger notes
             const radius = 400 * Math.sqrt(notesCount + 1);
             position = {
                 x: Math.cos(angle) * radius - (noteSize / 2),
@@ -99,12 +96,13 @@ const useStore = create<AppState>()(
           groupId: null,
         };
         if (newNote.type === NoteType.Nebula) {
-            newNote.groupId = id; // A nebula is part of its own group.
+            newNote.groupId = id; 
         }
         set((prev) => ({ notes: { ...prev.notes, [id]: newNote } }));
       },
 
       updateNotePosition: (id, delta) => {
+        // Optimized to minimize object spread operations where possible
         set((prev) => {
           const targetNote = prev.notes[id];
           if (!targetNote) return {};
@@ -112,18 +110,17 @@ const useStore = create<AppState>()(
           const newNotes = { ...prev.notes };
       
           if (targetNote.groupId) {
-              Object.keys(newNotes).forEach(noteId => {
+              const groupMembers = Object.keys(newNotes).filter(nid => newNotes[nid].groupId === targetNote.groupId);
+              for (const noteId of groupMembers) {
                   const note = newNotes[noteId];
-                  if (note.groupId === targetNote.groupId) {
-                      newNotes[noteId] = {
-                          ...note,
-                          position: {
-                              x: note.position.x + delta.x,
-                              y: note.position.y + delta.y,
-                          },
-                      };
-                  }
-              });
+                   newNotes[noteId] = {
+                      ...note,
+                      position: {
+                          x: note.position.x + delta.x,
+                          y: note.position.y + delta.y,
+                      },
+                  };
+              }
           } else {
               newNotes[id] = {
                   ...targetNote,
@@ -149,7 +146,6 @@ const useStore = create<AppState>()(
           const notesToDelete = new Set<string>([id]);
           const queue = [id];
       
-          // Find all descendant notes to delete them recursively
           while (queue.length > 0) {
             const currentId = queue.shift()!;
             Object.values(newNotes).forEach((note: Note) => {
@@ -160,19 +156,21 @@ const useStore = create<AppState>()(
             });
           }
       
-          // Delete the identified notes
           notesToDelete.forEach(noteId => {
             delete newNotes[noteId];
           });
       
-          // Clean up dangling references in remaining notes
           Object.keys(newNotes).forEach(key => {
             const note = newNotes[key];
+            let needsUpdate = false;
+            
             const updatedLinkedIds = note.linkedNoteIds.filter(linkId => !notesToDelete.has(linkId));
+            if (updatedLinkedIds.length !== note.linkedNoteIds.length) needsUpdate = true;
+            
             const updatedParentId = (note.parentId && notesToDelete.has(note.parentId)) ? null : note.parentId;
+            if (updatedParentId !== note.parentId) needsUpdate = true;
 
-            // Only update the note object if a change is needed
-            if (updatedLinkedIds.length !== note.linkedNoteIds.length || updatedParentId !== note.parentId) {
+            if (needsUpdate) {
               newNotes[key] = { 
                   ...note, 
                   linkedNoteIds: updatedLinkedIds,
@@ -194,7 +192,6 @@ const useStore = create<AppState>()(
       },
       
       resetCanvas: () => {
-        // A simple reset to a clean state. Does not re-call init.
         set({
           notes: {},
           canvasState: { zoom: 1, pan: { x: window.innerWidth / 2, y: window.innerHeight / 2 } },
@@ -284,20 +281,15 @@ const useStore = create<AppState>()(
             if (!noteToUpdate) return {};
 
             const oldGroupId = noteToUpdate.groupId;
-
-            // Update the note's group
             newNotes[noteId] = { ...noteToUpdate, groupId };
 
-            // If the old group is now empty (or just contains its nebula), disband it.
             if (oldGroupId && oldGroupId !== noteId) {
                 const oldGroupMembers = Object.values(newNotes).filter((n: Note) => n.groupId === oldGroupId);
-                // If only the nebula itself is left in the group, it is no longer a group container.
                 if (oldGroupMembers.length === 1 && newNotes[oldGroupId]?.type === NoteType.Nebula) {
                     newNotes[oldGroupId] = { ...newNotes[oldGroupId], groupId: null };
                 }
             }
 
-            // If adding to a new group, make sure the nebula itself is grouped.
             if (groupId && newNotes[groupId]?.type === NoteType.Nebula && !newNotes[groupId].groupId) {
                 newNotes[groupId] = { ...newNotes[groupId], groupId: groupId };
             }
