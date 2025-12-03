@@ -107,10 +107,10 @@ interface NoteProps {
   onStartLinkDrag: (noteId: string, portPosition: {x: number, y: number}) => void;
   onNoteMouseUp: (noteId: string) => void;
   isLinking: boolean;
-  showConnectionTargets: boolean;
+  isLinkTarget: boolean; 
 }
 
-const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelectedGroup, onSelect, onStartLinkDrag, onNoteMouseUp, isLinking, showConnectionTargets }) => {
+const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelectedGroup, onSelect, onStartLinkDrag, onNoteMouseUp, isLinking, isLinkTarget }) => {
   const updateNotePosition = useStore(s => s.updateNotePosition);
   const updateNoteContent = useStore(s => s.updateNoteContent);
   const deleteNote = useStore(s => s.deleteNote);
@@ -131,14 +131,20 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
   const contentEditableRef = useRef<HTMLDivElement>(null);
   const isNebula = note.type === NoteTypeEnum.Nebula;
   const isBlackHole = note.type === NoteTypeEnum.BlackHole;
-  // Removed isOverflowing state polling to reduce layout thrashing
   const [isExitingToBlackHole, setIsExitingToBlackHole] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const isDragUpdateScheduled = useRef(false);
   const blackHoleRect = useRef<DOMRect | null>(null);
 
   const style = NOTE_STYLES[note.type];
-  const className = `absolute flex flex-col justify-center items-center text-center cursor-grab focus:outline-none transition-shadow duration-200 ${isNebula || isBlackHole ? '' : `border-2 p-4 ${style.colors} ${style.glow}`}`;
+  
+  // Calculate dynamic border styles based on state
+  let borderClasses = `border-2 p-4 ${style.colors} ${style.glow}`;
+  if (isLinkTarget) {
+      borderClasses = `border-4 p-4 border-green-400 shadow-[0_0_30px_rgba(74,222,128,0.6)] scale-105`;
+  }
+
+  const className = `absolute flex flex-col justify-center items-center text-center cursor-grab focus:outline-none transition-shadow duration-200 ${isNebula || isBlackHole ? '' : borderClasses}`;
 
   const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
     setIsEditing(false);
@@ -374,6 +380,11 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
         : 'drop-shadow(0 0 0px rgba(255, 255, 255, 0))',
   };
 
+  if (isLinkTarget) {
+      animateProps.scale = 1.05;
+      animateProps.filter = 'drop-shadow(0 0 20px rgba(74, 222, 128, 0.6))';
+  }
+
   if (isExitingToBlackHole) {
     animateProps = getBlackHoleExitAnimation();
   }
@@ -382,12 +393,12 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
     type: 'spring', 
     stiffness: 300, 
     damping: 20,
-    filter: isSelected
+    filter: (isSelected || isLinkTarget)
         ? { duration: 2, repeat: Infinity, ease: 'easeInOut' }
         : { type: 'spring', stiffness: 400, damping: 25 },
   };
 
-  if (!isBeingAbsorbed) {
+  if (!isBeingAbsorbed && !isLinkTarget) {
     if (note.type === NoteTypeEnum.Pulsar) {
         animateProps.scale = [1, 1.08, 1];
         transitionProps.scale = { duration: 0.8, repeat: Infinity, ease: 'easeInOut' };
@@ -442,25 +453,6 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
         )
     });
   };
-
-  const renderConnectionTargets = () => {
-    if (!showConnectionTargets || isSelected || isNebula || isBlackHole) return null;
-    return ['top', 'right', 'bottom', 'left'].map(pos => {
-        const { top, right, bottom, left } = getPortPosition(pos as any);
-        return (
-            <motion.div
-                key={`target-${pos}`}
-                className="absolute w-4 h-4 bg-sky-400/30 rounded-full border-2 border-sky-400/50"
-                style={{ top, right, bottom, left }}
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0 }}
-                whileHover={{ scale: 1.5, backgroundColor: 'rgba(56, 189, 248, 0.8)' }}
-                onMouseUp={() => onNoteMouseUp(note.id)}
-            />
-        )
-    });
-  };
   
   const motionDivStyle: React.CSSProperties = {
     width: style.size.diameter,
@@ -469,7 +461,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
     top: note.position.y,
     touchAction: 'none',
     zIndex: isNebula ? 0 : (isBlackHole ? 5 : (isSelected ? 15 : (isPartofSelectedGroup ? 2 : 1))),
-    willChange: isSelected ? 'transform, left, top' : 'auto', // Optimization for browser compositor
+    willChange: isSelected || isLinkTarget ? 'transform, left, top' : 'auto', 
   };
   
   if (note.type === NoteTypeEnum.Asteroid) {
@@ -496,6 +488,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
       onDragEnd={handleDragEnd}
       dragTransition={{ power: 0.1, timeConstant: 200 }}
       onPointerDown={(e) => {
+        // Prevent drag/select when interacting with content or actions
         if ((e.target as HTMLElement).closest('.note-actions') || (e.target as HTMLElement).closest('.note-content-wrapper')) {
             return;
         }
@@ -574,9 +567,6 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
       <AnimatePresence>
         {renderConnectionPorts()}
       </AnimatePresence>
-      <AnimatePresence>
-        {renderConnectionTargets()}
-      </AnimatePresence>
 
       <div className="absolute top-4 right-4 z-30">
         <button
@@ -638,7 +628,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
               fontSize: '2.5rem',
               fontWeight: 'bold',
           } : {
-              fontSize: `var(--note-font-size, 1rem)`, // Apply dynamic font size here or via parent var
+              fontSize: `var(--note-font-size, 1rem)`, 
           }}
         />
       </div>

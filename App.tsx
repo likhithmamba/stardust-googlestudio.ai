@@ -145,6 +145,7 @@ const App: React.FC = () => {
   const [isPanning, setIsPanning] = useState(false);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number; } | null>(null);
   const [linkDragState, setLinkDragState] = useState<LinkDragState | null>(null);
+  const [potentialLinkTargetId, setPotentialLinkTargetId] = useState<string | null>(null);
   const [hoveredConnectionId, setHoveredConnectionId] = useState<string | null>(null);
   const windowSize = useWindowSize();
 
@@ -191,7 +192,10 @@ const App: React.FC = () => {
           if (e.key === ' ' && !e.repeat) setIsSpacePressed(true);
           if (e.key === 'Escape') {
               if (creationMenu.visible) setCreationMenu({ ...creationMenu, visible: false });
-              if (linkDragState) setLinkDragState(null);
+              if (linkDragState) {
+                  setLinkDragState(null);
+                  setPotentialLinkTargetId(null);
+              }
               setSelectedNoteIds(() => []);
               if (selectionBox) setSelectionBox(null);
           }
@@ -266,9 +270,38 @@ const App: React.FC = () => {
       setSelectionBox({ ...selectionBox, endX: e.clientX, endY: e.clientY });
     } else if (linkDragState && appRef.current) {
       const rect = appRef.current.getBoundingClientRect();
-      const mouseX = (e.clientX - rect.left - canvasState.pan.x) / canvasState.zoom;
-      const mouseY = (e.clientY - rect.top - canvasState.pan.y) / canvasState.zoom;
-      setLinkDragState(prev => prev ? { ...prev, toMousePos: { x: mouseX, y: mouseY } } : null);
+      const rawMouseX = (e.clientX - rect.left - canvasState.pan.x) / canvasState.zoom;
+      const rawMouseY = (e.clientY - rect.top - canvasState.pan.y) / canvasState.zoom;
+      
+      let targetId: string | null = null;
+      let targetCenter = { x: rawMouseX, y: rawMouseY };
+
+      // Optimized Snap-to-Target Detection
+      for (const id of visibleNoteIds) {
+          if (id === linkDragState.fromId) continue;
+          const note = notes[id];
+          if (!note) continue;
+          
+          const style = NOTE_STYLES[note.type];
+          const radius = style.size.diameter / 2;
+          const centerX = note.position.x + radius;
+          const centerY = note.position.y + radius;
+          
+          // Check distance to center with a forgiveness margin
+          const dist = Math.hypot(rawMouseX - centerX, rawMouseY - centerY);
+          
+          if (dist < radius + 30) { // +30px forgiveness margin
+              targetId = id;
+              targetCenter = { x: centerX, y: centerY };
+              break;
+          }
+      }
+
+      if (targetId !== potentialLinkTargetId) {
+          setPotentialLinkTargetId(targetId);
+      }
+      
+      setLinkDragState(prev => prev ? { ...prev, toMousePos: targetCenter } : null);
     }
 
     if (selectionBox || linkDragState) {
@@ -288,7 +321,15 @@ const App: React.FC = () => {
   const handleMouseUp = () => {
     setIsPanning(false);
     setEdgePan({ x: 0, y: 0 });
-    if (linkDragState) setLinkDragState(null);
+    
+    if (linkDragState) {
+        if (potentialLinkTargetId) {
+            createLink(linkDragState.fromId, potentialLinkTargetId);
+        }
+        setLinkDragState(null);
+        setPotentialLinkTargetId(null);
+    }
+
     if (selectionBox) {
         const { startX, startY, endX, endY } = selectionBox;
         const left = Math.min(startX, endX), right = Math.max(startX, endX);
@@ -345,9 +386,8 @@ const App: React.FC = () => {
   }, []);
 
   const handleNoteMouseUp = useCallback((noteId: string) => {
-    if (linkDragState && linkDragState.fromId !== noteId) createLink(linkDragState.fromId, noteId);
-    setLinkDragState(null);
-  }, [createLink, linkDragState]);
+      // Kept for fallback, but main logic is now in App-level handleMouseUp
+  }, []);
 
   const handleCloseFocusView = () => {
     if (focusedNoteId && focusedEditorRef.current) {
@@ -360,7 +400,7 @@ const App: React.FC = () => {
   if (!isLoaded) return <div className="w-screen h-screen flex items-center justify-center bg-cosmic-bg-dark text-white">Loading Stardust Canvas...</div>;
   const focusedNote = focusedNoteId ? notes[focusedNoteId] : null;
   const selectedGroupIds = new Set(selectedNoteIds.map(id => notes[id]?.groupId).filter(Boolean));
-  const showConnectionTargets = selectedNoteIds.length > 0 || !!linkDragState;
+  // Removed showConnectionTargets calculation to avoid mass re-renders
 
   return (
     <div className="w-screen h-screen overflow-hidden relative">
@@ -414,7 +454,7 @@ const App: React.FC = () => {
                   onStartLinkDrag={handleStartLinkDrag}
                   onNoteMouseUp={handleNoteMouseUp}
                   isLinking={!!linkDragState}
-                  showConnectionTargets={showConnectionTargets}
+                  isLinkTarget={potentialLinkTargetId === note.id}
                 />
               ))}
           </AnimatePresence>

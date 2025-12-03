@@ -102,18 +102,35 @@ const useStore = create<AppState>()(
       },
 
       updateNotePosition: (id, delta) => {
-        // Optimized to minimize object spread operations where possible
         set((prev) => {
           const targetNote = prev.notes[id];
           if (!targetNote) return {};
       
+          // Optimization: Fast path for single notes (no group)
+          if (!targetNote.groupId) {
+             return {
+                 notes: {
+                     ...prev.notes,
+                     [id]: {
+                         ...targetNote,
+                         position: {
+                             x: targetNote.position.x + delta.x,
+                             y: targetNote.position.y + delta.y,
+                         },
+                     },
+                 },
+             };
+          }
+
+          // Group update logic
           const newNotes = { ...prev.notes };
-      
-          if (targetNote.groupId) {
-              const groupMembers = Object.keys(newNotes).filter(nid => newNotes[nid].groupId === targetNote.groupId);
-              for (const noteId of groupMembers) {
-                  const note = newNotes[noteId];
-                   newNotes[noteId] = {
+          const ids = Object.keys(newNotes);
+          // Single pass iteration is faster than filter + map
+          for (let i = 0; i < ids.length; i++) {
+              const noteId = ids[i];
+              const note = newNotes[noteId];
+              if (note.groupId === targetNote.groupId) {
+                  newNotes[noteId] = {
                       ...note,
                       position: {
                           x: note.position.x + delta.x,
@@ -121,14 +138,6 @@ const useStore = create<AppState>()(
                       },
                   };
               }
-          } else {
-              newNotes[id] = {
-                  ...targetNote,
-                  position: {
-                      x: targetNote.position.x + delta.x,
-                      y: targetNote.position.y + delta.y,
-                  },
-              };
           }
           return { notes: newNotes };
         });
