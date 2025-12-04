@@ -95,6 +95,7 @@ const useStore = create<AppState>()(
           linkedNoteIds: note.linkedNoteIds || [],
           groupId: null,
         };
+        // Initialize Nebula as its own group container
         if (newNote.type === NoteType.Nebula) {
             newNote.groupId = id; 
         }
@@ -106,8 +107,13 @@ const useStore = create<AppState>()(
           const targetNote = prev.notes[id];
           if (!targetNote) return {};
       
-          // Optimization: Fast path for single notes (no group)
-          if (!targetNote.groupId) {
+          // Determine if we should move the whole group or just the note.
+          // Move group ONLY if dragging the Nebula itself (the container).
+          // Dragging a child note should move only that note (allowing it to be dragged out).
+          const isGroupContainer = targetNote.type === NoteType.Nebula && targetNote.groupId === targetNote.id;
+
+          // Optimization: Fast path for single notes or independent child movement
+          if (!targetNote.groupId || !isGroupContainer) {
              return {
                  notes: {
                      ...prev.notes,
@@ -122,7 +128,7 @@ const useStore = create<AppState>()(
              };
           }
 
-          // Group update logic
+          // Group update logic (Dragging the Nebula moves all children)
           const newNotes = { ...prev.notes };
           const ids = Object.keys(newNotes);
           // Single pass iteration is faster than filter + map
@@ -292,15 +298,21 @@ const useStore = create<AppState>()(
             const oldGroupId = noteToUpdate.groupId;
             newNotes[noteId] = { ...noteToUpdate, groupId };
 
+            // Handle leaving a group (Nebula)
             if (oldGroupId && oldGroupId !== noteId) {
                 const oldGroupMembers = Object.values(newNotes).filter((n: Note) => n.groupId === oldGroupId);
+                // If only the Nebula itself remains, reset its group status so it acts empty
                 if (oldGroupMembers.length === 1 && newNotes[oldGroupId]?.type === NoteType.Nebula) {
                     newNotes[oldGroupId] = { ...newNotes[oldGroupId], groupId: null };
                 }
             }
 
-            if (groupId && newNotes[groupId]?.type === NoteType.Nebula && !newNotes[groupId].groupId) {
-                newNotes[groupId] = { ...newNotes[groupId], groupId: groupId };
+            // Handle joining a group (Nebula)
+            if (groupId && newNotes[groupId]?.type === NoteType.Nebula) {
+                // Ensure the Nebula has its groupId set to itself to act as the container leader
+                if (!newNotes[groupId].groupId) {
+                    newNotes[groupId] = { ...newNotes[groupId], groupId: groupId };
+                }
             }
 
             return { notes: newNotes };

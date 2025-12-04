@@ -171,6 +171,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
         const state = useStore.getState();
         const { isAbsorbingNoteId, notes, canvasState, activeDropTargetId, edgePan } = state;
         
+        // 1. Black Hole Pull Logic
         let isPulling = false;
         if (blackHoleRect.current) {
             const holeCenter = { x: blackHoleRect.current.left + blackHoleRect.current.width / 2, y: blackHoleRect.current.top + blackHoleRect.current.height / 2 };
@@ -212,38 +213,37 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
             setIsAbsorbingNoteId(null);
         }
 
-        if (note.type === NoteTypeEnum.Nebula) {
-            isDragUpdateScheduled.current = false;
-            return;
-        }
+        // 2. Nebula Grouping Target Logic
+        if (note.type !== NoteTypeEnum.Nebula) { // Nebulas cannot be dropped into other nebulas
+            const { diameter } = NOTE_STYLES[note.type].size;
+            const noteCenter = {
+                x: note.position.x + info.offset.x / canvasState.zoom + diameter / 2,
+                y: note.position.y + info.offset.y / canvasState.zoom + diameter / 2,
+            };
 
-        const { diameter } = NOTE_STYLES[note.type].size;
-        const noteCenter = {
-            x: note.position.x + info.offset.x / canvasState.zoom + diameter / 2,
-            y: note.position.y + info.offset.y / canvasState.zoom + diameter / 2,
-        };
-
-        let targetId: string | null = null;
-        for (const otherNote of Object.values(notes) as NoteType[]) {
-            if (otherNote.type === NoteTypeEnum.Nebula && otherNote.id !== note.id) {
-                const nebulaStyle = NOTE_STYLES[NoteTypeEnum.Nebula];
-                const nebulaRect = {
-                    left: otherNote.position.x,
-                    top: otherNote.position.y,
-                    right: otherNote.position.x + nebulaStyle.size.diameter,
-                    bottom: otherNote.position.y + nebulaStyle.size.diameter,
-                };
-                if (noteCenter.x > nebulaRect.left && noteCenter.x < nebulaRect.right &&
-                    noteCenter.y > nebulaRect.top && noteCenter.y < nebulaRect.bottom) {
-                    targetId = otherNote.id;
-                    break;
+            let targetId: string | null = null;
+            for (const otherNote of Object.values(notes) as NoteType[]) {
+                if (otherNote.type === NoteTypeEnum.Nebula && otherNote.id !== note.id) {
+                    const nebulaStyle = NOTE_STYLES[NoteTypeEnum.Nebula];
+                    const nebulaRect = {
+                        left: otherNote.position.x,
+                        top: otherNote.position.y,
+                        right: otherNote.position.x + nebulaStyle.size.diameter,
+                        bottom: otherNote.position.y + nebulaStyle.size.diameter,
+                    };
+                    if (noteCenter.x > nebulaRect.left && noteCenter.x < nebulaRect.right &&
+                        noteCenter.y > nebulaRect.top && noteCenter.y < nebulaRect.bottom) {
+                        targetId = otherNote.id;
+                        break;
+                    }
                 }
             }
-        }
-        if (targetId !== activeDropTargetId) {
-            setActiveDropTargetId(targetId);
+            if (targetId !== activeDropTargetId) {
+                setActiveDropTargetId(targetId);
+            }
         }
 
+        // 3. Edge Panning
         const EDGE_MARGIN = 60;
         const MAX_PAN_SPEED = 15;
         const { clientX, clientY } = info.point;
@@ -277,6 +277,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
     
     const { canvasState, notes } = useStore.getState();
 
+    // 1. Black Hole Deletion Check
     const blackHoleEl = document.getElementById('black-hole');
     if (blackHoleEl) {
         const holeRect = blackHoleEl.getBoundingClientRect();
@@ -315,6 +316,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
     setIsAbsorbingNoteId(null);
     setActiveDropTargetId(null);
 
+    // 2. Nebula Grouping Commit
     if (note.type !== NoteTypeEnum.Nebula) {
         const { diameter } = NOTE_STYLES[note.type].size;
         const finalPosition = { 
@@ -347,6 +349,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
         }
     }
 
+    // 3. Final Position Update
     const delta = {
         x: info.offset.x / canvasState.zoom,
         y: info.offset.y / canvasState.zoom,
