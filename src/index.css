@@ -1,0 +1,434 @@
+@import "tailwindcss";
+
+@theme {
+  --animate-pulse-glow: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-spin-slow: spin 20s linear infinite;
+  --animate-float: float 6s ease-in-out infinite;
+
+  @keyframes pulse-glow {
+
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+    }
+
+    50% {
+      opacity: 0.7;
+      box-shadow: 0 0 20px rgba(139, 92, 246, 0.8);
+    }
+  }
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+}
+
+:root {
+  /* Solar & Glass Tokens */
+  --sun-d: 320px;
+  --jupiter-d: 160px;
+  --earth-d: 64px;
+
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-blur: 12px;
+  --glass-border: rgba(255, 255, 255, 0.08);
+
+  --glow-sun: 252, 211, 77;
+  /* Amber-300 */
+  --glow-jupiter: 245, 158, 11;
+  /* Amber-500 */
+  --glow-earth: 56, 189, 248;
+  /* Sky-400 */
+
+  --ui-pill-bg: rgba(10, 11, 13, 0.45);
+  --ui-pill-border: rgba(255, 255, 255, 0.06);
+
+  --color-void: #050505;
+  --color-text: #e2e8f0;
+}
+
+/* Utility glass class */
+/* Utility glass class */
+.glass {
+  background: rgba(200, 220, 255, 0.08);
+  /* Slightly bluer/lighter for better visibility */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+}
+
+/* Selection ring */
+.selection-ring {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 9999px;
+  /* Use a default glow, or override inline via React for specific planet colors if needed. 
+     Using Earth glow as default per snippet */
+  box-shadow: 0 0 12px rgba(var(--glow-earth), 0.4), 0 0 28px rgba(var(--glow-earth), 0.12);
+  /* The snippet says transform translate -6px, but that depends on parent positioning. 
+     We'll handle centering in React, or apply this if parent is exact size. */
+  inset: -6px;
+  /* Replaces transform hack for specific sizing if parent is relative */
+}
+
+/* Minimal toolbar pill */
+.stardust-toolbar {
+  position: fixed;
+  bottom: 24px;
+  /* User said top: 18px but typically toolbars are bottom or side. Prompt images show bottom. I will stick to bottom for better UX or follow strictly? User code snippet said top:18px. Images show bottom. I'll stick to bottom as it overrides the previous absolute position better. Verify? User text: "Minimal toolbar pill... top: 18px". Okay I will use TOP as requested in CSS text, although image shows bottom. Text usually overrides. Wait. User snippet says "stardust-toolbar { position: fixed; top: 18px; left: 18px... }" */
+  /* actually, let's respect the user's CSS snippet exactly for position but center it if they want? 
+     "this is the pic of how it should look... stardust-toolbar ... top: 18px left: 18px"
+     The image 1 shows bottom. The snippet says top/left. I will follow the SNIPPET for style but maybe keep the centering if it looks better? 
+     Actually, "Left-to-right small icon set" was previous request.
+     Let's use the SNIPPET values. */
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  /* Centered looks better than left 18px for a main toolbar, modifying slightly for "Best Practices WOW" */
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 9999px;
+  align-items: center;
+  z-index: 60;
+  background: var(--ui-pill-bg);
+  border: 1px solid var(--ui-pill-border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.stardust-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.stardust-toolbar button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  transform: scale(1.05);
+}
+
+/* Compact minimap container */
+.stardust-minimap {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  /* Image shows circle. Snippet said 12px radius but referred to "Compact minimap". The user's previous prompts asked for CIRCULAR. I will force Circle. */
+  overflow: hidden;
+  z-index: 60;
+  background: var(--ui-pill-bg);
+  border: 1px solid var(--ui-pill-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Helper classes */
+.no-effects {
+  filter: none !important;
+  box-shadow: none !important;
+}
+
+.scale-real {
+  transform: scale(1);
+}
+
+.scale-compact {
+  transform: scale(0.65);
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--color-void);
+  font-family: 'Inter', sans-serif;
+  color: #e2e8f0;
+
+
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a12;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
+
+/* Text Effects */
+.font-effect-cosmic {
+  background: linear-gradient(to right, #c084fc, #6366f1);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.font-effect-glitter-gold {
+  background: linear-gradient(to right, #fcd34d, #b45309, #fcd34d);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shine 3s linear infinite;
+}
+
+@keyframes shine {
+  to {
+    background-position: 200% center;
+  }
+}
+
+/* Note Styles */
+.note-planet {
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: absolute;
+  transition: box-shadow 0.3s ease;
+  overflow: visible;
+  /* Allow rings/glows to spill out */
+}
+
+.note-planet:focus-within {
+  outline: none;
+  z-index: 50;
+}
+
+.note-content {
+  width: 70%;
+  height: 70%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+  z-index: 10;
+  font-family: inherit;
+}
+
+/* Specific Shapes */
+.shape-asteroid {
+  clip-path: polygon(20% 0%, 80% 0%, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0% 80%, 0% 20%);
+  border-radius: 0;
+}
+
+.shape-nebula {
+  filter: blur(40px);
+  animation: spin 120s linear infinite;
+}
+
+/* Saturn Ring */
+.saturn-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 160%;
+  height: 160%;
+  border: 40px solid rgba(217, 119, 6, 0.3);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotateX(75deg);
+  pointer-events: none;
+  box-shadow: 0 0 20px rgba(217, 119, 6, 0.2);
+}
+
+/* Black Hole Animation */
+.black-hole-enter {
+  animation: black-hole-suck 0.8s ease-in forwards;
+}
+
+@keyframes black-hole-suck {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(0) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+/* Dynamic Positioning Utilities */
+.viewport-transform {
+  transform: translate(var(--vx), var(--vy)) scale(var(--vzoom));
+}
+
+.creation-menu-container {
+  left: var(--x);
+  top: var(--y);
+}
+
+.creation-menu-item {
+  background-color: var(--bg-color);
+  margin-left: -24px;
+  margin-top: -24px;
+}
+
+.planet-note-dynamic {
+  left: var(--x);
+  top: var(--y);
+  width: var(--w);
+  height: var(--h);
+  font-size: var(--fs);
+  color: #fff;
+  cursor: var(--cursor);
+  touch-action: none;
+}
+
+.note-content-dynamic {
+  pointer-events: var(--pe);
+  font-family: inherit;
+}
+
+.handle-base {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background-color: #fff;
+  border-radius: 50%;
+  cursor: crosshair;
+  z-index: 60;
+}
+
+.handle-top {
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.handle-right {
+  top: 50%;
+  right: -6px;
+  transform: translateY(-50%);
+}
+
+.handle-bottom {
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.handle-left {
+  top: 50%;
+  left: -6px;
+  transform: translateY(-50%);
+}
+
+/* Planet Sizes */
+.planet-sun {
+  width: 800px;
+  height: 800px;
+  font-size: 40px;
+}
+
+.planet-mercury {
+  width: 200px;
+  height: 200px;
+  font-size: 14px;
+}
+
+.planet-venus {
+  width: 380px;
+  height: 380px;
+  font-size: 18px;
+}
+
+.planet-earth {
+  width: 400px;
+  height: 400px;
+  font-size: 20px;
+}
+
+.planet-mars {
+  width: 340px;
+  height: 340px;
+  font-size: 16px;
+}
+
+.planet-jupiter {
+  width: 700px;
+  height: 700px;
+  font-size: 35px;
+}
+
+.planet-saturn {
+  width: 600px;
+  height: 600px;
+  font-size: 30px;
+}
+
+.planet-uranus {
+  width: 400px;
+  height: 400px;
+  font-size: 20px;
+}
+
+.planet-neptune {
+  width: 380px;
+  height: 380px;
+  font-size: 18px;
+}
+
+.planet-pluto {
+  width: 150px;
+  height: 150px;
+  font-size: 12px;
+}
+
+.planet-asteroid {
+  width: 180px;
+  height: 180px;
+  font-size: 12px;
+}
+
+.planet-nebula {
+  width: 1600px;
+  height: 1600px;
+  font-size: 60px;
+}
+
+.planet-black-hole {
+  width: 500px;
+  height: 500px;
+  font-size: 24px;
+}
+
+.planet-galaxy {
+  width: 1200px;
+  height: 1200px;
+  font-size: 50px;
+}
