@@ -1,3 +1,4 @@
+
 export enum NoteType {
     // Cosmic Structures
     Galaxy = 'Galaxy',
@@ -39,6 +40,7 @@ export interface Note {
     tags: string[];
     linkedNoteIds: string[];
     groupId: string | null;
+    groupFilter?: string;
 }
 
 export interface CanvasState {

@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { nanoid } from 'nanoid';
 import { Note, CanvasState, Settings, NoteType } from '../types';
@@ -35,6 +36,7 @@ interface AppState {
   setNoteGroup: (noteId: string, groupId: string | null) => void;
   setActiveDropTargetId: (id: string | null) => void;
   setEdgePan: (pan: { x: number; y: number }) => void;
+  setGroupFilter: (id: string, filter: string) => void;
 }
 
 const useStore = create<AppState>()(
@@ -318,6 +320,10 @@ const useStore = create<AppState>()(
             return { notes: newNotes };
         });
       },
+
+      setGroupFilter: (id, filter) => set(prev => ({
+          notes: { ...prev.notes, [id]: { ...prev.notes[id], groupFilter: filter } }
+      })),
     })
 );
 

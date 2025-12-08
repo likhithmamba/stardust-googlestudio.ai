@@ -1,9 +1,10 @@
-import React, { useRef, useEffect, useState } from 'react';
+
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { motion, useDragControls, AnimatePresence, Transition, TargetAndTransition } from 'framer-motion';
 import { Note as NoteType, NoteType as NoteTypeEnum } from '../types';
 import useStore from '../hooks/useStore';
 import { NOTE_STYLES, BLACK_HOLE_PROPERTIES, CELESTIAL_DESCRIPTIONS } from '../constants';
-import { Maximize2, Search, Info } from 'lucide-react';
+import { Maximize2, Search, Info, X } from 'lucide-react';
 import ParticleEmitter from './Particles';
 
 const getSelectionStyle = (noteType: NoteTypeEnum): { filter: string[] } => {
@@ -121,9 +122,27 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
   const setActiveDropTargetId = useStore(s => s.setActiveDropTargetId);
   const setNoteGroup = useStore(s => s.setNoteGroup);
   const setEdgePan = useStore(s => s.setEdgePan);
+  const setGroupFilter = useStore(s => s.setGroupFilter);
   
   const isBeingAbsorbed = useStore(s => s.isAbsorbingNoteId === note.id);
   const isDropTarget = useStore(s => s.activeDropTargetId === note.id && note.type === NoteTypeEnum.Nebula);
+
+  // Selector to get the filter string from the parent Nebula, if it exists
+  const groupFilter = useStore(state => note.groupId ? state.notes[note.groupId]?.groupFilter : undefined);
+
+  const isFilteredOut = useMemo(() => {
+      // Don't filter the Nebula itself based on its own filter query
+      if (note.type === NoteTypeEnum.Nebula && note.groupId === note.id) return false;
+      
+      if (!groupFilter || !note.groupId) return false;
+      
+      const query = groupFilter.toLowerCase();
+      const contentMatch = note.content.toLowerCase().includes(query);
+      // Assuming tags might be in the tags array; currently simple content check is robust for most
+      const tagsMatch = note.tags && note.tags.some(t => t.toLowerCase().includes(query));
+      
+      return !contentMatch && !tagsMatch;
+  }, [groupFilter, note.content, note.tags, note.groupId, note.type, note.id]);
 
   const dragControls = useDragControls();
   const noteRef = useRef<HTMLDivElement>(null);
@@ -144,7 +163,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
       borderClasses = `border-4 p-4 border-green-400 shadow-[0_0_30px_rgba(74,222,128,0.6)] scale-105`;
   }
 
-  const className = `absolute flex flex-col justify-center items-center text-center cursor-grab focus:outline-none transition-shadow duration-200 ${isNebula || isBlackHole ? '' : borderClasses}`;
+  const className = `absolute flex flex-col justify-center items-center text-center cursor-grab focus:outline-none transition-shadow duration-200 ${isNebula || isBlackHole ? '' : borderClasses} group`;
 
   const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
     setIsEditing(false);
@@ -374,8 +393,8 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
   };
 
   let animateProps: TargetAndTransition = {
-    scale: isBeingAbsorbed ? 0.3 : 1, 
-    opacity: isBeingAbsorbed ? 0.2 : 1,
+    scale: isFilteredOut ? 0.8 : (isBeingAbsorbed ? 0.3 : 1), 
+    opacity: isFilteredOut ? 0.1 : (isBeingAbsorbed ? 0.2 : 1),
     filter: isSelected
       ? getSelectionStyle(note.type).filter
       : isPartofSelectedGroup
@@ -401,7 +420,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
         : { type: 'spring', stiffness: 400, damping: 25 },
   };
 
-  if (!isBeingAbsorbed && !isLinkTarget) {
+  if (!isBeingAbsorbed && !isLinkTarget && !isFilteredOut) {
     if (note.type === NoteTypeEnum.Pulsar) {
         animateProps.scale = [1, 1.08, 1];
         transitionProps.scale = { duration: 0.8, repeat: Infinity, ease: 'easeInOut' };
@@ -465,6 +484,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
     touchAction: 'none',
     zIndex: isNebula ? 0 : (isBlackHole ? 5 : (isSelected ? 15 : (isPartofSelectedGroup ? 2 : 1))),
     willChange: isSelected || isLinkTarget ? 'transform, left, top' : 'auto', 
+    pointerEvents: isFilteredOut ? 'none' : 'auto',
   };
   
   if (note.type === NoteTypeEnum.Asteroid) {
@@ -492,7 +512,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
       dragTransition={{ power: 0.1, timeConstant: 200 }}
       onPointerDown={(e) => {
         // Prevent drag/select when interacting with content or actions
-        if ((e.target as HTMLElement).closest('.note-actions') || (e.target as HTMLElement).closest('.note-content-wrapper')) {
+        if ((e.target as HTMLElement).closest('.note-actions') || (e.target as HTMLElement).closest('.note-content-wrapper') || (e.target as HTMLElement).tagName === 'INPUT') {
             return;
         }
         dragControls.start(e, { snapToCursor: false });
@@ -606,6 +626,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
           </div>
         )}
       </div>
+
       <div
           className="note-content-wrapper relative flex-grow w-full h-full flex items-center justify-center z-10"
           style={{
@@ -635,6 +656,27 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
           }}
         />
       </div>
+
+      {isNebula && (
+        <div className={`absolute bottom-[20%] left-1/2 -translate-x-1/2 w-48 z-40 transition-opacity duration-300 focus-within:opacity-100 ${!note.groupFilter ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+            <div className="flex items-center bg-black/40 backdrop-blur-md rounded-full px-3 py-1 border border-white/20 hover:bg-black/60 transition-colors">
+                <Search size={12} className="text-white/60 mr-2 flex-shrink-0" />
+                <input 
+                    type="text"
+                    placeholder="Filter nebula..."
+                    className="bg-transparent border-none outline-none text-white text-xs w-full placeholder-white/40"
+                    value={note.groupFilter || ''}
+                    onChange={(e) => setGroupFilter(note.id, e.target.value)}
+                    onPointerDown={(e) => e.stopPropagation()} 
+                />
+                {note.groupFilter && (
+                    <button onClick={() => setGroupFilter(note.id, '')} className="ml-1 text-white/60 hover:text-white flex-shrink-0">
+                        <X size={12} />
+                    </button>
+                )}
+            </div>
+        </div>
+      )}
     </motion.div>
   );
 };
