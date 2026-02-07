@@ -504,9 +504,6 @@ export const Search: React.FC = () => {
 
     return (
         <>
-            <button onClick={() => setSearchOpen(true)} className="fixed top-4 left-1/2 -translate-x-1/2 z-20 p-2 bg-white/30 dark:bg-black/30 backdrop-blur-lg rounded-lg shadow-lg border border-glass-edge text-black dark:text-white">
-                <SearchIcon size={20} />
-            </button>
             <AnimatePresence>
                 {isSearchOpen && (
                     <motion.div

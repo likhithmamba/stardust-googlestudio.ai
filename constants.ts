@@ -2,41 +2,41 @@ import { NoteType } from './types';
 
 // Sizes are significantly increased for better readability and interaction.
 // All diameters have been scaled up to make notes more functional for content.
-export const NOTE_STYLES: Record<NoteType, { size: { diameter: number }; colors: string; glow: string; hasRings?: boolean; hasTail?: boolean; }> = {
+export const NOTE_STYLES: Record<NoteType, { size: { diameter: number }; coreClass: string; glow: string; hasRings?: boolean; hasTail?: boolean; }> = {
   // Cosmic Structures
-  [NoteType.Galaxy]:     { size: { diameter: 1200 }, colors: 'bg-transparent border-2 border-indigo-400/30', glow: 'shadow-[0_0_120px_20px_rgba(129,140,248,0.3)]' },
-  [NoteType.Nebula]:     { size: { diameter: 1600 }, colors: '', glow: '' },
-  [NoteType.BlackHole]:  { size: { diameter: 300 }, colors: 'bg-black border-2 border-purple-900', glow: 'shadow-[0_0_60px_30px_rgba(147,51,234,0.4)]' },
+  [NoteType.Galaxy]:     { size: { diameter: 1200 }, coreClass: 'bg-transparent', glow: 'shadow-[0_0_120px_20px_rgba(129,140,248,0.3)]' },
+  [NoteType.Nebula]:     { size: { diameter: 1600 }, coreClass: '', glow: '' },
+  [NoteType.BlackHole]:  { size: { diameter: 300 }, coreClass: 'bg-black shadow-[inset_0_0_20px_5px_rgba(76,29,149,0.8)]', glow: 'shadow-[0_0_60px_30px_rgba(147,51,234,0.4)]' },
   
   // Stars
-  [NoteType.Sun]:        { size: { diameter: 800 }, colors: 'bg-gradient-radial from-yellow-200 via-orange-500 to-red-600 border-amber-200',       glow: 'shadow-[0_0_150px_40px_rgba(252,211,77,0.7)]' },
-  [NoteType.RedGiant]:   { size: { diameter: 750 }, colors: 'bg-gradient-radial from-red-400 via-rose-700 to-red-900 border-red-300',                glow: 'shadow-[0_0_130px_35px_rgba(239,68,68,0.6)]' },
-  [NoteType.WhiteDwarf]: { size: { diameter: 150 }, colors: 'bg-gradient-radial from-white via-sky-200 to-blue-400 border-white',                   glow: 'shadow-[0_0_80px_20px_rgba(255,255,255,1)]' },
-  [NoteType.Pulsar]:     { size: { diameter: 120 }, colors: 'bg-gradient-radial from-white to-blue-300 border-sky-200',                           glow: 'shadow-[0_0_60px_15px_rgba(191,219,254,1)]' },
+  [NoteType.Sun]:        { size: { diameter: 800 }, coreClass: 'bg-gradient-radial from-yellow-200 via-orange-500 to-red-600',       glow: 'shadow-[0_0_150px_40px_rgba(252,211,77,0.7)]' },
+  [NoteType.RedGiant]:   { size: { diameter: 750 }, coreClass: 'bg-gradient-radial from-red-400 via-rose-700 to-red-900',                glow: 'shadow-[0_0_130px_35px_rgba(239,68,68,0.6)]' },
+  [NoteType.WhiteDwarf]: { size: { diameter: 150 }, coreClass: 'bg-gradient-radial from-white via-sky-200 to-blue-400',                   glow: 'shadow-[0_0_80px_20px_rgba(255,255,255,1)]' },
+  [NoteType.Pulsar]:     { size: { diameter: 120 }, coreClass: 'bg-gradient-radial from-white to-blue-300',                           glow: 'shadow-[0_0_60px_15px_rgba(191,219,254,1)]' },
 
   // Gas Giants
-  [NoteType.Jupiter]:    { size: { diameter: 700 }, colors: 'bg-gradient-radial from-orange-200 via-amber-500 to-stone-400 border-orange-400',       glow: 'shadow-[0_0_100px_25px_rgba(217,119,6,0.5)]' },
-  [NoteType.Saturn]:     { size: { diameter: 600 }, colors: 'bg-gradient-radial from-yellow-100 via-amber-200 to-orange-300 border-amber-300',  glow: 'shadow-[0_0_80px_20px_rgba(245,158,11,0.5)]', hasRings: true },
+  [NoteType.Jupiter]:    { size: { diameter: 700 }, coreClass: 'bg-gradient-radial from-orange-200 via-amber-500 to-stone-400',       glow: 'shadow-[0_0_100px_25px_rgba(217,119,6,0.5)]' },
+  [NoteType.Saturn]:     { size: { diameter: 600 }, coreClass: 'bg-gradient-radial from-yellow-100 via-amber-200 to-orange-300',  glow: 'shadow-[0_0_80px_20px_rgba(245,158,11,0.5)]', hasRings: true },
 
   // Ice Giants
-  [NoteType.Neptune]:    { size: { diameter: 480 }, colors: 'bg-gradient-radial from-blue-400 to-indigo-800 border-blue-200',                    glow: 'shadow-[0_0_70px_15px_rgba(99,102,241,0.5)]' },
-  [NoteType.Uranus]:     { size: { diameter: 470 }, colors: 'bg-gradient-radial from-cyan-100 to-teal-500 border-cyan-100',                      glow: 'shadow-[0_0_65px_13px_rgba(20,184,166,0.5)]' },
+  [NoteType.Neptune]:    { size: { diameter: 480 }, coreClass: 'bg-gradient-radial from-blue-400 to-indigo-800',                    glow: 'shadow-[0_0_70px_15px_rgba(99,102,241,0.5)]' },
+  [NoteType.Uranus]:     { size: { diameter: 470 }, coreClass: 'bg-gradient-radial from-cyan-100 to-teal-500',                      glow: 'shadow-[0_0_65px_13px_rgba(20,184,166,0.5)]' },
 
   // Terrestrial Planets
-  [NoteType.Earth]:      { size: { diameter: 400 }, colors: 'bg-gradient-radial from-sky-300 via-emerald-500 to-blue-700 border-sky-300',           glow: 'shadow-[0_0_60px_12px_rgba(56,189,248,0.6)]' },
-  [NoteType.Venus]:      { size: { diameter: 390 }, colors: 'bg-gradient-radial from-yellow-50 via-orange-100 to-amber-300 border-yellow-200', glow: 'shadow-[0_0_55px_11px_rgba(234,179,8,0.5)]' },
-  [NoteType.Mars]:       { size: { diameter: 340 }, colors: 'bg-gradient-radial from-orange-400 via-red-600 to-rose-900 border-red-300',           glow: 'shadow-[0_0_50px_10px_rgba(239,68,68,0.6)]' },
-  [NoteType.Mercury]:    { size: { diameter: 300 }, colors: 'bg-gradient-radial from-slate-300 via-gray-500 to-slate-800 border-gray-300',       glow: 'shadow-[0_0_45px_9px_rgba(156,163,175,0.5)]' },
-  [NoteType.Planet]:     { size: { diameter: 380 }, colors: 'bg-gradient-radial from-indigo-300 via-purple-500 to-indigo-900 border-indigo-300',     glow: 'shadow-[0_0_50px_10px_rgba(99,102,241,0.6)]' },
+  [NoteType.Earth]:      { size: { diameter: 400 }, coreClass: 'bg-gradient-radial from-sky-300 via-emerald-500 to-blue-700',           glow: 'shadow-[0_0_60px_12px_rgba(56,189,248,0.6)]' },
+  [NoteType.Venus]:      { size: { diameter: 390 }, coreClass: 'bg-gradient-radial from-yellow-50 via-orange-100 to-amber-300', glow: 'shadow-[0_0_55px_11px_rgba(234,179,8,0.5)]' },
+  [NoteType.Mars]:       { size: { diameter: 340 }, coreClass: 'bg-gradient-radial from-orange-400 via-red-600 to-rose-900',           glow: 'shadow-[0_0_50px_10px_rgba(239,68,68,0.6)]' },
+  [NoteType.Mercury]:    { size: { diameter: 300 }, coreClass: 'bg-gradient-radial from-slate-300 via-gray-500 to-slate-800',       glow: 'shadow-[0_0_45px_9px_rgba(156,163,175,0.5)]' },
+  [NoteType.Planet]:     { size: { diameter: 380 }, coreClass: 'bg-gradient-radial from-indigo-300 via-purple-500 to-indigo-900',     glow: 'shadow-[0_0_50px_10px_rgba(99,102,241,0.6)]' },
 
   // Dwarf Planets
-  [NoteType.Pluto]:      { size: { diameter: 260 }, colors: 'bg-gradient-radial from-slate-100 via-sky-200 to-slate-400 border-sky-100',         glow: 'shadow-[0_0_30px_6px_rgba(164,206,238,0.5)]' },
-  [NoteType.Ceres]:      { size: { diameter: 230 }, colors: 'bg-gradient-radial from-stone-400 via-stone-600 to-stone-800 border-stone-300',        glow: 'shadow-[0_0_25px_5px_rgba(120,113,108,0.5)]' },
+  [NoteType.Pluto]:      { size: { diameter: 260 }, coreClass: 'bg-gradient-radial from-slate-100 via-sky-200 to-slate-400',         glow: 'shadow-[0_0_30px_6px_rgba(164,206,238,0.5)]' },
+  [NoteType.Ceres]:      { size: { diameter: 230 }, coreClass: 'bg-gradient-radial from-stone-400 via-stone-600 to-stone-800',        glow: 'shadow-[0_0_25px_5px_rgba(120,113,108,0.5)]' },
   
   // Other
-  [NoteType.Moon]:       { size: { diameter: 220 }, colors: 'bg-gradient-radial from-slate-200 to-slate-500 border-slate-200',                    glow: 'shadow-[0_0_35px_7px_rgba(100,116,139,0.5)]' },
-  [NoteType.Asteroid]:   { size: { diameter: 180 }, colors: 'bg-gradient-radial from-stone-500 via-stone-700 to-stone-900 border-stone-400',        glow: 'shadow-[0_0_15px_3px_rgba(120,113,108,0.5)]' },
-  [NoteType.Comet]:      { size: { diameter: 180 }, colors: 'bg-gradient-radial from-cyan-200 to-blue-400 border-cyan-100',                        glow: 'shadow-[0_0_35px_7px_rgba(34,211,238,0.5)]', hasTail: true },
+  [NoteType.Moon]:       { size: { diameter: 220 }, coreClass: 'bg-gradient-radial from-slate-200 to-slate-500',                    glow: 'shadow-[0_0_35px_7px_rgba(100,116,139,0.5)]' },
+  [NoteType.Asteroid]:   { size: { diameter: 180 }, coreClass: 'bg-gradient-radial from-stone-500 via-stone-700 to-stone-900',        glow: 'shadow-[0_0_15px_3px_rgba(120,113,108,0.5)]' },
+  [NoteType.Comet]:      { size: { diameter: 180 }, coreClass: 'bg-gradient-radial from-cyan-200 to-blue-400',                        glow: 'shadow-[0_0_35px_7px_rgba(34,211,238,0.5)]', hasTail: true },
 };
 
 export const CELESTIAL_DESCRIPTIONS: Record<NoteType, string> = {

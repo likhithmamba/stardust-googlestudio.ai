@@ -1,5 +1,4 @@
-
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { motion, useDragControls, AnimatePresence, Transition, TargetAndTransition } from 'framer-motion';
 import { Note as NoteType, NoteType as NoteTypeEnum } from '../types';
 import useStore from '../hooks/useStore';
@@ -8,96 +7,13 @@ import { Maximize2, Search, Info, X } from 'lucide-react';
 import ParticleEmitter from './Particles';
 
 const getSelectionStyle = (noteType: NoteTypeEnum): { filter: string[] } => {
+    // Keep original selection styles or adapt them to new aesthetic
     const basePulse = [
         'drop-shadow(0 0 8px rgba(255, 255, 255, 0.5))',
         'drop-shadow(0 0 16px rgba(255, 255, 255, 0.8))',
         'drop-shadow(0 0 8px rgba(255, 255, 255, 0.5))',
     ];
-
-    switch (noteType) {
-        case NoteTypeEnum.Galaxy:
-            return {
-                filter: [
-                    'drop-shadow(0 0 20px rgba(167, 139, 250, 0.6))',
-                    'drop-shadow(0 0 40px rgba(129, 140, 248, 0.9))',
-                    'drop-shadow(0 0 20px rgba(167, 139, 250, 0.6))',
-                ]
-            };
-        case NoteTypeEnum.BlackHole:
-            return {
-                 filter: [
-                    'drop-shadow(0 0 15px rgba(168, 85, 247, 0.6))',
-                    'drop-shadow(0 0 30px rgba(147, 51, 234, 0.9))',
-                    'drop-shadow(0 0 15px rgba(168, 85, 247, 0.6))',
-                ]
-            }
-        case NoteTypeEnum.Sun:
-        case NoteTypeEnum.RedGiant:
-            const color = noteType === NoteTypeEnum.Sun ? '252, 211, 77' : '239, 68, 68';
-            return {
-                filter: [
-                    `drop-shadow(0 0 15px rgba(${color}, 0.7))`,
-                    `drop-shadow(0 0 30px rgba(${color}, 1))`,
-                    `drop-shadow(0 0 15px rgba(${color}, 0.7))`,
-                ]
-            };
-        case NoteTypeEnum.WhiteDwarf:
-        case NoteTypeEnum.Pulsar:
-             return {
-                filter: [
-                    'drop-shadow(0 0 12px rgba(191, 219, 254, 0.8))',
-                    'drop-shadow(0 0 24px rgba(255, 255, 255, 1))',
-                    'drop-shadow(0 0 12px rgba(191, 219, 254, 0.8))',
-                ]
-            };
-        case NoteTypeEnum.Jupiter:
-        case NoteTypeEnum.Saturn:
-             return {
-                filter: [
-                    'drop-shadow(0 0 10px rgba(245, 158, 11, 0.6))',
-                    'drop-shadow(0 0 20px rgba(217, 119, 6, 0.8))',
-                    'drop-shadow(0 0 10px rgba(245, 158, 11, 0.6))',
-                ]
-            };
-        case NoteTypeEnum.Neptune:
-        case NoteTypeEnum.Uranus:
-        case NoteTypeEnum.Planet:
-             return {
-                filter: [
-                    'drop-shadow(0 0 10px rgba(99, 102, 241, 0.6))',
-                    'drop-shadow(0 0 20px rgba(20, 184, 166, 0.8))',
-                    'drop-shadow(0 0 10px rgba(99, 102, 241, 0.6))',
-                ]
-            };
-        case NoteTypeEnum.Pluto:
-        case NoteTypeEnum.Ceres:
-        case NoteTypeEnum.Moon:
-            return {
-                filter: [
-                    'drop-shadow(0 0 6px rgba(220, 220, 220, 0.6))',
-                    'drop-shadow(0 0 12px rgba(255, 255, 255, 0.7))',
-                    'drop-shadow(0 0 6px rgba(220, 220, 220, 0.6))',
-                ]
-            };
-        case NoteTypeEnum.Asteroid:
-            return {
-                filter: [
-                    'drop-shadow(0 0 5px rgba(120, 113, 108, 0.7))',
-                    'drop-shadow(0 0 10px rgba(168, 162, 158, 0.8))',
-                    'drop-shadow(0 0 5px rgba(120, 113, 108, 0.7))',
-                ]
-            };
-        case NoteTypeEnum.Comet:
-             return {
-                filter: [
-                    'drop-shadow(0 0 8px rgba(34, 211, 238, 0.7))',
-                    'drop-shadow(0 0 16px rgba(125, 211, 252, 0.9))',
-                    'drop-shadow(0 0 8px rgba(34, 211, 238, 0.7))',
-                ]
-            };
-        default:
-            return { filter: basePulse };
-    }
+    return { filter: basePulse };
 };
 
 interface NoteProps {
@@ -127,20 +43,15 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
   const isBeingAbsorbed = useStore(s => s.isAbsorbingNoteId === note.id);
   const isDropTarget = useStore(s => s.activeDropTargetId === note.id && note.type === NoteTypeEnum.Nebula);
 
-  // Selector to get the filter string from the parent Nebula, if it exists
   const groupFilter = useStore(state => note.groupId ? state.notes[note.groupId]?.groupFilter : undefined);
 
   const isFilteredOut = useMemo(() => {
-      // Don't filter the Nebula itself based on its own filter query
       if (note.type === NoteTypeEnum.Nebula && note.groupId === note.id) return false;
-      
       if (!groupFilter || !note.groupId) return false;
       
       const query = groupFilter.toLowerCase();
       const contentMatch = note.content.toLowerCase().includes(query);
-      // Assuming tags might be in the tags array; currently simple content check is robust for most
       const tagsMatch = note.tags && note.tags.some(t => t.toLowerCase().includes(query));
-      
       return !contentMatch && !tagsMatch;
   }, [groupFilter, note.content, note.tags, note.groupId, note.type, note.id]);
 
@@ -157,13 +68,15 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
 
   const style = NOTE_STYLES[note.type];
   
-  // Calculate dynamic border styles based on state
-  let borderClasses = `border-2 p-4 ${style.colors} ${style.glow}`;
-  if (isLinkTarget) {
-      borderClasses = `border-4 p-4 border-green-400 shadow-[0_0_30px_rgba(74,222,128,0.6)] scale-105`;
+  // New Glass Planet Class Logic
+  let containerClasses = `absolute flex flex-col justify-center items-center text-center cursor-grab focus:outline-none transition-all duration-300 group`;
+  if (!isNebula && !isBlackHole) {
+      containerClasses += ` note-planet ${isSelected ? 'ring-2 ring-white/50' : ''}`;
   }
 
-  const className = `absolute flex flex-col justify-center items-center text-center cursor-grab focus:outline-none transition-shadow duration-200 ${isNebula || isBlackHole ? '' : borderClasses} group`;
+  if (isLinkTarget) {
+      containerClasses += ` ring-4 ring-green-400 shadow-[0_0_30px_rgba(74,222,128,0.6)] scale-105`;
+  }
 
   const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
     setIsEditing(false);
@@ -190,7 +103,6 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
         const state = useStore.getState();
         const { isAbsorbingNoteId, notes, canvasState, activeDropTargetId, edgePan } = state;
         
-        // 1. Black Hole Pull Logic
         let isPulling = false;
         if (blackHoleRect.current) {
             const holeCenter = { x: blackHoleRect.current.left + blackHoleRect.current.width / 2, y: blackHoleRect.current.top + blackHoleRect.current.height / 2 };
@@ -232,8 +144,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
             setIsAbsorbingNoteId(null);
         }
 
-        // 2. Nebula Grouping Target Logic
-        if (note.type !== NoteTypeEnum.Nebula) { // Nebulas cannot be dropped into other nebulas
+        if (note.type !== NoteTypeEnum.Nebula) {
             const { diameter } = NOTE_STYLES[note.type].size;
             const noteCenter = {
                 x: note.position.x + info.offset.x / canvasState.zoom + diameter / 2,
@@ -262,29 +173,19 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
             }
         }
 
-        // 3. Edge Panning
         const EDGE_MARGIN = 60;
         const MAX_PAN_SPEED = 15;
         const { clientX, clientY } = info.point;
         const { innerWidth, innerHeight } = window;
-        let panX = 0;
-        let panY = 0;
+        let panX = 0, panY = 0;
 
-        if (clientX < EDGE_MARGIN) {
-            panX = (EDGE_MARGIN - clientX) / EDGE_MARGIN * MAX_PAN_SPEED;
-        } else if (clientX > innerWidth - EDGE_MARGIN) {
-            panX = -(clientX - (innerWidth - EDGE_MARGIN)) / EDGE_MARGIN * MAX_PAN_SPEED;
-        }
+        if (clientX < EDGE_MARGIN) panX = (EDGE_MARGIN - clientX) / EDGE_MARGIN * MAX_PAN_SPEED;
+        else if (clientX > innerWidth - EDGE_MARGIN) panX = -(clientX - (innerWidth - EDGE_MARGIN)) / EDGE_MARGIN * MAX_PAN_SPEED;
 
-        if (clientY < EDGE_MARGIN) {
-            panY = (EDGE_MARGIN - clientY) / EDGE_MARGIN * MAX_PAN_SPEED;
-        } else if (clientY > innerHeight - EDGE_MARGIN) {
-            panY = -(clientY - (innerHeight - EDGE_MARGIN)) / EDGE_MARGIN * MAX_PAN_SPEED;
-        }
+        if (clientY < EDGE_MARGIN) panY = (EDGE_MARGIN - clientY) / EDGE_MARGIN * MAX_PAN_SPEED;
+        else if (clientY > innerHeight - EDGE_MARGIN) panY = -(clientY - (innerHeight - EDGE_MARGIN)) / EDGE_MARGIN * MAX_PAN_SPEED;
         
-        if (panX !== edgePan.x || panY !== edgePan.y) {
-            setEdgePan({ x: panX, y: panY });
-        }
+        if (panX !== edgePan.x || panY !== edgePan.y) setEdgePan({ x: panX, y: panY });
         
         isDragUpdateScheduled.current = false;
     });
@@ -296,7 +197,6 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
     
     const { canvasState, notes } = useStore.getState();
 
-    // 1. Black Hole Deletion Check
     const blackHoleEl = document.getElementById('black-hole');
     if (blackHoleEl) {
         const holeRect = blackHoleEl.getBoundingClientRect();
@@ -335,7 +235,6 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
     setIsAbsorbingNoteId(null);
     setActiveDropTargetId(null);
 
-    // 2. Nebula Grouping Commit
     if (note.type !== NoteTypeEnum.Nebula) {
         const { diameter } = NOTE_STYLES[note.type].size;
         const finalPosition = { 
@@ -368,7 +267,6 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
         }
     }
 
-    // 3. Final Position Update
     const delta = {
         x: info.offset.x / canvasState.zoom,
         y: info.offset.y / canvasState.zoom,
@@ -381,15 +279,6 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
   const handleBranchSearch = () => {
     setSearchBranchRootId(note.id);
     setSearchOpen(true);
-  };
-
-  const getBlackHoleExitAnimation = () => {
-    return {
-        scale: 0,
-        opacity: 0,
-        rotate: 720,
-        transition: { duration: 0.8, ease: 'easeIn' as const }
-    };
   };
 
   let animateProps: TargetAndTransition = {
@@ -408,7 +297,12 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
   }
 
   if (isExitingToBlackHole) {
-    animateProps = getBlackHoleExitAnimation();
+    animateProps = {
+        scale: 0,
+        opacity: 0,
+        rotate: 720,
+        transition: { duration: 0.8, ease: 'easeIn' }
+    };
   }
 
   const transitionProps: Transition = {
@@ -419,22 +313,6 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
         ? { duration: 2, repeat: Infinity, ease: 'easeInOut' }
         : { type: 'spring', stiffness: 400, damping: 25 },
   };
-
-  if (!isBeingAbsorbed && !isLinkTarget && !isFilteredOut) {
-    if (note.type === NoteTypeEnum.Pulsar) {
-        animateProps.scale = [1, 1.08, 1];
-        transitionProps.scale = { duration: 0.8, repeat: Infinity, ease: 'easeInOut' };
-    } else if (note.type === NoteTypeEnum.RedGiant) {
-        animateProps.scale = [1, 1.015, 1];
-        transitionProps.scale = { duration: 5, repeat: Infinity, ease: 'easeInOut' };
-    } else if (note.type === NoteTypeEnum.Asteroid) {
-        animateProps.rotate = [0, 360];
-        transitionProps.rotate = { duration: 60, repeat: Infinity, ease: 'linear' };
-    } else if (note.type === NoteTypeEnum.BlackHole) {
-         animateProps.scale = [1, 1.02, 1];
-         transitionProps.scale = { duration: 3, repeat: Infinity, ease: 'easeInOut' };
-    }
-  }
 
   const whileHoverProps = (isSelected && !isBeingAbsorbed) || isLinking
     ? {
@@ -461,7 +339,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
         return (
             <motion.div
                 key={pos}
-                className="absolute w-4 h-4 bg-sky-400 rounded-full border-2 border-white/80 cursor-pointer"
+                className="absolute w-4 h-4 bg-sky-400 rounded-full border-2 border-white/80 cursor-pointer z-50"
                 style={{ top, right, bottom, left }}
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
@@ -489,18 +367,17 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
   
   if (note.type === NoteTypeEnum.Asteroid) {
     motionDivStyle.clipPath = 'polygon(20% 0%, 80% 10%, 100% 40%, 90% 80%, 50% 100%, 10% 90%, 0% 40%)';
-  } else if (!isNebula) {
+  } else if (!isNebula && !isBlackHole) {
     motionDivStyle.borderRadius = '9999px';
   }
 
-  // Optimize text rendering during edits by removing heavy effects
-  const contentClassName = `note-content overflow-hidden leading-snug cursor-text w-full h-full focus:outline-none ${isEditing ? 'no-effects' : ''}`;
+  const contentClassName = `note-content overflow-hidden leading-snug cursor-text w-full h-full focus:outline-none ${isEditing ? 'no-effects' : ''} z-20 relative font-display font-medium text-slate-800 dark:text-white`;
 
   return (
     <motion.div
       ref={noteRef}
       key={note.id}
-      className={className}
+      className={containerClasses}
       style={motionDivStyle}
       drag={(!isNebula || isSelected) && !isExitingToBlackHole}
       dragMomentum={false}
@@ -511,7 +388,6 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
       onDragEnd={handleDragEnd}
       dragTransition={{ power: 0.1, timeConstant: 200 }}
       onPointerDown={(e) => {
-        // Prevent drag/select when interacting with content or actions
         if ((e.target as HTMLElement).closest('.note-actions') || (e.target as HTMLElement).closest('.note-content-wrapper') || (e.target as HTMLElement).tagName === 'INPUT') {
             return;
         }
@@ -541,20 +417,18 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
       }}
     >
       {isNebula ? (
-            <>
-                <motion.div
-                    className="absolute inset-0 rounded-full"
-                    style={{ background: 'radial-gradient(circle, rgba(192, 132, 252, 0.4) 0%, transparent 60%)', filter: 'blur(100px)' }}
-                    animate={{
-                        scale: isDropTarget ? [1, 1.1, 1] : [1, 1.05, 1],
-                        rotate: 360
-                    }}
-                    transition={{
-                        scale: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' },
-                        rotate: { duration: 180, repeat: Infinity, ease: 'linear' }
-                    }}
-                />
-            </>
+            <motion.div
+                className="absolute inset-0 rounded-full"
+                style={{ background: 'radial-gradient(circle, rgba(192, 132, 252, 0.4) 0%, transparent 60%)', filter: 'blur(100px)' }}
+                animate={{
+                    scale: isDropTarget ? [1, 1.1, 1] : [1, 1.05, 1],
+                    rotate: 360
+                }}
+                transition={{
+                    scale: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' },
+                    rotate: { duration: 180, repeat: Infinity, ease: 'linear' }
+                }}
+            />
         ) : isBlackHole ? (
              <div className="absolute inset-0 flex items-center justify-center">
                  <div className="absolute w-full h-full rounded-full bg-black shadow-[inset_0_0_20px_5px_rgba(76,29,149,0.8)]" />
@@ -569,9 +443,10 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
                  />
                  <div className="absolute w-[95%] h-[95%] rounded-full bg-black z-10" />
              </div>
-        ) : <ParticleEmitter diameter={style.size.diameter} />}
-      
-      {/* ... Effects rendered here ... */}
+        ) : (
+            // Glass Planet Core
+            <div className={`planet-core ${style.coreClass} ${style.glow}`} style={{ width: '60%', height: '60%', borderRadius: '50%' }} />
+        )}
       
       {style.hasRings && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
@@ -593,7 +468,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
 
       <div className="absolute top-4 right-4 z-30">
         <button
-          className="note-actions text-white/60 hover:text-white transition-colors"
+          className="note-actions text-slate-400 hover:text-primary transition-colors"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
@@ -606,7 +481,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
         <AnimatePresence>
           {isInfoVisible && (
             <motion.div
-              className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-max max-w-xs p-3 bg-black/70 backdrop-blur-md rounded-lg shadow-lg text-white text-xs z-30"
+              className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-max max-w-xs p-3 glass-panel rounded-lg shadow-lg text-white text-xs z-30"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
@@ -620,9 +495,9 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
       
       <div className="note-actions absolute -top-10 left-1/2 -translate-x-1/2 flex justify-center items-center z-20">
         {isSelected && !isNebula && !isBlackHole && (
-          <div className="flex items-center bg-black/40 backdrop-blur-md rounded-full p-1.5 shadow-lg space-x-1 text-white">
-            <button className="p-1.5 hover:text-yellow-300" onClick={() => setFocusedNoteId(note.id)} title="Focus & Edit"><Maximize2 size={14} /></button>
-            <button className="p-1.5 hover:text-sky-300" onClick={handleBranchSearch} title="Search Branch"><Search size={14} /></button>
+          <div className="flex items-center glass-panel rounded-full p-1.5 shadow-lg space-x-1 text-white">
+            <button className="p-1.5 hover:text-primary" onClick={() => setFocusedNoteId(note.id)} title="Focus & Edit"><Maximize2 size={14} /></button>
+            <button className="p-1.5 hover:text-primary" onClick={handleBranchSearch} title="Search Branch"><Search size={14} /></button>
           </div>
         )}
       </div>
@@ -659,7 +534,7 @@ const NoteComponent: React.FC<NoteProps> = ({ note, isSelected, isPartofSelected
 
       {isNebula && (
         <div className={`absolute bottom-[20%] left-1/2 -translate-x-1/2 w-48 z-40 transition-opacity duration-300 focus-within:opacity-100 ${!note.groupFilter ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
-            <div className="flex items-center bg-black/40 backdrop-blur-md rounded-full px-3 py-1 border border-white/20 hover:bg-black/60 transition-colors">
+            <div className="flex items-center glass-panel rounded-full px-3 py-1 border border-white/20 hover:bg-black/60 transition-colors">
                 <Search size={12} className="text-white/60 mr-2 flex-shrink-0" />
                 <input 
                     type="text"

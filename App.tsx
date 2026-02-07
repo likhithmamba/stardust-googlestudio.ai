@@ -7,7 +7,8 @@ import LightModeFX from './components/LightModeFX';
 import NoteComponent from './components/Note';
 import BlackHole from './components/BlackHole';
 import CreationMenu from './components/CreationMenu';
-import { Toolbar, Minimap, Search } from './components/UI';
+import { TopBar, BottomBar } from './components/Navigation';
+import { Minimap, Search } from './components/UI';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 
@@ -475,10 +476,11 @@ const App: React.FC = () => {
       
       {creationMenu.visible && <CreationMenu x={creationMenu.x} y={creationMenu.y} onSelect={handleCreateNoteFromMenu} onClose={() => setCreationMenu({ ...creationMenu, visible: false })} />}
 
-      <Toolbar />
-      {settings.showMinimap && <Minimap />}
-      <Search />
+      <TopBar />
+      <BottomBar />
       <BlackHole />
+      <Search />
+      {settings.showMinimap && <Minimap />}
       
       <AnimatePresence>
       {focusedNoteId && focusedNote && (
