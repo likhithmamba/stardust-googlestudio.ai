@@ -59,27 +59,32 @@ export const ConnectionLayer: React.FC<ConnectionLayerProps> = ({ connections, n
         const midX = 0.125 * x1 + 0.375 * cp1x + 0.375 * cp2x + 0.125 * x2;
         const midY = 0.125 * y1 + 0.375 * cp1y + 0.375 * cp2y + 0.125 * y2;
 
+        const startNote = conn ? notes.find(n => n.id === (conn as any).from) : (tempConnection ? notes.find(n => n.id === tempConnection.startId) : null);
+        const strokeColor = startNote?.color || '#6366f1';
+
         return (
-            <g key={isTemp ? 'temp' : conn?.id}>
+            <g key={isTemp ? 'temp' : (conn as any)?.id}>
                 {/* Glow/Shadow */}
                 <path
                     d={path}
                     fill="none"
-                    stroke={isTemp ? "rgba(255, 255, 255, 0.5)" : "rgba(139, 92, 246, 0.3)"}
-                    strokeWidth={isTemp ? 4 : 2}
+                    stroke={strokeColor}
+                    strokeWidth={isTemp ? 3 : 2}
                     className="blur-[4px]"
+                    style={{ opacity: isTemp ? 0.4 : 0.2 }}
                 />
                 {/* Core Line */}
                 <path
                     d={path}
                     fill="none"
-                    stroke={isTemp ? "white" : "rgba(255, 255, 255, 0.2)"}
-                    strokeWidth={isTemp ? 2 : 1}
-                    strokeDasharray={isTemp ? "5,5" : "none"}
+                    stroke={strokeColor}
+                    strokeWidth={isTemp ? 1.5 : 1}
+                    strokeDasharray={isTemp ? "6 3" : "none"}
+                    style={{ opacity: isTemp ? 0.7 : 0.4 }}
                 />
-                {/* Arrowhead */}
-                {!isTemp && (
-                    <circle cx={x2} cy={y2} r={2} fill="white" />
+                {/* Arrowhead (Only for temp or small dot) */}
+                {isTemp && (
+                    <circle cx={x2} cy={y2} r={3} fill={strokeColor} />
                 )}
 
                 {/* Connection Label Bar & Delete */}

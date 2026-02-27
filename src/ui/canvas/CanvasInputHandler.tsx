@@ -35,12 +35,18 @@ export const CanvasInputHandler: React.FC = () => {
                 target.closest('input')
             ) return;
 
+            // Check mode for special behaviors
+            const currentViewMode = useSettingsStore.getState().viewMode;
+
+            if (currentViewMode === 'void') {
+                // In Void mode, double click creates a black hole
+                window.dispatchEvent(new CustomEvent('stardust:createBlackHole', {
+                    detail: { x: ev.clientX, y: ev.clientY }
+                }));
+                return;
+            }
+
             // Dispatch event that CanvasViewport listeners will pick up
-            // Or we can just let the existing CanvasViewport handleDoubleClick work, 
-            // BUT the user asked for this handler to be authoritative.
-            // For now, let's allow this to just be a specialized handler if we need custom logic.
-            // Current CanvasViewport uses onClick/onDoubleClick on the div.
-            // We will leave the dispatch here as an option for "external" control.
             window.dispatchEvent(new CustomEvent('stardust:openRadialMenu', {
                 detail: { x: ev.clientX, y: ev.clientY }
             }));
@@ -77,9 +83,6 @@ export const CanvasInputHandler: React.FC = () => {
                     // In a real app, we'd import the spherical chooser function.
                     // For now, let's dispatch an event or invoke the logic.
                     // Since we typically use state to show the chooser:
-
-                    // Logic to show chooser (Mocked for now as we don't have the chooser export handy in context)
-                    console.log('Mobile Double Tap - Open Chooser');
 
                     // We can set a global state or dispatch event
                     window.dispatchEvent(new CustomEvent('stardust:openSphericalMenu', {

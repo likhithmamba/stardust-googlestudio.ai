@@ -1,6 +1,6 @@
 
 import type { ViewMode } from '../constants';
-import { ORBITAL_CONFIG, TIMELINE_CONFIG } from './LayoutConstants';
+import { ORBITAL_CONFIG, TIMELINE_CONFIG, PRISM_CONFIG } from './LayoutConstants';
 
 export interface DragConstraintResult {
     x: number;
@@ -9,6 +9,10 @@ export interface DragConstraintResult {
         tags?: string[];
         priority?: 'critical' | 'high' | 'medium' | 'low';
         originMode?: ViewMode;
+        urgency?: 'urgent' | 'not-urgent';
+        importance?: 'important' | 'not-important';
+        status?: 'captured' | 'todo' | 'in-progress' | 'review' | 'done' | 'archived';
+        dueDate?: number;
     };
 }
 
@@ -48,7 +52,15 @@ export class ViewConstraints {
             return this.getTimelineConstraint(targetX, targetY, origin);
         }
 
-        // Prism/Void/Etc - Default to free for now or add specific logic
+        if (mode === 'prism') {
+            return this.getPrismConstraint(targetX, targetY, origin);
+        }
+
+        if (mode === 'archive') {
+            return this.getArchiveConstraint(targetX, targetY, origin);
+        }
+
+        // Void/Etc - Default to free for now or add specific logic
         return { x: targetX, y: targetY };
     }
 
@@ -117,29 +129,32 @@ export class ViewConstraints {
 
         let tags: string[] = [];
         let priority: 'critical' | 'high' | 'medium' | 'low' = 'medium';
+        let urgency: 'urgent' | 'not-urgent' = 'not-urgent';
+        let importance: 'important' | 'not-important' = 'not-important';
 
         const isLeft = relX < 0;
         const isTop = relY < 0;
 
-        // Apply Logic Data
-        // Apply Logic Data (Manifesto Map)
-        // TL (Solar Core) -> High Heat/Gravity (Crisis)
-        // TR (Nebula Flow) -> High Value, Low Urgency (Deep Work)
-        // BL (Starlight)   -> Distractions/Nice to have
-        // BR (Void)        -> Delete/Delegate
-
         if (isLeft && isTop) {
             tags = ['crisis', 'solar-core'];
             priority = 'critical';
+            urgency = 'urgent';
+            importance = 'important';
         } else if (!isLeft && isTop) {
             tags = ['deep-work', 'nebula'];
             priority = 'high';
+            urgency = 'not-urgent';
+            importance = 'important';
         } else if (isLeft && !isTop) {
             tags = ['starlight'];
             priority = 'low';
+            urgency = 'urgent';
+            importance = 'not-important';
         } else {
             tags = ['void-dump'];
             priority = 'low';
+            urgency = 'not-urgent';
+            importance = 'not-important';
         }
 
         return {
@@ -148,6 +163,8 @@ export class ViewConstraints {
             dataUpdates: {
                 tags,
                 priority,
+                urgency,
+                importance,
                 originMode: 'matrix'
             }
         };
@@ -161,21 +178,84 @@ export class ViewConstraints {
         y: number,
         origin: { x: number; y: number }
     ): DragConstraintResult {
-        // Lock Y to the timeline axis (or origin Y)
-        const { SNAP_THRESHOLD } = TIMELINE_CONFIG;
-        let constrainedY = y;
+        const { PIXELS_PER_DAY } = TIMELINE_CONFIG;
 
-        // If close to axis, snap hard
-        if (Math.abs(y - origin.y) < SNAP_THRESHOLD) {
-            constrainedY = origin.y;
-        }
+        // Date mapping based on X coordinate
+        const daysOffset = Math.round((x - origin.x) / (PIXELS_PER_DAY || 100));
+        const mappedDate = new Date();
+        mappedDate.setDate(mappedDate.getDate() + daysOffset);
+
+        // Lane mapping based on Y coordinate
+        const totalHeight = 150 * 4;
+        const startY = origin.y - totalHeight / 2;
+
+        let laneIndex = Math.floor((y - startY) / 150);
+        if (laneIndex < 0) laneIndex = 0;
+        if (laneIndex > 3) laneIndex = 3;
+
+        const snappedY = startY + (laneIndex * 150) + 75;
+        const statuses: Array<'in-progress' | 'todo' | 'review' | 'done'> = ['in-progress', 'todo', 'review', 'done'];
 
         return {
-            x: x, // Time flows freely
-            y: constrainedY,
+            x: x,
+            y: snappedY,
             dataUpdates: {
-                originMode: 'timeline'
-                // Date updates handled by component mapping X to Date if needed
+                originMode: 'timeline',
+                dueDate: mappedDate.getTime(),
+                status: statuses[laneIndex]
+            }
+        };
+    }
+
+    /**
+     * PRISM LOGIC: Kanban Lane Snapping
+     */
+    private static getPrismConstraint(
+        x: number,
+        y: number,
+        origin: { x: number; y: number }
+    ): DragConstraintResult {
+        const totalWidth = PRISM_CONFIG.COL_WIDTH + PRISM_CONFIG.GAP;
+        const relX = x - origin.x;
+
+        let colIndex = Math.round((relX / totalWidth) + 1.5);
+        if (colIndex < 0) colIndex = 0;
+        if (colIndex > 3) colIndex = 3;
+
+        const finalX = origin.x + (colIndex - 1.5) * totalWidth;
+        const statuses: Array<'todo' | 'in-progress' | 'review' | 'done'> = ['todo', 'in-progress', 'review', 'done'];
+
+        return {
+            x: finalX,
+            y: y, // Y might be constrained by stacking logic elsewhere
+            dataUpdates: {
+                status: statuses[colIndex],
+                originMode: 'prism'
+            }
+        };
+    }
+
+    /**
+     * ARCHIVE LOGIC: Strict Grid Snapping
+     */
+    private static getArchiveConstraint(
+        x: number,
+        y: number,
+        origin: { x: number; y: number }
+    ): DragConstraintResult {
+        // Grid spacing for the graveyard
+        const GRID_SIZE = 150;
+
+        // Snap to nearest grid multiple relative to origin
+        const snappedX = origin.x + Math.round((x - origin.x) / GRID_SIZE) * GRID_SIZE;
+        const snappedY = origin.y + Math.round((y - origin.y) / GRID_SIZE) * GRID_SIZE;
+
+        return {
+            x: snappedX,
+            y: snappedY,
+            dataUpdates: {
+                status: 'archived',
+                originMode: 'archive'
             }
         };
     }

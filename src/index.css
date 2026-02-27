@@ -30,8 +30,6 @@
   --primary-indigo: #6366f1;
   --primary-amber: #eebd2b;
   --primary-void: #1919e6;
-
-  /* Dark Mode Overrides applied via class */
 }
 
 /* ── Stitch Animations ── */
@@ -57,6 +55,94 @@
   50% {
     box-shadow: 0 0 40px rgba(25, 25, 230, 0.2);
   }
+}
+
+@keyframes warpIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.94) translateY(4px);
+    filter: blur(8px);
+  }
+
+  50% {
+    opacity: 0.6;
+    filter: blur(2px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0px);
+  }
+}
+
+@keyframes planetGlow {
+
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.85;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes planetPulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 20px -5px var(--mode-accent, rgba(99, 102, 241, 0.5));
+  }
+
+  50% {
+    box-shadow: 0 0 40px 5px var(--mode-accent, rgba(99, 102, 241, 0.6));
+  }
+}
+
+@keyframes warpExit {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0px);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.1);
+    filter: blur(20px);
+  }
+}
+
+.animate-warp-in {
+  animation: warpIn 0.8s cubic-bezier(0.25, 0.8, 0.25, 1) both;
+}
+
+.note-planet {
+  animation: planetPulse 4s ease-in-out infinite;
+}
+
+@keyframes floatAmbient {
+
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+
+  33% {
+    transform: translate(10px, -15px);
+  }
+
+  66% {
+    transform: translate(-10px, 10px);
+  }
+}
+
+.lp-warp-exit {
+  animation: warpExit 0.8s ease-in forwards;
+  pointer-events: none;
 }
 
 .dark {
@@ -177,6 +263,11 @@ body {
   color: var(--text-primary);
   overflow: hidden;
   transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+body.landing-active {
+  overflow-y: auto !important;
+  height: auto !important;
 }
 
 /* Typography Utilities */

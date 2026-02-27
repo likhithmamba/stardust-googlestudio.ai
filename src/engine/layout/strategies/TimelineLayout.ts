@@ -2,10 +2,8 @@ import type { EngineNote, WorldConfig } from '../../types/EngineTypes';
 import type { LayoutStrategy } from '../LayoutStrategy';
 import { TIMELINE_CONFIG, type Vector2 } from '../LayoutConstants';
 import { differenceInDays } from 'date-fns';
-import {
-    calculateProjectVelocity,
-    type ProjectVelocity
-} from '../../cognitive/TimelineEngine';
+import { calculateProjectVelocity } from '../../cognitive/TimelineEngine';
+import type { ProjectVelocity } from '../../../types/StardustSchema';
 
 /**
  * TIMELINE LAYOUT - Sequential Momentum with Velocity Tracking
@@ -30,35 +28,36 @@ export class TimelineLayout implements LayoutStrategy {
             this.lastVelocityUpdate = now;
         }
 
-        // Sort notes by creation date for proper timeline ordering
+        // Sort notes by target date for proper timeline ordering
         const sortedNotes = [...notes].sort((a, b) => {
-            const aTime = a.createdAt || 0;
-            const bTime = b.createdAt || 0;
+            const aTime = a.dueDate || a.createdAt || 0;
+            const bTime = b.dueDate || b.createdAt || 0;
             return aTime - bTime;
         });
 
-        // Create swimlanes based on priority/type
+        // Create swimlanes based on status
         const lanes: Record<string, EngineNote[]> = {
-            top: [],      // Critical/High priority
-            middle: [],   // Medium priority
-            bottom: []    // Low priority / completed
+            'in-progress': [],  // Active Project
+            'todo': [],         // Backlog
+            'review': [],       // Review
+            'done': []          // Archive
         };
 
         sortedNotes.forEach(note => {
-            if (note.priority === 'critical' || note.priority === 'high') {
-                lanes.top.push(note);
-            } else if (note.priority === 'low') {
-                lanes.bottom.push(note);
+            const status = note.status || 'todo';
+            if (lanes[status]) {
+                lanes[status].push(note);
             } else {
-                lanes.middle.push(note);
+                lanes['todo'].push(note);
             }
         });
 
-        // Lane Y offsets
+        // Lane Y offsets (4 lanes, 150px each, centered)
         const laneOffsets = {
-            top: -150,
-            middle: 0,
-            bottom: 150
+            'in-progress': -225,
+            'todo': -75,
+            'review': 75,
+            'done': 225
         };
 
         // Place notes on timeline
@@ -66,11 +65,11 @@ export class TimelineLayout implements LayoutStrategy {
             const yOffset = laneOffsets[lane as keyof typeof laneOffsets];
 
             laneNotes.forEach((note, index) => {
-                const created = note.createdAt ? new Date(note.createdAt) : new Date();
-                const daysDiff = differenceInDays(created, new Date());
+                const targetDate = note.dueDate || note.createdAt || Date.now();
+                const daysDiff = differenceInDays(new Date(targetDate), new Date());
 
                 // Add slight vertical offset within lane to prevent overlap
-                const intraLaneOffset = (index % 3 - 1) * 40;
+                const intraLaneOffset = (index % 3 - 1) * 30;
 
                 targets.set(note.id, {
                     x: center.x + (daysDiff * PIXELS_PER_DAY),

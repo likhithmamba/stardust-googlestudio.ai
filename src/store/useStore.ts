@@ -15,7 +15,7 @@ export type Note = {
     createdAt?: number; // Timestamp
     updatedAt?: number; // Timestamp
     priority?: 'critical' | 'high' | 'medium' | 'low';
-    status?: 'todo' | 'in-progress' | 'done' | 'archived';
+    status?: 'captured' | 'todo' | 'in-progress' | 'review' | 'done' | 'archived';
     parentId?: string;
     children?: string[]; // Added: Hierarchy Support
     links?: { fromId: string; toId: string; metadata?: any }[]; // Added: Link System
@@ -43,6 +43,11 @@ export type Note = {
 
     // Compartmentalization (Filtering)
     originMode?: ViewMode;
+    urgency?: 'urgent' | 'not-urgent';
+    importance?: 'important' | 'not-important';
+    dueDate?: number;
+    startDate?: number;
+    visibleInModes?: ViewMode[]; // strictly allow visibility in these modes
 };
 
 export type Connection = {
@@ -58,15 +63,18 @@ type State = {
     connections: Connection[];
     viewport: { x: number; y: number; zoom: number };
     selectedId?: string;
+    isCosmosOpen: boolean;
     isSettingsOpen: boolean;
     addNote: (n: Note) => void;
     updateNote: (id: string, patch: Partial<Note>) => void;
     deleteNote: (id: string) => void;
+    promoteNote: (id: string, targetMode: ViewMode) => void;
     addConnection: (c: Connection) => void;
     updateConnection: (id: string, patch: Partial<Connection>) => void;
     removeConnection: (id: string) => void;
     setViewport: (viewport: { x: number; y: number; zoom: number }) => void;
     setSelectedId: (id: string | undefined) => void;
+    setCosmosOpen: (isOpen: boolean) => void;
     setSettingsOpen: (isOpen: boolean) => void;
     setNotes: (notes: Note[]) => void;
     setConnections: (connections: Connection[]) => void;
@@ -118,6 +126,10 @@ type State = {
     theme: 'default' | 'cyberpunk' | 'zen';
     setTheme: (theme: 'default' | 'cyberpunk' | 'zen') => void;
 
+    // Interaction State
+    connectionStart: { id: string; x: number; y: number } | null;
+    setConnectionStart: (start: { id: string; x: number; y: number } | null) => void;
+
     // Persistence
     exportData?: () => Promise<void>;
     importData?: () => Promise<void>;
@@ -143,11 +155,52 @@ const deletedNoteIds = new Set<string>();
 const dirtyConnectionIds = new Set<string>();
 const deletedConnectionIds = new Set<string>();
 
+export function noteVisibleInMode(note: Note, mode: ViewMode | string): boolean {
+    const m = mode as ViewMode;
+    if (m === 'archive') return note.status === 'archived' || note.isDying === true;
+    if (note.status === 'archived' || note.isDying === true) return false;
+
+    // Explicit visibility overrides (acts as a whitelist if defined and populated)
+    if (note.visibleInModes && note.visibleInModes.length > 0) {
+        if (note.visibleInModes.includes(m)) return true;
+        if (m !== 'free' && note.originMode !== m) return false;
+    }
+
+    if (m === 'free') return true;
+    if (note.originMode === m) return true;
+    switch (m) {
+        case 'void':
+            return !note.originMode || note.originMode === 'void' || note.status === 'captured';
+        case 'orbital':
+            return note.priority != null;
+        case 'matrix':
+            return note.urgency != null || note.importance != null;
+        case 'prism':
+            return note.status === 'todo' || note.status === 'in-progress' || note.status === 'review' || note.status === 'done';
+        case 'timeline':
+            return note.dueDate != null || note.startDate != null;
+        default:
+            return false;
+    }
+}
+
+export function defaultNotePropsForMode(mode: ViewMode | string): Partial<Note> {
+    switch (mode as ViewMode) {
+        case 'orbital': return { originMode: 'orbital', priority: 'medium', status: 'todo' };
+        case 'matrix': return { originMode: 'matrix', urgency: 'not-urgent', importance: 'important', status: 'todo' };
+        case 'prism': return { originMode: 'prism', status: 'todo' };
+        case 'timeline': return { originMode: 'timeline', dueDate: Date.now() + 7 * 24 * 60 * 60 * 1000, status: 'todo' };
+        case 'archive': return { originMode: 'archive', status: 'archived' };
+        default: return { originMode: 'void', status: 'captured' };
+    }
+}
+
 export const useStore = create<State>((set, get) => ({
     notes: [],
     connections: [],
     viewport: { x: 0, y: 0, zoom: 1 },
     selectedId: undefined,
+    isCosmosOpen: false,
     focusModeId: undefined,
     isSettingsOpen: false,
     addNote: (n) => {
@@ -171,6 +224,19 @@ export const useStore = create<State>((set, get) => ({
         dirtyNoteIds.delete(id);
         debouncedSave();
     },
+    promoteNote: (id, targetMode) => {
+        set((s) => ({
+            notes: s.notes.map((n) => {
+                if (n.id !== id) return n;
+                const existing = n.visibleInModes || [];
+                if (existing.includes(targetMode)) return n;
+                const defaults = defaultNotePropsForMode(targetMode);
+                return { ...n, ...defaults, originMode: n.originMode, visibleInModes: [...existing, targetMode], updatedAt: Date.now() };
+            }),
+        }));
+        dirtyNoteIds.add(id);
+        debouncedSave();
+    },
     addConnection: (c) => {
         set((s) => ({ connections: [...s.connections, c] }));
         dirtyConnectionIds.add(c.id);
@@ -189,6 +255,7 @@ export const useStore = create<State>((set, get) => ({
     },
     setViewport: (viewport) => set({ viewport }),
     setSelectedId: (id) => set({ selectedId: id }),
+    setCosmosOpen: (isOpen) => set({ isCosmosOpen: isOpen }),
     setFocusModeId: (id) => set({ focusModeId: id }),
     setSettingsOpen: (isOpen) => set({ isSettingsOpen: isOpen }),
     setContents: (notes: Note[], connections: Connection[]) => {
@@ -241,6 +308,10 @@ export const useStore = create<State>((set, get) => ({
 
     theme: initialSettings.theme ?? 'default',
     setTheme: (theme) => set({ theme }),
+
+    // Interaction State
+    connectionStart: null,
+    setConnectionStart: (connectionStart) => set({ connectionStart }),
 
     // REMOVED Redundant ViewMode logic (moved to settingsStore)
 
@@ -379,6 +450,9 @@ const fullSaveToDB = async () => {
     }
 };
 
+// Fallback demo notes for when DB is unavailable (e.g., private browsing)
+const DEMO_NOTES_FALLBACK: Note[] = [];
+
 // Load on init
 const loadFromDB = async () => {
     const db = await initDB();
@@ -386,48 +460,117 @@ const loadFromDB = async () => {
     const connections = await db.getAll('connections');
 
     if (notes.length === 0) {
-        // ... (keep existing welcome logic) ...
+        // Place demo notes centered on screen so they are visible immediately
+        const CX = window.innerWidth / 2;
+        const CY = window.innerHeight / 2;
+
         const welcomeNote: Note = {
             id: 'welcome-nebula',
-            x: 100,
-            y: 100,
-            w: 1600, // Nebula size
-            h: 1600,
+            x: CX - 120,
+            y: CY - 120,
+            w: 0,
+            h: 0,
             type: NoteType.Nebula,
-            title: 'Welcome to Stardust',
-            content: 'Double-click anywhere to create a new planet.\n\nDouble-click THIS nebula to dismiss it and start fresh.\n\nDrag handles to connect thoughts.',
+            title: 'Welcome to Stardust ✨',
+            content: 'Double-click anywhere to create a new planet.\n\nDrag handles to connect thoughts.\n\nSwitch modes with the dock below.',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            originMode: 'void',
+            status: 'captured',
+            visibleInModes: ['orbital', 'matrix']
         };
         const instructionPlanet: Note = {
             id: 'instruction-earth',
-            x: 800,
-            y: 800,
-            w: 400,
-            h: 400,
+            x: CX + 180,
+            y: CY - 80,
+            w: 0,
+            h: 0,
             type: NoteType.Earth,
-            title: 'I am a Planet!\n\nUse the toolbar below to change my Appearance.\n\nTry changing my color or font!',
+            title: 'I am a Planet!',
+            content: 'Try changing my color or type in the toolbar.',
+            priority: 'high',
+            createdAt: Date.now() - 1000,
+            updatedAt: Date.now(),
+            originMode: 'orbital'
         };
-        useStore.getState().setNotes([welcomeNote, instructionPlanet]);
+        const sunNote: Note = {
+            id: 'demo-sun',
+            x: CX - 60,
+            y: CY - 300,
+            w: 0,
+            h: 0,
+            type: NoteType.Sun,
+            title: 'Core Idea',
+            priority: 'critical',
+            fixed: true,
+            createdAt: Date.now() - 2000,
+            updatedAt: Date.now(),
+            originMode: 'matrix',
+            urgency: 'urgent',
+            importance: 'important',
+            status: 'todo'
+        };
+        const moonNote: Note = {
+            id: 'demo-moon',
+            x: CX - 280,
+            y: CY + 80,
+            w: 0,
+            h: 0,
+            type: NoteType.Moon,
+            title: 'Supporting thought',
+            priority: 'low',
+            createdAt: Date.now() - 500,
+            updatedAt: Date.now(),
+            originMode: 'timeline',
+            dueDate: Date.now() + 86400000,
+            status: 'todo'
+        };
+        const archiveNote: Note = {
+            id: 'demo-archive',
+            x: CX + 300,
+            y: CY + 200,
+            w: 0,
+            h: 0,
+            type: NoteType.Asteroid,
+            title: 'Old idea',
+            createdAt: Date.now() - 10000,
+            updatedAt: Date.now(),
+            originMode: 'archive',
+            status: 'archived'
+        };
+        useStore.getState().setNotes([sunNote, welcomeNote, instructionPlanet, moonNote, archiveNote]);
         useStore.getState().setConnections([{
             id: 'intro-conn',
+            from: 'demo-sun',
+            to: 'welcome-nebula',
+            label: 'Start here'
+        }, {
+            id: 'intro-conn-2',
             from: 'welcome-nebula',
             to: 'instruction-earth',
-            label: 'Try it out!'
         }]);
+        // Set viewport to show all demo notes
+        useStore.getState().setViewport({ x: 0, y: 0, zoom: 0.75 });
     } else {
         // SANITIZATION: Fix NaN/Corrupted Notes from previous crashes
         const sanitizedNotes = notes.map(n => ({
             ...n,
-            x: Number.isFinite(n.x) ? n.x : 0,
-            y: Number.isFinite(n.y) ? n.y : 0,
+            x: Number.isFinite(n.x) ? n.x : window.innerWidth / 2,
+            y: Number.isFinite(n.y) ? n.y : window.innerHeight / 2,
             vx: 0, // Force Static Start
             vy: 0,
+            originMode: n.originMode || ('void' as ViewMode),
+            status: n.status || 'captured',
         }));
         useStore.getState().setNotes(sanitizedNotes);
         useStore.getState().setConnections(connections);
     }
 };
 
-loadFromDB();
+loadFromDB().catch(err => {
+    console.error('DB unavailable, starting fresh:', err);
+    useStore.getState().setNotes(DEMO_NOTES_FALLBACK);
+});
 
 // Subscribe to settings changes
 useStore.subscribe((state) => {

@@ -10,123 +10,121 @@ interface SmartLinkProps {
     target: EngineNote;
 }
 
-export const SmartLink: React.FC<SmartLinkProps> = ({ connection, source, target }) => {
+export const SmartLink: React.FC<SmartLinkProps> = React.memo(({ connection, source, target }) => {
     const pathRef = useRef<SVGPathElement>(null);
+    const particleRef = useRef<SVGCircleElement>(null);
+    const labelRef = useRef<HTMLDivElement>(null);
+
     const updateConnection = useStore((state) => state.updateConnection);
     const removeConnection = useStore((state) => state.removeConnection);
 
     useEffect(() => {
         if (pathRef.current) {
-            visualRegistry.registerConnection(connection.id, pathRef.current);
+            visualRegistry.registerConnection(connection.id, {
+                path: pathRef.current,
+                particle: particleRef.current || undefined,
+                label: labelRef.current || undefined
+            });
         }
         return () => {
             visualRegistry.unregisterConnection(connection.id);
         };
     }, [connection.id]);
 
-    // Calculate Handle Nodes (Top, Right, Bottom, Left)
-    const getHandles = (node: EngineNote) => {
-        const cx = node.x + (node.w || 0) / 2;
-        const cy = node.y + (node.h || 0) / 2;
-        const r = (node.w || 0) / 2;
-        return [
-            { x: cx, y: cy - r }, // Top
-            { x: cx + r, y: cy }, // Right
-            { x: cx, y: cy + r }, // Bottom
-            { x: cx - r, y: cy }  // Left
-        ];
-    };
-
-    // Find closest handles for stable initial/fallback render
-    const sourceHandles = getHandles(source);
-    const targetHandles = getHandles(target);
-
-    let bestDist = Infinity;
-    let sx = source.x + (source.w || 0) / 2;
-    let sy = source.y + (source.h || 0) / 2;
-    let tx = target.x + (target.w || 0) / 2;
-    let ty = target.y + (target.h || 0) / 2;
-
-    sourceHandles.forEach(sh => {
-        targetHandles.forEach(th => {
-            const dx = sh.x - th.x;
-            const dy = sh.y - th.y;
-            const d = dx * dx + dy * dy;
-            if (d < bestDist) {
-                bestDist = d;
-                sx = sh.x;
-                sy = sh.y;
-                tx = th.x;
-                ty = th.y;
-            }
-        });
-    });
-
-    const midX = (sx + tx) / 2;
-    const midY = (sy + ty) / 2;
     const label = connection.label || '';
+    const lineColor = (connection as any).color || 'rgba(99,102,241,0.5)';
+    const particleColor = (connection as any).color || 'rgba(99,102,241,0.9)';
+
+    // Initial Path Calculation (React only does this once or on ID change)
+    // The VisualRegistry will handle high-frequency updates.
+    const sx = source.x + (source.w || 0) / 2;
+    const sy = source.y + (source.h || 0) / 2;
+    const tx = target.x + (target.w || 0) / 2;
+    const ty = target.y + (target.h || 0) / 2;
+    const dxC = tx - sx;
+    const cp1x = sx + dxC * 0.4;
+    const cp1y = sy;
+    const cp2x = tx - dxC * 0.4;
+    const cp2y = ty;
+    const curvePath = `M ${sx} ${sy} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tx} ${ty}`;
+
+    // Duration for particle
+    const pathLen = Math.sqrt((tx - sx) ** 2 + (ty - sy) ** 2);
+    const dur = Math.max(1.5, pathLen / 200).toFixed(1);
 
     return (
-        <g className="smart-link group">
-            {/* Glow Path (Subtle) */}
+        <g className="smart-link group cursor-pointer">
+            {/* Glow blur layer */}
             <path
-                d={`M ${sx} ${sy} L ${tx} ${ty}`}
+                d={curvePath}
                 fill="none"
-                stroke="rgba(255, 255, 255, 0.05)"
+                stroke={lineColor}
                 strokeWidth={6}
-                className="blur-[8px]"
+                className="opacity-40 group-hover:opacity-80 transition-opacity duration-300 blur-[8px]"
             />
 
-            {/* Core Dotted Line (Visual Registry will update 'd' attribute directly) */}
+            {/* Core bezier path */}
             <path
                 ref={pathRef}
-                d={`M ${sx} ${sy} L ${tx} ${ty}`}
+                d={curvePath}
                 fill="none"
-                stroke="rgba(255, 255, 255, 0.25)"
-                strokeWidth={1.5}
-                strokeDasharray="6,4"
+                stroke={lineColor}
+                strokeWidth={2.5}
                 strokeLinecap="round"
-                className="transition-colors group-hover:stroke-blue-400"
+                strokeDasharray="8 6"
+                className="opacity-60 group-hover:opacity-100 transition-opacity duration-300"
             />
 
-            {/* Premium Pill Label */}
-            <foreignObject
-                x={midX - 50}
-                y={midY - 12}
-                width={100}
-                height={24}
-                className="overflow-visible pointer-events-auto"
-            >
-                <div className="flex items-center justify-center h-full">
+            {/* Animated particle */}
+            <circle ref={particleRef} r="4" fill={particleColor} style={{ filter: `drop-shadow(0_0_8px_${particleColor})` }}>
+                <animateMotion
+                    dur={`${dur}s`}
+                    repeatCount="indefinite"
+                    path={curvePath}
+                />
+            </circle>
+
+            {/* Midpoint pill label */}
+            <foreignObject width="1" height="1" className="overflow-visible pointer-events-none">
+                <div
+                    ref={labelRef}
+                    className="absolute flex items-center justify-center p-4"
+                >
                     <div className={clsx(
-                        "flex items-center gap-1 px-3 py-1 rounded-full",
-                        "bg-slate-900/80 backdrop-blur-md border border-white/10 shadow-xl",
-                        "transition-all duration-300 group-hover:border-blue-500/50 group-hover:scale-105",
-                        !label && "opacity-0 group-hover:opacity-100" // Hide if empty unless hovered
+                        'flex items-center gap-1 px-2 py-1 rounded-full text-[9px] uppercase tracking-wide pointer-events-auto',
+                        'bg-[#111121]/90 backdrop-blur-xl border border-white/10 shadow-xl',
+                        'transition-all duration-300 min-w-[60px]',
+                        !label ? 'opacity-0 group-hover:opacity-100' : 'opacity-80 group-hover:opacity-100'
                     )}>
                         <input
                             type="text"
                             defaultValue={label}
-                            placeholder="Link..."
+                            placeholder="+ label"
                             onBlur={(e) => updateConnection(connection.id, { label: e.target.value })}
-                            className="bg-transparent text-[10px] text-white text-center w-full outline-none placeholder-white/20 font-medium"
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    updateConnection(connection.id, { label: e.currentTarget.value });
+                                    e.currentTarget.blur();
+                                }
+                            }}
+                            className="bg-transparent text-[9px] text-white/70 hover:text-white text-center w-20 outline-none placeholder-white/20 font-medium tracking-wide"
                             onPointerDown={(e) => e.stopPropagation()}
                         />
                         <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                removeConnection(connection.id);
-                            }}
-                            className="text-white/40 hover:text-red-400 p-0.5 rounded-full transition-colors"
+                            onClick={(e) => { e.stopPropagation(); removeConnection(connection.id); }}
+                            className="w-5 h-5 rounded-lg flex items-center justify-center text-white/20 hover:text-red-400 hover:bg-red-400/10 transition-all opacity-0 group-hover:opacity-100"
                             title="Remove Link"
                         >
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M18 6L6 18M6 6l12 12" />
-                            </svg>
+                            <span className="material-symbols-outlined text-[12px]">close</span>
                         </button>
                     </div>
                 </div>
             </foreignObject>
         </g>
     );
-};
+}, (prev, next) => {
+    // Memoization check: Don't re-render for position changes!
+    // Source/Target positions change every frame, but VisualRegistry handles them.
+    return prev.connection.id === next.connection.id &&
+        prev.connection.label === next.connection.label;
+});

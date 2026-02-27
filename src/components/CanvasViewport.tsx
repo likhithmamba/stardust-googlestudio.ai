@@ -1,15 +1,16 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGesture } from '@use-gesture/react';
-import { useStore } from '../store/useStore';
+import { useStore, noteVisibleInMode, defaultNotePropsForMode } from '../store/useStore';
+import { useMemo } from 'react';
+import type { ViewMode } from '../constants';
 import { useEngine } from '../hooks/useEngine';
-
 import { ViewConstraints } from '../systems/ViewConstraints';
 import { MiniMap } from './MiniMap';
 import { PlanetNote } from './PlanetNote';
 import { ConnectionLayer } from './ConnectionLayer';
 import { BlackHole } from './BlackHole';
-import { NOTE_STYLES, NoteType, REAL_SIZES } from '../constants';
+import { NOTE_STYLES, NoteType, REAL_SIZES, ALLOWED_TYPES_PER_MODE } from '../constants';
 import { HierarchyOverlay } from '../features/hierarchy/HierarchyOverlay';
 import { LinksOverlay } from '../features/links/LinksOverlay';
 import { SearchTeleport } from './SearchTeleport';
@@ -22,11 +23,29 @@ import { StarfieldLayer } from './StarfieldLayer';
 import { soundManager } from '../utils/sound';
 
 // Mode Overlays
-
 import { DecayOverlay } from './modes/DecayView';
 import { NotesChoiceRing } from './NotesChoiceRing';
 import { DashboardBackground } from './DashboardBackground';
+import { EditorOverlay } from './EditorOverlay';
 import { AppShell } from './AppShell';
+
+// Per-mode Chrome Overlays
+import { VoidChrome } from './chrome/VoidChrome';
+import { OrbitalChrome } from './chrome/OrbitalChrome';
+import { MatrixChrome } from './chrome/MatrixChrome';
+import { PrismChrome } from './chrome/PrismChrome';
+import { TimelineChrome } from './chrome/TimelineChrome';
+
+// Mode accent colors for transition announcements
+const MODE_ACCENTS: Record<string, string> = {
+    void: '#1919e6',
+    orbital: '#6366f1',
+    matrix: '#3b82f6',
+    prism: '#a855f7',
+    timeline: '#eebd2b',
+    archive: '#10b981',
+    free: '#6366f1',
+};
 
 export const CanvasViewport: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -46,6 +65,7 @@ export const CanvasViewport: React.FC = () => {
     // Migrated: UI Toggles & Modes from SettingsStore
     const mode = useSettingsStore((state) => state.mode);
     const viewMode = useSettingsStore((state) => state.viewMode);
+    const transitionPhase = useSettingsStore((state) => state.transitionPhase);
 
     // ENGINE INTEGRATION
     const engine = useEngine();
@@ -72,17 +92,62 @@ export const CanvasViewport: React.FC = () => {
     const scaleMode = useStore((state) => state.scaleMode);
 
     // Interaction State
-    const [connectionStart, setConnectionStart] = useState<{ id: string; x: number; y: number } | null>(null);
+    const connectionStart = useStore((state) => state.connectionStart);
+    const setConnectionStart = useStore((state) => state.setConnectionStart);
     const [tempConnectionEnd, setTempConnectionEnd] = useState<{ x: number; y: number } | null>(null);
     const [blackHoleActive, setBlackHoleActive] = useState(false);
 
     // Unified Genesis Ring (Creation) Menu State
     const [activeMenu, setActiveMenu] = useState<{ isOpen: boolean; x: number; y: number; worldX: number; worldY: number } | null>(null);
 
+    const handleCreateNote = useCallback((type: NoteType, overrideX?: number, overrideY?: number) => {
+        if (activeMenu || (overrideX !== undefined && overrideY !== undefined)) {
+            const menu = activeMenu;
+
+            let spawnX = overrideX !== undefined ? overrideX : menu?.worldX || 0;
+            let spawnY = overrideY !== undefined ? overrideY : menu?.worldY || 0;
+            let initialTags: string[] = [];
+
+            if (viewMode !== 'free' && viewMode !== 'void') {
+                const constraint = ViewConstraints.applyConstraints(
+                    viewMode || 'free',
+                    spawnX,
+                    spawnY,
+                    layoutOrigin,
+                    { width: window.innerWidth, height: window.innerHeight }
+                );
+
+                spawnX = constraint.x;
+                spawnY = constraint.y;
+
+                if (constraint.dataUpdates) {
+                    if (constraint.dataUpdates.tags) initialTags = constraint.dataUpdates.tags;
+                }
+            }
+
+            const modeDefaults = defaultNotePropsForMode(viewMode);
+            addNote({
+                id: Math.random().toString(36).substr(2, 9),
+                x: spawnX,
+                y: spawnY,
+                w: 0,
+                h: 0,
+                type: type,
+                title: '',
+                tags: initialTags,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                ...modeDefaults
+            });
+            soundManager.playClick();
+            setActiveMenu(null);
+        }
+    }, [activeMenu, viewMode, layoutOrigin, addNote]);
+
     // Linking System State
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; noteId: string } | null>(null);
-    const [linkingFromId, setLinkingFromId] = useState<string | null>(null);
     const [alignmentLines, setAlignmentLines] = useState<{ x?: number; y?: number } | null>(null);
+    const [isDraggingNote, setIsDraggingNote] = useState(false);
 
     // Event Listener for CanvasInputHandler
     useEffect(() => {
@@ -90,8 +155,21 @@ export const CanvasViewport: React.FC = () => {
             const { x, y } = e.detail;
             const rect = containerRef.current?.getBoundingClientRect();
             if (rect) {
-                const worldX = (x - rect.left - viewport.x) / viewport.zoom;
-                const worldY = (y - rect.top - viewport.y) / viewport.zoom;
+                const currentViewport = useStore.getState().viewport;
+                const worldX = (x - rect.left - currentViewport.x) / currentViewport.zoom;
+                const worldY = (y - rect.top - currentViewport.y) / currentViewport.zoom;
+
+                if (viewMode === 'archive') {
+                    window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'Archive is read-only. Send notes here from other modes.', type: 'info' } }));
+                    return;
+                }
+
+                const allowedTypes = ALLOWED_TYPES_PER_MODE[viewMode || 'void'] || ALLOWED_TYPES_PER_MODE['void'];
+                if (allowedTypes.length === 1) {
+                    handleCreateNote(allowedTypes[0], worldX, worldY);
+                    return;
+                }
+
                 setActiveMenu({
                     isOpen: true,
                     x: x - rect.left,
@@ -107,12 +185,18 @@ export const CanvasViewport: React.FC = () => {
             const { x, y } = e.detail;
             const rect = containerRef.current?.getBoundingClientRect();
             if (rect) {
-                const worldX = (x - rect.left - viewport.x) / viewport.zoom;
-                const worldY = (y - rect.top - viewport.y) / viewport.zoom;
+                const currentViewport = useStore.getState().viewport;
+                const worldX = (x - rect.left - currentViewport.x) / currentViewport.zoom;
+                const worldY = (y - rect.top - currentViewport.y) / currentViewport.zoom;
 
-                if (viewMode !== 'free' && viewMode !== 'void') {
-                    // Direct Call Logic for structured modes (no menu needed)
-                    handleCreateNote(NoteType.Earth, worldX, worldY);
+                if (viewMode === 'archive') {
+                    window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'Archive is read-only. Send notes here from other modes.', type: 'info' } }));
+                    return;
+                }
+
+                const allowedTypes = ALLOWED_TYPES_PER_MODE[viewMode || 'void'] || ALLOWED_TYPES_PER_MODE['void'];
+                if (allowedTypes.length === 1) {
+                    handleCreateNote(allowedTypes[0], worldX, worldY);
                     return;
                 }
 
@@ -127,14 +211,28 @@ export const CanvasViewport: React.FC = () => {
             }
         };
 
+        const handleCreateBlackHole = (e: any) => {
+            const { x, y } = e.detail;
+            const rect = containerRef.current?.getBoundingClientRect();
+            if (rect) {
+                const currentViewport = useStore.getState().viewport;
+                const worldX = (x - rect.left - currentViewport.x) / currentViewport.zoom;
+                const worldY = (y - rect.top - currentViewport.y) / currentViewport.zoom;
+
+                handleCreateNote(NoteType.BlackHole, worldX, worldY);
+            }
+        };
+
         window.addEventListener('stardust:openRadialMenu', handleOpenRadial);
         window.addEventListener('stardust:openSphericalMenu', handleOpenSpherical);
+        window.addEventListener('stardust:createBlackHole', handleCreateBlackHole);
 
         return () => {
             window.removeEventListener('stardust:openRadialMenu', handleOpenRadial);
             window.removeEventListener('stardust:openSphericalMenu', handleOpenSpherical);
+            window.removeEventListener('stardust:createBlackHole', handleCreateBlackHole);
         };
-    }, [viewport]);
+    }, [viewMode, handleCreateNote]); // Stable dependencies
 
     // Optimized Resize Handling
     const sizeRef = useRef({ width: window.innerWidth, height: window.innerHeight });
@@ -212,6 +310,8 @@ export const CanvasViewport: React.FC = () => {
         onPointerDown: ({ event }) => {
             const target = event.target as HTMLElement;
             if (target.closest('.note-planet')) return;
+            // Prevent deselect if this is part of a double-click (which should open the ring)
+            if (event.detail > 1) return;
             setSelectedId(undefined);
         },
         onPointerUp: ({ event }) => {
@@ -226,6 +326,7 @@ export const CanvasViewport: React.FC = () => {
     });
 
     const handleNoteDragStart = useCallback((id: string) => {
+        setIsDraggingNote(true);
         const worldNote = engine.getWorld().notes.get(id);
         if (worldNote) {
             worldNote.fixed = true;
@@ -255,6 +356,7 @@ export const CanvasViewport: React.FC = () => {
     }, [engine, viewport.zoom, viewport.x, viewport.y]);
 
     const handleNoteDragEnd = (id: string, _x?: number, _y?: number) => {
+        setIsDraggingNote(false);
         setAlignmentLines(null);
         if (blackHoleActive) {
             soundManager.playWarp();
@@ -294,7 +396,7 @@ export const CanvasViewport: React.FC = () => {
                 const dist = Math.sqrt(Math.pow(worldX - centerX, 2) + Math.pow(worldY - centerY, 2));
 
                 if (n.id === connectionStart.id) return false;
-                return dist <= (width / 2) + 200;
+                return dist <= (width / 2) + 20;
             });
         }
 
@@ -315,84 +417,94 @@ export const CanvasViewport: React.FC = () => {
         setContextMenu({ x: e.clientX, y: e.clientY, noteId: id });
     };
 
-    const startLinking = (id: string) => {
-        setLinkingFromId(id);
-        setContextMenu(null);
-    };
 
-    const handleNoteClickOverride = (targetId: string) => {
-        if (linkingFromId) {
-            if (linkingFromId === targetId) {
-                setLinkingFromId(null);
-                return;
-            }
-            const sourceNote = notes.find(n => n.id === linkingFromId);
-            if (sourceNote) {
-                const existingLinks = sourceNote.links || [];
-                if (!existingLinks.some(l => l.toId === targetId)) {
-                    updateNote(linkingFromId, {
-                        links: [...existingLinks, { fromId: linkingFromId, toId: targetId }]
+
+    // Show notes filtered by mode visibility rules
+    const visibleNotes = useMemo(() => {
+        return notes.filter(note => noteVisibleInMode(note, viewMode));
+    }, [notes, viewMode]);
+
+    // Prism strict vertical stacking
+    useEffect(() => {
+        if (viewMode === 'prism' && visibleNotes.length > 0 && !isDraggingNote) {
+            const timeout = setTimeout(() => {
+                const groups: Record<string, typeof visibleNotes> = {
+                    'todo': [],
+                    'in-progress': [],
+                    'review': [],
+                    'done': []
+                };
+
+                visibleNotes.forEach(n => {
+                    const s = n.status || 'todo';
+                    if (groups[s]) groups[s].push(n);
+                });
+
+                const startY = layoutOrigin.y - 300;
+                const gapY = 20;
+
+                Object.values(groups).forEach(group => {
+                    group.sort((a, b) => a.y - b.y);
+                    let currentY = startY;
+                    group.forEach(n => {
+                        const h = n.h || 80;
+                        if (Math.abs(n.y - currentY) > 5) {
+                            updateNote(n.id, { y: currentY });
+                        }
+                        currentY += h + gapY;
                     });
-                    soundManager.playConnect();
-                }
-            }
-            setLinkingFromId(null);
+                });
+            }, 150);
+            return () => clearTimeout(timeout);
         }
-    };
+    }, [viewMode, visibleNotes, layoutOrigin, isDraggingNote, updateNote]);
 
-    // Show all notes in all modes — no originMode filtering
-    const visibleNotes = notes;
-
-    const handleCreateNote = (type: NoteType, overrideX?: number, overrideY?: number) => {
-        if (activeMenu || (overrideX !== undefined && overrideY !== undefined)) {
-            const menu = activeMenu;
-
-            let spawnX = overrideX !== undefined ? overrideX : menu?.worldX || 0;
-            let spawnY = overrideY !== undefined ? overrideY : menu?.worldY || 0;
-            let initialTags: string[] = [];
-            let initialPriority: string = 'default';
-
-            if (viewMode !== 'free' && viewMode !== 'void') {
-                const constraint = ViewConstraints.applyConstraints(
-                    viewMode || 'free',
-                    spawnX,
-                    spawnY,
-                    layoutOrigin,
-                    { width: window.innerWidth, height: window.innerHeight }
-                );
-
-                spawnX = constraint.x;
-                spawnY = constraint.y;
-
-                if (constraint.dataUpdates) {
-                    if (constraint.dataUpdates.tags) initialTags = constraint.dataUpdates.tags;
-                    if (constraint.dataUpdates.priority) initialPriority = constraint.dataUpdates.priority;
-                }
-            }
-
-            // Allowed structured modes
-            const originMode = (['free', 'void', 'orbital', 'timeline', 'matrix', 'prism', 'archive'].includes(viewMode)) ? viewMode : 'free';
-
-            addNote({
-                id: Math.random().toString(36).substr(2, 9),
-                x: spawnX,
-                y: spawnY,
-                w: 0,
-                h: 0,
-                type: type,
-                title: '',
-                tags: initialTags,
-                priority: initialPriority as any,
-                originMode: originMode as any
-            });
-            soundManager.playClick();
-            setActiveMenu(null);
+    // Timeline horizontal auto-distribution
+    useEffect(() => {
+        if (viewMode === 'timeline' && visibleNotes.length > 0 && !isDraggingNote) {
+            const timeout = setTimeout(() => {
+                const sorted = [...visibleNotes].sort((a, b) => a.x - b.x);
+                // We shouldn't force all of them to be contiguous, only resolve overlaps
+                let lastX = -Infinity;
+                let lastW = 0;
+                sorted.forEach(n => {
+                    const w = n.w || 180;
+                    // Does it overlap with the previous note?
+                    if (n.x < lastX + lastW + 20) {
+                        const newX = lastX + lastW + 20;
+                        updateNote(n.id, { x: newX });
+                        lastX = newX;
+                        lastW = w;
+                    } else {
+                        lastX = n.x;
+                        lastW = w;
+                    }
+                });
+            }, 150);
+            return () => clearTimeout(timeout);
         }
-    };
+    }, [viewMode, visibleNotes, isDraggingNote, updateNote]);
+
+    const visibleConnections = useMemo(() => {
+        const visibleIds = new Set(visibleNotes.map(n => n.id));
+        return connections.filter(c => visibleIds.has(c.from) && visibleIds.has(c.to));
+    }, [connections, visibleNotes]);
+    // Fit-all-notes pan handler
+    const handleFitAll = useCallback(() => {
+        if (notes.length === 0) return;
+        const pad = 100;
+        const minX = Math.min(...notes.map(n => n.x)) - pad;
+        const minY = Math.min(...notes.map(n => n.y)) - pad;
+        const maxX = Math.max(...notes.map(n => n.x + 100)) + pad;
+        const maxY = Math.max(...notes.map(n => n.y + 100)) + pad;
+        const scaleX = window.innerWidth / (maxX - minX);
+        const scaleY = window.innerHeight / (maxY - minY);
+        const zoom = Math.min(scaleX, scaleY, 1.5);
+        setViewport({ x: -minX * zoom, y: -minY * zoom, zoom });
+    }, [notes, setViewport]);
 
     return (
         <div ref={containerRef} className="absolute inset-0 w-full h-full overflow-hidden bg-white dark:bg-[#020617] select-none transition-colors duration-500">
-
 
             {/* Visual Layer: Starfield & Background */}
             <DashboardBackground />
@@ -401,112 +513,184 @@ export const CanvasViewport: React.FC = () => {
             {/* MODE OVERLAYS (Static Grids/Layouts) */}
             {viewMode === 'archive' && <DecayOverlay />}
 
-            {/* Background Interaction Layer */}
+            {/* Mode Announcement Overlay — shown during entering phase (600ms cinematic flash) */}
+            <AnimatePresence>
+                {transitionPhase === 'entering' && (
+                    <motion.div
+                        key={viewMode + '-announce'}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none"
+                        style={{
+                            background: `radial-gradient(ellipse at center, ${MODE_ACCENTS[viewMode] || '#6366f1'}22 0%, transparent 70%)`,
+                        }}
+                    >
+                        <motion.span
+                            initial={{ opacity: 0, scale: 0.85 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 1.1 }}
+                            transition={{ duration: 0.4 }}
+                            className="text-white/60 text-2xl font-light tracking-[0.5em] uppercase select-none"
+                        >
+                            {viewMode}
+                        </motion.span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Canvas Content — reacts to transition phase with opacity/scale/blur */}
             <motion.div
-                className="absolute top-0 left-0 w-full h-full pointer-events-none origin-top-left"
+                className="absolute inset-0"
                 animate={{
-                    x: viewport.x,
-                    y: viewport.y,
-                    scale: viewport.zoom
+                    opacity: transitionPhase === 'entering' ? 0.3 : transitionPhase === 'settling' ? 0.75 : 1,
+                    scale: transitionPhase === 'entering' ? 0.97 : transitionPhase === 'settling' ? 0.99 : 1,
+                    filter: transitionPhase === 'entering' ? 'blur(4px)' : transitionPhase === 'settling' ? 'blur(1px)' : 'blur(0px)',
                 }}
-                transition={{ duration: 0 }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
             >
-                {/* Core Focus Ring from Design - Only in Orbital Mode */}
-                {viewMode === 'orbital' && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-                        <div className="w-[800px] h-[800px] border border-blue-500/20 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
-                        <div className="w-[600px] h-[600px] border border-blue-500/20 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-60"></div>
-                        <div className="w-[400px] h-[400px] border border-blue-500/20 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-80"></div>
-                        <div className="w-[160px] h-[160px] bg-gradient-radial from-white to-zinc-100 dark:from-zinc-800 dark:to-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-lg flex items-center justify-center z-0">
-                            <span className="text-zinc-800 dark:text-zinc-200 font-medium tracking-wide cinzel">CORE</span>
+
+                {/* Background Interaction Layer */}
+                <motion.div
+                    className="absolute top-0 left-0 w-full h-full pointer-events-none origin-top-left"
+                    animate={{
+                        x: viewport.x,
+                        y: viewport.y,
+                        scale: viewport.zoom
+                    }}
+                    transition={{ duration: 0 }}
+                >
+                    {/* Core Focus Ring from Design - Only in Orbital Mode */}
+                    {viewMode === 'orbital' && (
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                            <div className="w-[800px] h-[800px] border border-blue-500/20 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
+                            <div className="w-[600px] h-[600px] border border-blue-500/20 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-60"></div>
+                            <div className="w-[400px] h-[400px] border border-blue-500/20 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-80"></div>
+                            <div className="w-[160px] h-[160px] bg-gradient-radial from-white to-zinc-100 dark:from-zinc-800 dark:to-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-lg flex items-center justify-center z-0">
+                                <span className="text-zinc-800 dark:text-zinc-200 font-medium tracking-wide cinzel">CORE</span>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                <ConnectionLayer
-                    connections={connections}
-                    notes={notes}
-                    tempConnection={connectionStart && tempConnectionEnd ? { startId: connectionStart.id, endX: tempConnectionEnd.x, endY: tempConnectionEnd.y } : null}
-                    zoom={viewport.zoom}
-                />
+                    <ConnectionLayer
+                        connections={visibleConnections}
+                        notes={visibleNotes}
+                        tempConnection={connectionStart && tempConnectionEnd ? { startId: connectionStart.id, endX: tempConnectionEnd.x, endY: tempConnectionEnd.y } : null}
+                        zoom={viewport.zoom}
+                    />
 
-                {showHierarchy && <HierarchyOverlay notes={notes} />}
-                {showLinks && <LinksOverlay notes={notes} />}
+                    {showHierarchy && <HierarchyOverlay notes={notes} />}
+                    {showLinks && <LinksOverlay notes={notes} />}
 
-                {/* Layout Visual Rails */}
-                <LayoutVisuals
-                    viewMode={viewMode}
-                    layoutOrigin={layoutOrigin}
-                    minDimension={Math.min(window.innerWidth, window.innerHeight)}
-                />
+                    {/* Layout Visual Rails */}
+                    <LayoutVisuals
+                        viewMode={viewMode}
+                        layoutOrigin={layoutOrigin}
+                        minDimension={Math.min(window.innerWidth, window.innerHeight)}
+                    />
 
-                {/* Alignment Lines (Pro Mode) */}
-                {alignmentLines && proMode && (
-                    <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-20 overflow-visible">
-                        {alignmentLines.x !== undefined && (
-                            <line
-                                x1={alignmentLines.x} y1={-100000}
-                                x2={alignmentLines.x} y2={100000}
-                                stroke="#a855f7" strokeWidth="1" strokeDasharray="5,5"
-                            />
-                        )}
-                        {alignmentLines.y !== undefined && (
-                            <line
-                                x1={-100000} y1={alignmentLines.y}
-                                x2={100000} y2={alignmentLines.y}
-                                stroke="#a855f7" strokeWidth="1" strokeDasharray="5,5"
-                            />
-                        )}
-                    </svg>
-                )}
-
-                <div className="pointer-events-none">
-                    <AnimatePresence mode="popLayout">
-                        {visibleNotes.map(note => {
-                            return (
-                                <PlanetNote
-                                    key={note.id}
-                                    note={note}
-                                    isSelected={selectedId === note.id}
-                                    zoom={viewport.zoom}
-                                    isReadOnly={false}
-                                    layoutOrigin={layoutOrigin}
-                                    viewMode={viewMode === 'free' ? undefined : viewMode}
-                                    onConnectStart={(id, x, y) => {
-                                        setConnectionStart({ id, x, y });
-                                        setTempConnectionEnd({ x, y });
-                                    }}
-                                    onDragStart={handleNoteDragStart}
-                                    onDrag={handleNoteDrag}
-                                    onDragEnd={(id, x, y) => {
-                                        updateNote(id, { x, y });
-                                        handleNoteDragEnd(id, x, y);
-                                    }}
-                                    onContextMenu={handleNoteContextMenu}
-                                    onClickOverride={linkingFromId ? () => handleNoteClickOverride(note.id) : undefined}
-                                    onPointerUp={(e) => checkConnectionDrop(e, note.id)}
+                    {/* Alignment Lines (Pro Mode) */}
+                    {alignmentLines && proMode && (
+                        <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-20 overflow-visible">
+                            {alignmentLines.x !== undefined && (
+                                <line
+                                    x1={alignmentLines.x} y1={-100000}
+                                    x2={alignmentLines.x} y2={100000}
+                                    stroke="#a855f7" strokeWidth="1" strokeDasharray="5,5"
                                 />
-                            );
-                        })}
-                    </AnimatePresence>
+                            )}
+                            {alignmentLines.y !== undefined && (
+                                <line
+                                    x1={-100000} y1={alignmentLines.y}
+                                    x2={100000} y2={alignmentLines.y}
+                                    stroke="#a855f7" strokeWidth="1" strokeDasharray="5,5"
+                                />
+                            )}
+                        </svg>
+                    )}
+
+                    {blackHoleActive && viewMode === 'void' && (
+                        <BlackHole isActive={blackHoleActive} />
+                    )}
+
+                    {/* MODE SPECIFIC BACKGROUND VISUALS */}
+                    <div className="absolute inset-0 pointer-events-none select-none overflow-visible">
+                        {viewMode === 'archive' && (
+                            <div className="absolute inset-0 flex items-center justify-center opacity-10">
+                                <div className="absolute w-[10000px] h-[10000px] bg-[url('/data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNTAiIGhlaWdodD0iMTUwIj48cGF0aCBkPSJNMCAwbDE1MCAwaDB2MTUwaC0xNTB2LTE1MHoiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjMpIiBzdHJva2Utd2lkdGg9IjEiIG9wYWNpdHk9IjAuMSIvPjwvc3ZnPg==')] bg-repeat shadow-[inset_0_0_1000px_rgba(0,0,0,1)]" />
+                                <div className="absolute text-[12px] uppercase tracking-[1em] text-emerald-500/30">The Graveyard</div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="pointer-events-auto">
+                        <AnimatePresence mode="popLayout">
+                            {visibleNotes.map(note => {
+                                return (
+                                    <PlanetNote
+                                        key={note.id}
+                                        note={note}
+                                        isSelected={selectedId === note.id}
+                                        zoom={viewport.zoom}
+                                        isReadOnly={false}
+                                        layoutOrigin={layoutOrigin}
+                                        viewMode={viewMode === 'free' ? undefined : viewMode}
+                                        onConnectStart={(id, x, y) => {
+                                            setConnectionStart({ id, x, y });
+                                            setTempConnectionEnd({ x, y });
+                                        }}
+                                        onDragStart={handleNoteDragStart}
+                                        onDrag={handleNoteDrag}
+                                        onDragEnd={(id, x, y) => {
+                                            if (viewMode !== 'free' && viewMode !== 'void' && x !== undefined && y !== undefined) {
+                                                const constraint = ViewConstraints.applyConstraints(viewMode as ViewMode, x, y, layoutOrigin, { width: window.innerWidth, height: window.innerHeight });
+                                                const patch: any = { x: constraint.x, y: constraint.y };
+                                                if (constraint.dataUpdates) Object.assign(patch, constraint.dataUpdates);
+                                                updateNote(id, patch);
+                                                if (constraint.dataUpdates?.priority) {
+                                                    window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: `Priority → ${String(constraint.dataUpdates.priority).toUpperCase()}`, type: 'info' } }));
+                                                }
+                                            } else {
+                                                updateNote(id, { x: x ?? 0, y: y ?? 0 });
+                                            }
+                                            handleNoteDragEnd(id, x, y);
+                                        }}
+                                        onContextMenu={handleNoteContextMenu}
+                                        onPointerUp={(e) => checkConnectionDrop(e, note.id)}
+                                    />
+                                );
+                            })}
+                        </AnimatePresence>
+                    </div>
+                </motion.div>
+            </motion.div> {/* end canvas transition wrapper */}
+
+            {viewMode === 'void' && visibleNotes.length === 0 && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20">
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.8 }} className="flex flex-col items-center gap-5 text-center">
+                        <p className="text-white/20 text-[14px] tracking-[0.3em] uppercase font-light italic">This is your void. Begin anywhere.</p>
+                        <p className="text-white/10 text-[10px] tracking-[0.2em] uppercase">Double-click the canvas to capture a thought</p>
+                        <button className="pointer-events-auto px-5 py-2 rounded-full bg-white/5 border border-white/10 text-white/40 text-[10px] tracking-widest uppercase hover:bg-white/10 hover:text-white/70 transition-all" onClick={() => window.dispatchEvent(new CustomEvent('stardust:openSphericalMenu', { detail: { x: window.innerWidth / 2, y: window.innerHeight / 2 } }))}>+ Capture first thought</button>
+                    </motion.div>
                 </div>
-            </motion.div >
+            )}
+            {viewMode === 'void' && visibleNotes.length > 0 && (
+                <motion.button
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    onClick={handleFitAll}
+                    className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/30 text-[10px] tracking-widest hover:bg-white/10 transition-all pointer-events-auto"
+                >
+                    ↑ {visibleNotes.length} stars in your universe
+                </motion.button>
+            )}
 
             {contextMenu && (
                 <div
                     className="fixed z-[100] bg-slate-800 border border-slate-700 rounded-lg shadow-xl py-1 w-48 backdrop-blur-md"
                     style={{ left: contextMenu.x, top: contextMenu.y }}
                 >
-                    <button
-                        className="w-full text-left px-4 py-2 hover:bg-slate-700 text-slate-200 text-sm flex items-center gap-2"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            startLinking(contextMenu.noteId);
-                        }}
-                    >
-                        <span>🔗</span> Link to...
-                    </button>
-                    <div className="h-px bg-slate-700 my-1" />
                     <button
                         className="w-full text-left px-4 py-2 hover:bg-red-500/20 text-red-300 hover:text-red-200 text-sm flex items-center gap-2"
                         onClick={(e) => {
@@ -541,8 +725,38 @@ export const CanvasViewport: React.FC = () => {
             {showMinimap && <MiniMap />}
             <CanvasInputHandler />
 
-            {/* UNIFIED APP SHELL */}
+            {/* ── Per-Mode Chrome Overlay ── */}
+            <AnimatePresence mode="wait">
+                {viewMode === 'void' && (
+                    <motion.div key="void-chrome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6, ease: 'easeInOut' }} className="absolute inset-0 pointer-events-none z-40">
+                        <VoidChrome />
+                    </motion.div>
+                )}
+                {viewMode === 'orbital' && (
+                    <motion.div key="orbital-chrome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6, ease: 'easeInOut' }} className="absolute inset-0 pointer-events-none z-40">
+                        <OrbitalChrome />
+                    </motion.div>
+                )}
+                {viewMode === 'matrix' && (
+                    <motion.div key="matrix-chrome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6, ease: 'easeInOut' }} className="absolute inset-0 pointer-events-none z-40">
+                        <MatrixChrome />
+                    </motion.div>
+                )}
+                {viewMode === 'prism' && (
+                    <motion.div key="prism-chrome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6, ease: 'easeInOut' }} className="absolute inset-0 pointer-events-none z-40">
+                        <PrismChrome />
+                    </motion.div>
+                )}
+                {viewMode === 'timeline' && (
+                    <motion.div key="timeline-chrome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6, ease: 'easeInOut' }} className="absolute inset-0 pointer-events-none z-40">
+                        <TimelineChrome />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* UNIFIED APP SHELL & EDITOR */}
             <AppShell />
+            <EditorOverlay />
         </div>
     );
 };

@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
+import clsx from 'clsx';
 import './LandingPage.css';
 import { HeroSection } from './landing/HeroSection';
 import { ProblemSection } from './landing/ProblemSection';
@@ -222,8 +223,21 @@ export const LandingUltimate: React.FC<LandingUltimateProps> = ({ onEnterApp }) 
     return () => { voidVis.removeEventListener('mousemove', onMove); voidVis.removeEventListener('mouseleave', onLeave); };
   }, []);
 
+  const [isExiting, setIsExiting] = React.useState(false);
+
+  const handleEnterApp = () => {
+    setIsExiting(true);
+    setTimeout(onEnterApp, 800);
+  };
+
+  // ── Enable Body Scroll ──
+  useEffect(() => {
+    document.body.classList.add('landing-active');
+    return () => document.body.classList.remove('landing-active');
+  }, []);
+
   return (
-    <div className="landing-root" ref={rootRef}>
+    <div className={clsx("landing-root", isExiting && "lp-warp-exit")} ref={rootRef}>
       <div id="lp-cursor" ref={cursorRef} />
       <div id="lp-cursor-dot" ref={cursorDotRef} />
 
@@ -235,10 +249,10 @@ export const LandingUltimate: React.FC<LandingUltimateProps> = ({ onEnterApp }) 
           <li><a href="#lp-compare">Compare</a></li>
           <li><a href="#lp-pricing">Pricing</a></li>
         </ul>
-        <button className="lp-nav-cta" onClick={onEnterApp}>Start Free</button>
+        <button className="lp-nav-cta" onClick={handleEnterApp}>Start Free</button>
       </nav>
 
-      <HeroSection onEnterApp={onEnterApp} canvasRef={canvasRef} />
+      <HeroSection onEnterApp={handleEnterApp} canvasRef={canvasRef} />
       <ProblemSection />
       <DualModeSection />
       <ObjectsSection />
@@ -247,8 +261,8 @@ export const LandingUltimate: React.FC<LandingUltimateProps> = ({ onEnterApp }) 
       <AISection />
       <CompareSection />
       <WorkflowSection />
-      <PricingSection onEnterApp={onEnterApp} />
-      <CTASection onEnterApp={onEnterApp} />
+      <PricingSection onEnterApp={handleEnterApp} />
+      <CTASection onEnterApp={handleEnterApp} />
       <FooterSection />
     </div>
   );

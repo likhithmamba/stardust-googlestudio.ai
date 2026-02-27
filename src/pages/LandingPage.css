@@ -195,12 +195,12 @@
 }
 .lp-hero-headline {
   font-family: var(--lp-font-display);
-  font-size: clamp(2.8rem, 7.5vw, 6.5rem);
+  font-size: clamp(2.4rem, 7vw, 6rem);
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1.15;
   letter-spacing: -.01em;
   color: var(--lp-text);
-  margin-bottom: 28px;
+  margin-bottom: 32px;
   animation: lp-fade-up .8s .1s ease both;
 }
 .lp-hero-headline em {
@@ -212,12 +212,12 @@
 }
 .lp-hero-sub {
   font-family: var(--lp-font-body);
-  font-size: clamp(1.1rem, 2.5vw, 1.45rem);
+  font-size: clamp(1.1rem, 2.2vw, 1.35rem);
   font-weight: 300;
   color: var(--lp-text-dim);
-  max-width: 640px;
-  margin: 0 auto 48px;
-  line-height: 1.65;
+  max-width: 680px;
+  margin: 0 auto 52px;
+  line-height: 1.7;
   animation: lp-fade-up .8s .2s ease both;
 }
 .lp-hero-actions {

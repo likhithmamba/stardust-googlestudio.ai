@@ -44,7 +44,6 @@ export const InvoiceOverlay: React.FC = () => {
             {/* Close Button - Aggressive Z-Index */}
             <button
                 onClick={() => {
-                    console.log('Close Invoice Overlay clicked');
                     setShowInvoiceUniverse('ultra.invoiceUniverse', false);
                 }}
                 className="fixed top-6 right-6 flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/20 hover:bg-red-500/40 text-red-200 border border-red-500/50 transition-all z-[999] cursor-pointer shadow-lg hover:scale-105 active:scale-95"

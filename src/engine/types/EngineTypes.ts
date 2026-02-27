@@ -24,6 +24,9 @@ export interface EngineNote {
     tags?: string[];
     createdAt?: number;
     originMode?: string; // which mode created this
+    visibleInModes?: string[]; // strictly allow visibility in these modes
+    status?: 'todo' | 'in-progress' | 'review' | 'done' | 'archived' | string;
+    dueDate?: number;
 }
 
 export interface EngineConnection {

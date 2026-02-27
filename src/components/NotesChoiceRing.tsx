@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
-import { NoteType } from '../constants';
+import { NoteType, ALLOWED_TYPES_PER_MODE } from '../constants';
 import type { NoteType as NoteTypeValue } from '../constants';
 import { useSettingsStore } from '../ui/settings/settingsStore';
 
@@ -16,44 +16,38 @@ interface NotesChoiceRingProps {
 const ORBITS = [
     {
         id: 'macro',
-        label: 'ORBIT 1: MACRO',
-        radius: 110,
+        label: 'STRATEGIC CORE',
+        radius: 145, // +30% from 110 approx
         items: [
-            { type: NoteType.Sun, label: 'Star', glow: '#fbbf24', desc: 'Central Core Content' },
-            { type: NoteType.Nebula, label: 'Nebula', glow: '#a78bfa', desc: 'Expansive Cloud' },
-            { type: NoteType.Galaxy, label: 'Galaxy', glow: '#6366f1', desc: 'Universal Container' },
+            { type: NoteType.Sun, label: 'Star', glow: '#fbbf24', desc: 'Central Core\nStrategic Pillar' },
+            { type: NoteType.Galaxy, label: 'Galaxy', glow: '#6366f1', desc: 'Systemic\nArchitecture' },
+            { type: NoteType.Nebula, label: 'Nebula', glow: '#a78bfa', desc: 'Creative Hub\nIdea Nursery' },
         ],
     },
     {
         id: 'meso',
-        label: 'ORBIT 2: MESO',
-        radius: 210,
+        label: 'OPERATIONAL MID-REACH',
+        radius: 260, // +30% from 200
         items: [
-            { type: NoteType.Earth, label: 'Earth', glow: '#3b82f6', desc: 'Standard Logic' },
-            { type: NoteType.Mars, label: 'Mars', glow: '#ef4444', desc: 'Aggressive Goal' },
-            { type: NoteType.Jupiter, label: 'Jupiter', glow: '#f59e0b', desc: 'Heavy Data' },
-            { type: NoteType.Saturn, label: 'Saturn', glow: '#eab308', desc: 'Structured Rings' },
+            { type: NoteType.Earth, label: 'Standard', glow: '#3b82f6', desc: 'Active Topic\nStandard Unit' },
+            { type: NoteType.Mars, label: 'Secondary', glow: '#ef4444', desc: 'Supportive\nTask Item' },
+            { type: NoteType.Jupiter, label: 'Gas Giant', glow: '#f59e0b', desc: 'Large Resource\nHeavy Weight' },
+            { type: NoteType.Saturn, label: 'Ringed Star', glow: '#eab308', desc: 'Structured\nOperations' },
         ],
     },
     {
         id: 'micro',
-        label: 'ORBIT 3: MICRO',
-        radius: 300,
+        label: 'TACTICAL PERIPHERY',
+        radius: 360, // +30% from 280
         items: [
-            { type: NoteType.Moon, label: 'Moon', glow: '#d1d5db', desc: 'Satallite Note' },
-            { type: NoteType.Asteroid, label: 'Asteroid', glow: '#6b7280', desc: 'Minor Fragment' },
-            { type: NoteType.Comet, label: 'Comet', glow: '#22d3ee', desc: 'Fleeting Thought' },
+            { type: NoteType.Moon, label: 'Satellite', glow: '#d1d5db', desc: 'Reference Node' },
+            { type: NoteType.Asteroid, label: 'Fragment', glow: '#6b7280', desc: 'Minor Snippet' },
+            { type: NoteType.Comet, label: 'Transient', glow: '#22d3ee', desc: 'Fleeting Note' },
         ],
     },
 ];
 
-// Tier visual sizes (px diameter in ring)
-const TIER_SIZE: Record<string, number> = {
-    star: 48,
-    planet: 32,
-    moon: 20,
-    asteroid: 14,
-};
+const TIER_SIZE: Record<string, number> = { star: 100, planet: 70, moon: 50, asteroid: 40 };
 
 function getTierForSize(type: NoteTypeValue): string {
     const stars = [NoteType.Sun, NoteType.Nebula, NoteType.Galaxy];
@@ -65,152 +59,183 @@ function getTierForSize(type: NoteTypeValue): string {
     return 'planet';
 }
 
-export const NotesChoiceRing: React.FC<NotesChoiceRingProps> = ({ x: _x, y: _y, onSelect, onClose }) => {
+export const NotesChoiceRing: React.FC<NotesChoiceRingProps> = ({ x, y, onSelect, onClose }) => {
     const designSystem = useSettingsStore((state) => state.designSystem);
+    const viewMode = useSettingsStore((state) => state.viewMode) || 'void';
     const isSolar = designSystem === 'solar';
 
-    const menuBlur = isSolar ? 'backdrop-blur-2xl bg-white/40' : 'backdrop-blur-3xl bg-black/60';
+    const menuBlur = isSolar ? 'backdrop-blur-xl bg-white/20' : 'backdrop-blur-xl bg-[#020210]/40';
+    const textClass = isSolar ? 'text-slate-800' : 'text-white';
+    const subTextClass = isSolar ? 'text-slate-500' : 'text-white/30';
+    const ringBorderClass = isSolar ? 'border-slate-300/30' : 'border-white/5';
 
-    const textClass = isSolar ? 'text-slate-700' : 'text-white';
-    const subTextClass = isSolar ? 'text-slate-400' : 'text-white/40';
-    const ringBorderClass = isSolar ? 'border-slate-200/50' : 'border-white/5';
+    const allowedTypes = ALLOWED_TYPES_PER_MODE[viewMode] || ALLOWED_TYPES_PER_MODE['void'];
+
+    const getModeLabel = (type: NoteTypeValue, defaultLabel: string) => {
+        if (viewMode === 'orbital') {
+            if (type === NoteType.Jupiter) return 'Major Goal';
+            if (type === NoteType.Earth) return 'Task';
+            if (type === NoteType.Moon) return 'Quick Action';
+        }
+        if (viewMode === 'prism') {
+            if (type === NoteType.Earth) return 'Project';
+            if (type === NoteType.Moon) return 'Task';
+        }
+        if (viewMode === 'timeline') {
+            if (type === NoteType.Mars) return 'Milestone';
+            if (type === NoteType.Earth) return 'Event';
+            if (type === NoteType.Comet) return 'Deadline';
+        }
+        return defaultLabel;
+    };
 
     return (
         <div
-            className={`fixed inset-0 z-[2000] flex items-center justify-center ${menuBlur}`}
+            className={clsx("fixed inset-0 z-[2000] overflow-hidden select-none", menuBlur)}
             onClick={onClose}
         >
+            {/* Animated Background Pulse */}
             <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0 }}
-                transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-                className="relative w-[650px] h-[650px] flex items-center justify-center pointer-events-auto"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="absolute inset-0 pointer-events-none"
+                style={{ background: isSolar ? 'radial-gradient(circle at center, rgba(99,102,241,0.05) 0%, transparent 70%)' : 'radial-gradient(circle at center, rgba(25,25,230,0.1) 0%, transparent 70%)' }}
+            />
+
+            <motion.div
+                initial={{ scale: 0.5, opacity: 0, x: x - 325, y: y - 325 }}
+                animate={{ scale: 1, opacity: 1, x: x - 325, y: y - 325 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                className="absolute w-[650px] h-[650px] flex items-center justify-center pointer-events-auto"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Center label */}
-                <div className="text-center space-y-2 pointer-events-none z-10">
-                    <h1 className={`text-2xl font-light tracking-[0.25em] uppercase ${textClass}`}
-                        style={{ fontFamily: 'var(--mode-font, "Cinzel", serif)' }}>
-                        Genesis
-                    </h1>
-                    <p className={`text-[10px] tracking-[0.4em] uppercase ${subTextClass}`}>
-                        Select Celestial Body
-                    </p>
+                <div className="text-center space-y-1 pointer-events-none z-10">
+                    <motion.h1
+                        initial={{ y: 5, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                        className={clsx("text-3xl font-bold tracking-[0.3em] uppercase", textClass)}
+                        style={{ fontFamily: 'var(--mode-font, "Space Grotesk")' }}
+                    >
+                        GENESIS
+                    </motion.h1>
+                    <motion.p
+                        initial={{ y: 5, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.3 }}
+                        className={clsx("text-xl font-black tracking-[0.4em] uppercase", textClass)}
+                    >
+                        SELECT CELESTIAL BODY
+                    </motion.p>
                 </div>
 
                 {/* Orbit rings */}
-                {ORBITS.map((orbit, orbitIdx) => (
-                    <React.Fragment key={orbit.label}>
-                        {/* Orbit circle border */}
-                        <div
-                            className={`absolute rounded-full border ${ringBorderClass} pointer-events-none`}
-                            style={{
-                                width: orbit.radius * 2,
-                                height: orbit.radius * 2,
-                                top: '50%',
-                                left: '50%',
-                                transform: 'translate(-50%, -50%)',
-                            }}
-                        >
-                            <span className={clsx(
-                                'absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[7px] tracking-[0.35em] font-black uppercase opacity-20',
-                                isSolar ? 'bg-slate-100 text-slate-900' : 'bg-white/5 text-white'
-                            )}>
-                                {orbit.label}
-                            </span>
-                        </div>
+                {ORBITS.map((orbit, orbitIdx) => {
+                    const filteredItems = orbit.items.filter(item => allowedTypes.includes(item.type));
+                    if (filteredItems.length === 0) return null;
 
-                        {/* Items on this orbit */}
-                        {orbit.items.map((item, itemIdx) => {
-                            const angle = (itemIdx / orbit.items.length) * 360 - 90;
-                            const rad = (angle * Math.PI) / 180;
-                            const cx = Math.cos(rad) * orbit.radius;
-                            const cy = Math.sin(rad) * orbit.radius;
-                            const tierSize = TIER_SIZE[getTierForSize(item.type)] || 28;
+                    return (
+                        <React.Fragment key={orbit.id}>
+                            {/* Orbit circle border */}
+                            <motion.div
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{ delay: 0.1 * orbitIdx, duration: 0.8 }}
+                                className={clsx("absolute rounded-full border dashed-border pointer-events-none", ringBorderClass)}
+                                style={{
+                                    width: orbit.radius * 2,
+                                    height: orbit.radius * 2,
+                                    borderStyle: 'dashed',
+                                    borderWidth: '1px',
+                                    borderColor: isSolar ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)'
+                                }}
+                            />
 
-                            return (
-                                <motion.div
-                                    key={item.type}
-                                    className="absolute cursor-pointer group"
-                                    initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
-                                    animate={{
-                                        opacity: 1,
-                                        scale: 1,
-                                        x: cx,
-                                        y: cy
-                                    }}
-                                    transition={{
-                                        delay: 0.05 * (orbitIdx * 3 + itemIdx),
-                                        type: 'spring',
-                                        stiffness: 300,
-                                        damping: 20,
-                                    }}
-                                    style={{
-                                        top: 'calc(50% - ' + tierSize / 2 + 'px)',
-                                        left: 'calc(50% - ' + tierSize / 2 + 'px)',
-                                    }}
-                                    onClick={() => {
-                                        onSelect(item.type);
-                                        onClose();
-                                    }}
-                                >
-                                    <div
-                                        className={clsx(
-                                            'rounded-full transition-all duration-300 relative',
-                                            'group-hover:scale-125 group-hover:shadow-[0_0_30px_rgba(255,255,255,0.4)]',
-                                            'glass-panel border-white/20'
-                                        )}
+                            {/* Items on this orbit */}
+                            {filteredItems.map((item, itemIdx) => {
+                                const angle = (itemIdx / filteredItems.length) * 360 - 90;
+                                const rad = (angle * Math.PI) / 180;
+                                const cx = Math.cos(rad) * orbit.radius;
+                                const cy = Math.sin(rad) * orbit.radius;
+                                const tierSize = TIER_SIZE[getTierForSize(item.type)] || 36;
+
+                                return (
+                                    <motion.div
+                                        key={item.type}
+                                        className="absolute cursor-pointer group"
+                                        initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
+                                        animate={{ opacity: 1, scale: 1, x: cx, y: cy }}
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                        transition={{
+                                            delay: 0.15 + 0.04 * (orbitIdx * 4 + itemIdx),
+                                            type: 'spring', stiffness: 400, damping: 25,
+                                        }}
                                         style={{
-                                            width: tierSize,
-                                            height: tierSize,
-                                            background: `radial-gradient(circle at 35% 35%, ${item.glow}aa, ${item.glow}44)`,
-                                            boxShadow: `0 0 15px ${item.glow}30, inset 0 0 10px rgba(255,255,255,0.2)`,
+                                            top: 'calc(50% - ' + tierSize / 2 + 'px)',
+                                            left: 'calc(50% - ' + tierSize / 2 + 'px)',
+                                        }}
+                                        onClick={() => {
+                                            onSelect(item.type);
+                                            onClose();
                                         }}
                                     >
-                                        <div className="absolute inset-0 rounded-full bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity blur-sm" />
-                                    </div>
-                                    <div className={clsx(
-                                        'absolute -bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5',
-                                        'opacity-0 group-hover:opacity-100 transition-all group-hover:-translate-y-1',
-                                        'pointer-events-none'
-                                    )}>
-                                        <span className={clsx(
-                                            'text-[10px] font-bold tracking-[0.2em] uppercase whitespace-nowrap',
-                                            isSolar ? 'text-slate-800' : 'text-white'
-                                        )}>
-                                            {item.label}
-                                        </span>
-                                        <span className={clsx(
-                                            'text-[7px] tracking-widest uppercase whitespace-nowrap opacity-60 font-medium',
-                                            isSolar ? 'text-slate-500' : 'text-white/60'
-                                        )}>
-                                            {(item as any).desc}
-                                        </span>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
-                    </React.Fragment>
-                ))}
+                                        {/* The celestial body */}
+                                        <div
+                                            className={clsx(
+                                                'rounded-full transition-all duration-500 relative',
+                                                'border border-white/20 shadow-xl overflow-hidden'
+                                            )}
+                                            style={{
+                                                width: tierSize,
+                                                height: tierSize,
+                                                background: `radial-gradient(circle at 30% 30%, ${item.glow}, ${item.glow}44)`,
+                                                boxShadow: `0 0 20px ${item.glow}30, inset -5px -5px 15px rgba(0,0,0,0.2)`
+                                            }}
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent opacity-50" />
+                                            {/* Atmosphere glow */}
+                                            <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                                                style={{ boxShadow: `0 0 30px 5px ${item.glow}88` }} />
+                                        </div>
 
-                {/* Close button */}
-                <motion.button
+                                        {/* Label tooltips */}
+                                        <div className={clsx(
+                                            'absolute -bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1',
+                                            'opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:-translate-y-2',
+                                            'pointer-events-none'
+                                        )}>
+                                            <span className={clsx(
+                                                'text-[13px] font-black tracking-[0.2em] uppercase whitespace-nowrap',
+                                                textClass
+                                            )}>
+                                                {getModeLabel(item.type, item.label)}
+                                            </span>
+                                            <span className={clsx(
+                                                'text-[10px] tracking-widest uppercase whitespace-pre-line font-medium text-center leading-tight',
+                                                subTextClass
+                                            )}>
+                                                {item.desc}
+                                            </span>
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
+                        </React.Fragment>
+                    );
+                })}
+
+                {/* Cancel Hint */}
+                <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 0.3 }}
-                    onClick={onClose}
-                    className={clsx(
-                        'absolute -bottom-16 left-1/2 -translate-x-1/2',
-                        'px-6 py-2 rounded-full text-xs tracking-widest uppercase',
-                        'border transition-all',
-                        isSolar
-                            ? 'border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-                            : 'border-white/10 text-white/40 hover:text-white hover:bg-white/5'
-                    )}
+                    transition={{ delay: 0.6 }}
+                    className={clsx("absolute -bottom-16 text-[9px] uppercase tracking-[0.4em]", subTextClass)}
                 >
-                    Cancel
-                </motion.button>
+                    Click anywhere to disperse
+                </motion.div>
             </motion.div>
         </div>
     );

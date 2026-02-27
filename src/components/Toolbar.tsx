@@ -127,7 +127,7 @@ export const Toolbar: React.FC = () => {
                                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                className="absolute bottom-full mb-4 p-4 rounded-2xl bg-[#0F1018]/90 border border-white/10 w-72 backdrop-blur-2xl shadow-2xl origin-bottom"
+                                className="absolute bottom-full mb-6 p-5 rounded-[28px] bg-[#0A0B10]/80 border border-white/10 w-72 backdrop-blur-3xl shadow-[0_32px_80px_rgba(0,0,0,0.8)] origin-bottom"
                             >
                                 <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] mb-4 text-center">Appearance Control</h3>
 
@@ -141,7 +141,7 @@ export const Toolbar: React.FC = () => {
                                                 onClick={() => useStore.getState().setTheme(t as any)}
                                                 className={clsx(
                                                     "flex-1 py-1.5 text-[10px] uppercase tracking-wide font-medium rounded-md transition-all",
-                                                    useStore.getState().theme === t ? "bg-purple-500 text-white shadow-lg" : "text-slate-400 hover:text-white"
+                                                    useStore.getState().theme === t ? "bg-indigo-500 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]" : "text-white/40 hover:text-white"
                                                 )}
                                             >
                                                 {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -161,7 +161,7 @@ export const Toolbar: React.FC = () => {
                                                         onClick={() => updateNote(selectedNote.id, { fontFamily: fam as any })}
                                                         className={clsx(
                                                             "flex-1 py-1.5 text-[10px] uppercase tracking-wide font-medium rounded-md transition-all",
-                                                            selectedNote.fontFamily === fam ? "bg-purple-500 text-white shadow-lg" : "text-slate-400 hover:text-white"
+                                                            selectedNote.fontFamily === fam ? "bg-indigo-500 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]" : "text-white/40 hover:text-white"
                                                         )}
                                                     >
                                                         {fam}
@@ -178,17 +178,17 @@ export const Toolbar: React.FC = () => {
                                                 max="64"
                                                 value={selectedNote.fontSize || 16}
                                                 onChange={(e) => updateNote(selectedNote.id, { fontSize: parseInt(e.target.value) })}
-                                                className="w-full accent-purple-500/80 h-1 bg-white/10 rounded-full appearance-none"
+                                                className="w-full accent-indigo-500 h-1 bg-white/10 rounded-full appearance-none"
                                             />
                                         </div>
 
                                         <div className="flex justify-center gap-2">
                                             {[
                                                 { name: 'White', code: '#ffffff', bg: 'bg-white' },
-                                                { name: 'Red', code: '#fecaca', bg: 'bg-red-300' },
-                                                { name: 'Amber', code: '#fde68a', bg: 'bg-amber-300' },
-                                                { name: 'Blue', code: '#bfdbfe', bg: 'bg-blue-300' },
-                                                { name: 'Purple', code: '#d8b4fe', bg: 'bg-purple-300' }
+                                                { name: 'Red', code: '#fca5a5', bg: 'bg-red-300' },
+                                                { name: 'Amber', code: '#fcd34d', bg: 'bg-amber-300' },
+                                                { name: 'Blue', code: '#93c5fd', bg: 'bg-blue-300' },
+                                                { name: 'Indigo', code: '#a5b4fc', bg: 'bg-indigo-300' }
                                             ].map(c => (
                                                 <button
                                                     key={c.name}
@@ -196,7 +196,7 @@ export const Toolbar: React.FC = () => {
                                                     className={clsx(
                                                         "w-6 h-6 rounded-full border-2 transition-all hover:scale-110",
                                                         c.bg,
-                                                        selectedNote.textColor === c.code ? "border-purple-500 scale-110 shadow-[0_0_10px_rgba(168,85,247,0.5)]" : "border-transparent opacity-80"
+                                                        selectedNote.textColor === c.code ? "border-indigo-400 scale-110 shadow-[0_0_12px_rgba(129,140,248,0.5)]" : "border-transparent opacity-60 hover:opacity-100"
                                                     )}
                                                 />
                                             ))}
@@ -214,7 +214,7 @@ export const Toolbar: React.FC = () => {
                 <motion.div
                     layout
                     className={clsx(
-                        "ui-interactive-area flex items-center gap-2 px-3 py-2.5 rounded-full bg-[#0F1018]/80 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all hover:border-white/20 hover:bg-[#0F1018]/90 hover:shadow-[0_8px_32px_rgba(168,85,247,0.1)]",
+                        "ui-interactive-area flex items-center gap-1 px-2 py-2 rounded-full bg-[#050505]/60 backdrop-blur-2xl border border-white/10 shadow-[0_12px_48px_rgba(0,0,0,0.5)] transition-all hover:border-white/20 hover:bg-[#050505]/80 hover:shadow-[0_16px_48px_rgba(0,0,0,0.6)]",
                         isCollapsed && "px-2 py-2"
                     )}
                 >
@@ -283,14 +283,14 @@ const Button = ({ onClick, icon: Icon, title, active, highlight }: any) => (
         className={clsx(
             "relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 group",
             active
-                ? "bg-white/10 text-white shadow-[0_0_15px_rgba(255,255,255,0.1)]"
-                : "text-slate-400 hover:text-white hover:bg-white/5",
-            highlight && !active && "bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 hover:text-purple-200 border border-purple-500/30"
+                ? "bg-white/15 text-white shadow-[inset_0_1px_rgba(255,255,255,0.2)]"
+                : "text-white/50 hover:text-white hover:bg-white/10",
+            highlight && !active && "text-white bg-indigo-500/80 hover:bg-indigo-500 hover:shadow-[0_0_24px_rgba(99,102,241,0.4)]"
         )}
     >
-        <Icon size={20} strokeWidth={1.5} className="group-hover:scale-110 transition-transform" />
+        <Icon size={18} strokeWidth={highlight ? 2.5 : 2} className="group-hover:scale-105 transition-transform" />
         {active && (
-            <span className="absolute -bottom-1 w-1 h-1 rounded-full bg-purple-400 box-shadow-[0_0_5px_currentColor]" />
+            <span className="absolute -bottom-1 w-1 h-1 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
         )}
     </button>
 );

@@ -1,16 +1,13 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { useGesture } from '@use-gesture/react';
 import { useStore, type Note } from '../store/useStore';
-import { NOTE_STYLES, NoteType, REAL_SIZES, type ViewMode } from '../constants';
+import { NOTE_STYLES, NoteType, REAL_SIZES } from '../constants';
 import { ViewConstraints } from '../systems/ViewConstraints';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { analyzeContent } from '../utils/intelligence';
 import { visualRegistry } from '../engine/render/VisualRegistry';
 import { useZoomLOD, type ZoomLOD } from '../hooks/useZoomLOD';
 import { useSettingsStore } from '../ui/settings/settingsStore';
-import { planetExpander } from '../utils/ai';
-import { Sparkles } from 'lucide-react';
 
 interface PlanetNoteProps {
     note: Note;
@@ -25,18 +22,37 @@ interface PlanetNoteProps {
     onDrag?: (id: string, x: number, y: number) => void;
     onDragEnd?: (id: string, x?: number, y?: number) => void;
     onContextMenu?: (e: React.MouseEvent, id: string) => void;
-    onClickOverride?: (id: string) => void;
     onPointerUp?: (e: React.PointerEvent) => void;
 }
 
+const extractPlainText = (contentStr?: string): string => {
+    if (!contentStr) return '';
+    try {
+        const state = JSON.parse(contentStr);
+        let text = '';
+        const traverse = (node: any) => {
+            if (node.text) text += node.text;
+            if (node.type === 'paragraph' || node.type === 'listitem') text += '\n';
+            if (node.children) node.children.forEach(traverse);
+        };
+        if (state.root) traverse(state.root);
+        return text.trim();
+    } catch {
+        return contentStr;
+    }
+};
+
 const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
     note, isSelected, zoom, isReadOnly, visualColor, layoutOrigin, viewMode,
-    onConnectStart, onDragStart, onDrag, onDragEnd, onClickOverride, onPointerUp
+    onConnectStart, onDragStart, onDrag, onDragEnd, onPointerUp
 }) => {
     const updateNote = useStore((state) => state.updateNote);
     const setSelectedId = useStore((state) => state.setSelectedId);
+    const setCosmosOpen = useStore((state) => state.setCosmosOpen);
+    const isCosmosOpen = useStore((state) => state.isCosmosOpen);
 
     const designSystem = useSettingsStore((state) => state.designSystem);
+    const isSolar = designSystem === 'solar';
     const mode = useSettingsStore((state) => state.mode);
 
     const proMode = mode === 'pro' || mode === 'ultra';
@@ -57,15 +73,20 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
     const noteRef = useRef<HTMLDivElement>(null);
     const textRef = useRef<HTMLDivElement>(null);
 
-    // Compute Size
-    let size = style.width;
-    if (viewMode === 'free') {
-        size = REAL_SIZES[note.type] || size;
+    // Compute Size - use REAL_SIZES for ALL modes
+    let size = Math.max(40, REAL_SIZES[note.type] || style.width || 80);
+    if (viewMode === 'orbital') {
+        const p = note.priority || 'medium';
+        if (p === 'critical') size = 100;
+        else if (p === 'high') size = 80;
+        else if (p === 'medium') size = 64;
+        else size = 48;
     }
 
     const showText = lod === 'surface' || lod === 'planet';
-    const showContent = lod === 'surface';
-    const showAsMinimalDot = lod === 'galaxy';
+    // deep-galaxy: when zoom < 0.1 show as tiny 3px dot
+    const showAsDeepGalaxyDot = zoom < 0.1;
+    const showAsMinimalDot = lod === 'galaxy' && !showAsDeepGalaxyDot;
     const tier = [NoteType.Sun, NoteType.Galaxy, NoteType.Nebula, NoteType.Jupiter, NoteType.Saturn].includes(effectiveType as any) ? 1 : 2;
     const isMajor = tier === 1;
 
@@ -80,35 +101,58 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
         };
     }, []);
 
-    // Sync visual position when store changes
-    React.useEffect(() => {
-        if (!isDragging.current) {
-            dragPositionRef.current = { x: note.x, y: note.y };
-            visualRegistry.updatePosition(note.id, note.x, note.y);
-        }
-    }, [note.x, note.y, note.id]);
+    // Sync visual position only when ID changes or component mounts
+    // Positioning is owned by VisualRegistry during physics/drag
+    React.useLayoutEffect(() => {
+        dragPositionRef.current = { x: note.x, y: note.y };
+        visualRegistry.updatePosition(note.id, note.x, note.y);
+    }, [note.id]);
 
     // Text Auto-fit Logic
-    React.useLayoutEffect(() => {
+    const autoFitText = React.useCallback(() => {
         if (textRef.current && showText) {
             const el = textRef.current;
-            const containerSize = size * 0.7;
+            const containerSize = size * 0.70; // 70% of planet size
+
+            // Reset styles for measurement
+            el.style.webkitLineClamp = 'unset';
+            el.style.display = 'block';
+            el.style.overflow = 'visible';
             el.style.fontSize = '24px';
+            el.style.lineHeight = '1.1';
+
             let currentSize = 24;
 
             while ((el.scrollHeight > containerSize || el.scrollWidth > containerSize) && currentSize > 8) {
                 currentSize -= 1;
                 el.style.fontSize = `${currentSize}px`;
             }
-        }
-    }, [note.title, size, showText]);
 
-    const lastTap = useRef<number>(0);
-    const [isEditing, setIsEditing] = useState(false);
+            // Clamp if it still overflows at minimum size 8
+            if (currentSize <= 8 && el.scrollHeight > containerSize) {
+                const maxLines = Math.max(1, Math.floor(containerSize / (8 * 1.1)));
+                el.style.webkitLineClamp = `${maxLines}`;
+                el.style.display = '-webkit-box';
+                el.style.webkitBoxOrient = 'vertical';
+                el.style.overflow = 'hidden';
+            }
+        }
+    }, [size, showText]);
+
+    React.useLayoutEffect(() => {
+        autoFitText();
+    }, [note.title, autoFitText]);
+
+    // Focus management for inline editing
+    React.useEffect(() => {
+        if (isSelected && textRef.current) {
+            // textRef.current.focus(); // Removed auto-focus on select to avoid jitter during drag
+        }
+    }, [isSelected]);
 
     const bind = useGesture({
         onDragStart: ({ event }) => {
-            if (isEditing || isReadOnly) return;
+            if (isReadOnly) return;
             if ((event.target as HTMLElement).classList.contains('handle-base')) return;
 
             isDragging.current = true;
@@ -117,7 +161,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
             updateNote(note.id, { fixed: true });
         },
         onDrag: ({ delta: [dx, dy], event, memo = { x: dragPositionRef.current.x, y: dragPositionRef.current.y } }) => {
-            if (isEditing || isReadOnly) return memo;
+            if (isReadOnly) return memo;
             if ((event.target as HTMLElement).classList.contains('handle-base')) return memo;
             event.stopPropagation();
 
@@ -138,7 +182,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
 
             if (layoutOrigin && viewMode && (viewMode !== 'free')) {
                 const constraint = ViewConstraints.applyConstraints(
-                    viewMode as ViewMode,
+                    viewMode as any,
                     finalX,
                     finalY,
                     layoutOrigin,
@@ -162,82 +206,41 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
             onDragEnd?.(note.id, finalX, finalY);
         },
         onPointerDown: ({ event }) => {
-            if (isEditing || isReadOnly) return;
+            if (isReadOnly) return;
             event.stopPropagation();
             setSelectedId(note.id);
-
-            const now = Date.now();
-            if (lastTap.current && (now - lastTap.current < 300)) {
-                handleContentClick(event as any);
-            }
-            lastTap.current = now;
         }
     }, {
         drag: { filterTaps: true, threshold: 5, from: () => [dragPositionRef.current.x, dragPositionRef.current.y] },
     });
 
-    const handleBlur = () => {
-        setIsEditing(false);
-        if (textRef.current) {
-            const newContent = textRef.current.innerText;
-            const updates: Partial<Note> = { title: newContent };
-            if (proMode) {
-                const analysis = analyzeContent(newContent);
-                if (analysis?.color && !note.color) {
-                    updates.color = analysis.color;
-                }
-            }
-            updateNote(note.id, updates);
-        }
+    const handleDoubleClick = () => {
+        setCosmosOpen(true);
+        setSelectedId(note.id);
     };
 
-    const deleteNote = useStore((state) => state.deleteNote);
-    const viewport = useStore((state) => state.viewport);
-    const setViewport = useStore((state) => state.setViewport);
-
-    const handleContentClick = (e: React.MouseEvent) => {
-        if (isReadOnly) return;
-        if (note.id === 'welcome-nebula') {
-            deleteNote(note.id);
-            return;
-        }
-        if (onClickOverride) {
-            e.stopPropagation();
-            onClickOverride(note.id);
-            return;
-        }
-        if (proMode) {
-            const w = window.innerWidth;
-            const h = window.innerHeight;
-            const targetX = -note.x * 1 + w / 2 - size / 2;
-            const targetY = -note.y * 1 + h / 2 - size / 2;
-            const dx = viewport.x - targetX;
-            const dy = viewport.y - targetY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > 100 || Math.abs(viewport.zoom - 1) > 0.2) {
-                setViewport({ x: targetX, y: targetY, zoom: 1 });
-            }
-        }
-        setIsEditing(true);
-        setTimeout(() => {
-            if (textRef.current) textRef.current.focus();
-        }, 50);
-    };
+    const updateNoteStore = useStore((state) => state.updateNote);
 
     const renderHandle = (position: 'top' | 'right' | 'bottom' | 'left') => {
         if (!isSelected || isReadOnly) return null;
-        const handleClass = clsx("handle-base", `handle-${position}`, "fixed-node");
+
+        const handleColor = note.color || '#6366f1';
+
         return (
-            <div
+            <motion.div
                 key={position}
-                className={clsx(handleClass, "pointer-events-auto z-[60]")}
+                whileHover={{ scale: 1.4 }}
+                className={clsx("handle-base pointer-events-auto z-[60] cursor-crosshair")}
                 style={{
-                    width: 12,
-                    height: 12,
-                    background: note.color || '#3b82f6',
-                    border: '2px solid white',
+                    width: 14,
+                    height: 14,
+                    background: `${handleColor}99`,
+                    border: `2px solid ${handleColor}`,
                     borderRadius: '50%',
-                    position: 'absolute'
+                    position: 'absolute',
+                    boxShadow: `0 0 8px ${handleColor}`,
+                    top: position === 'top' ? -7 : position === 'bottom' ? size - 7 : size / 2 - 7,
+                    left: position === 'left' ? -7 : position === 'right' ? size - 7 : size / 2 - 7,
                 }}
                 onPointerDown={(e) => {
                     e.stopPropagation();
@@ -255,6 +258,17 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
 
     const bindHandlers = bind() as any;
 
+    if (showAsDeepGalaxyDot) {
+        return (
+            <div ref={noteRef} data-note-id={note.id} className="absolute top-0 left-0">
+                <div style={{
+                    width: 3, height: 3, borderRadius: '50%',
+                    background: note.color || baseStyle.color || '#6366f1',
+                }} />
+            </div>
+        );
+    }
+
     if (showAsMinimalDot) {
         return (
             <div ref={noteRef} data-note-id={note.id} className="absolute top-0 left-0">
@@ -271,8 +285,364 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
         );
     }
 
+    if (viewMode === 'matrix') {
+        const u = note.urgency || 'medium';
+        const i = note.importance || 'medium';
+        return (
+            <div
+                ref={noteRef}
+                data-note-id={note.id}
+                className={clsx(
+                    "absolute top-0 left-0 hover:z-50",
+                    !isDragging.current && "transition-transform duration-300 ease-out"
+                )}
+            >
+                <motion.div
+                    {...bindHandlers}
+                    onPointerUp={(e: React.PointerEvent) => {
+                        if (!isReadOnly) {
+                            bindHandlers.onPointerUp?.(e);
+                            onPointerUp?.(e);
+                        }
+                    }}
+                    onDoubleClick={handleDoubleClick}
+                    className={clsx(
+                        "relative flex flex-col w-[160px] h-[100px] rounded-xl overflow-hidden cursor-grab active:cursor-grabbing border",
+                        "bg-[#111121]/90 backdrop-blur-md shadow-xl transition-all",
+                        isSelected ? "border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)]" : "border-white/10 hover:border-white/30"
+                    )}
+                    style={{ zIndex: isDragging.current ? 100 : 1 }}
+                    animate={{ x: 0, y: 0, opacity: note.isDying ? 0 : isDimmed ? 0.3 : 1 }}
+                >
+                    <div className="absolute top-0 left-0 w-full h-1" style={{ background: note.color || '#3b82f6' }} />
+                    <div className="p-3 flex-1 flex flex-col">
+                        <div
+                            contentEditable={!isReadOnly}
+                            suppressContentEditableWarning
+                            onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="flex-1 text-[13px] font-medium leading-tight text-white/90 outline-none overflow-hidden"
+                            style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
+                        >
+                            {note.title || ''}
+                        </div>
+                        <div className="mt-auto flex items-center justify-between gap-1">
+                            <span className={clsx(
+                                "text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold",
+                                u === 'urgent' ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/40"
+                            )}>
+                                {u === 'urgent' ? 'URGENT' : 'NOT URGENT'}
+                            </span>
+                            <span className={clsx(
+                                "text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold",
+                                i === 'important' ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-white/40"
+                            )}>
+                                {i === 'important' ? 'IMPT' : 'NOT IMPT'}
+                            </span>
+                        </div>
+                    </div>
+                </motion.div>
+
+                <AnimatePresence>
+                    {isSelected && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 8, scale: 0.9 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 8, scale: 0.9 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute left-1/2 -translate-x-1/2 flex flex-col gap-2 z-[200] pointer-events-auto"
+                            style={{ top: 110 }}
+                        >
+                            <div className="bg-[#111121]/90 backdrop-blur-xl border border-white/10 rounded-2xl p-2 flex flex-col gap-2 shadow-xl whitespace-nowrap min-w-[200px]">
+                                <div className="flex justify-between items-center gap-2">
+                                    <span className="text-[10px] uppercase font-bold text-white/50 tracking-widest">Urgency</span>
+                                    <div className="flex bg-black/40 rounded-lg p-0.5">
+                                        <button onClick={() => updateNoteStore(note.id, { urgency: 'urgent' })} className={clsx("px-2 py-1 rounded text-[10px] font-bold transition-all", u === 'urgent' ? "bg-red-500/20 text-red-400" : "text-white/30 hover:text-white/60")}>HIGH</button>
+                                        <button onClick={() => updateNoteStore(note.id, { urgency: 'not-urgent' })} className={clsx("px-2 py-1 rounded text-[10px] font-bold transition-all", u === 'not-urgent' ? "bg-blue-500/20 text-blue-400" : "text-white/30 hover:text-white/60")}>LOW</button>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center gap-2">
+                                    <span className="text-[10px] uppercase font-bold text-white/50 tracking-widest">Importance</span>
+                                    <div className="flex bg-black/40 rounded-lg p-0.5">
+                                        <button onClick={() => updateNoteStore(note.id, { importance: 'important' })} className={clsx("px-2 py-1 rounded text-[10px] font-bold transition-all", i === 'important' ? "bg-amber-500/20 text-amber-400" : "text-white/30 hover:text-white/60")}>HIGH</button>
+                                        <button onClick={() => updateNoteStore(note.id, { importance: 'not-important' })} className={clsx("px-2 py-1 rounded text-[10px] font-bold transition-all", i === 'not-important' ? "bg-slate-500/20 text-slate-400" : "text-white/30 hover:text-white/60")}>LOW</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Handles */}
+                {renderHandle('top')}
+                {renderHandle('right')}
+                {renderHandle('bottom')}
+                {renderHandle('left')}
+            </div>
+        );
+    }
+    if (viewMode === 'prism') {
+        const statusColors: Record<string, string> = {
+            'todo': '#94a3b8',
+            'in-progress': '#60a5fa',
+            'review': '#fbbf24',
+            'done': '#34d399',
+        };
+        const s = note.status || 'todo';
+        const barColor = note.color || statusColors[s] || '#94a3b8';
+
+        return (
+            <div
+                ref={noteRef}
+                data-note-id={note.id}
+                className={clsx(
+                    "absolute top-0 left-0 hover:z-50",
+                    !isDragging.current && "transition-transform duration-300 ease-out"
+                )}
+            >
+                <motion.div
+                    {...bindHandlers}
+                    onPointerUp={(e: React.PointerEvent) => {
+                        if (!isReadOnly) {
+                            bindHandlers.onPointerUp?.(e);
+                            onPointerUp?.(e);
+                        }
+                    }}
+                    onDoubleClick={handleDoubleClick}
+                    className={clsx(
+                        "relative flex flex-col w-[200px] min-h-[80px] rounded-xl overflow-hidden cursor-grab active:cursor-grabbing border",
+                        "bg-[#111121]/90 backdrop-blur-md shadow-xl transition-all",
+                        isSelected ? "border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)]" : "border-white/10 hover:border-white/30"
+                    )}
+                    style={{ zIndex: isDragging.current ? 100 : 1 }}
+                    animate={{ x: 0, y: 0, opacity: note.isDying ? 0 : isDimmed ? 0.3 : 1 }}
+                >
+                    <div className="absolute top-0 left-0 w-full h-1.5" style={{ background: barColor }} />
+                    <div className="p-3 pt-4 flex-1 flex flex-col gap-2">
+                        <div
+                            contentEditable={!isReadOnly}
+                            suppressContentEditableWarning
+                            onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="text-[13px] font-medium leading-tight text-white/90 outline-none"
+                        >
+                            {note.title || ''}
+                        </div>
+                        {note.dueDate && (
+                            <div className="mt-auto flex items-center gap-1 text-[10px] text-white/50 bg-white/5 w-fit px-1.5 py-0.5 rounded">
+                                <span>📅</span>
+                                {new Date(note.dueDate).toLocaleDateString()}
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
+                <AnimatePresence>
+                    {isSelected && (
+                        <motion.div
+                            initial={{ opacity: 0, x: -8, scale: 0.9 }}
+                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                            exit={{ opacity: 0, x: -8, scale: 0.9 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute left-[210px] top-0 flex flex-col gap-2 z-[200] pointer-events-auto"
+                        >
+                            <div className="bg-[#111121]/90 backdrop-blur-xl border border-white/10 rounded-2xl p-2 flex flex-col gap-2 shadow-xl whitespace-nowrap">
+                                <span className="text-[10px] uppercase font-bold text-white/50 tracking-widest px-1">Move To</span>
+                                <div className="flex flex-col gap-1">
+                                    <button onClick={() => updateNoteStore(note.id, { status: 'todo' })} className="text-left px-2 py-1 rounded text-[10px] font-bold text-slate-400 hover:bg-white/10">TO DO</button>
+                                    <button onClick={() => updateNoteStore(note.id, { status: 'in-progress' })} className="text-left px-2 py-1 rounded text-[10px] font-bold text-blue-400 hover:bg-white/10">IN PROGRESS</button>
+                                    <button onClick={() => updateNoteStore(note.id, { status: 'review' })} className="text-left px-2 py-1 rounded text-[10px] font-bold text-amber-400 hover:bg-white/10">REVIEW</button>
+                                    <button onClick={() => updateNoteStore(note.id, { status: 'done' })} className="text-left px-2 py-1 rounded text-[10px] font-bold text-emerald-400 hover:bg-white/10">DONE</button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Handles */}
+                {renderHandle('top')}
+                {renderHandle('right')}
+                {renderHandle('bottom')}
+                {renderHandle('left')}
+            </div>
+        );
+    }
+
+    if (viewMode === 'timeline') {
+        const isZippedOut = zoom < 0.3;
+
+        if (isZippedOut) {
+            return (
+                <div
+                    ref={noteRef}
+                    data-note-id={note.id}
+                    className="absolute top-0 left-0 hover:z-50"
+                >
+                    <motion.div
+                        className="rounded-full bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.8)]"
+                        style={{ width: 10, height: 10, opacity: isDimmed ? 0.3 : 0.8 }}
+                    />
+                </div>
+            );
+        }
+
+        return (
+            <div
+                ref={noteRef}
+                data-note-id={note.id}
+                className={clsx(
+                    "absolute top-0 left-0 hover:z-50",
+                    !isDragging.current && "transition-transform duration-300 ease-out"
+                )}
+            >
+                <motion.div
+                    {...bindHandlers}
+                    onPointerUp={(e: React.PointerEvent) => {
+                        if (!isReadOnly) {
+                            bindHandlers.onPointerUp?.(e);
+                            onPointerUp?.(e);
+                        }
+                    }}
+                    onDoubleClick={handleDoubleClick}
+                    className={clsx(
+                        "relative flex flex-col w-[180px] min-h-[60px] rounded-lg overflow-hidden cursor-grab active:cursor-grabbing border",
+                        "bg-[#111121]/90 backdrop-blur-md shadow-xl transition-all",
+                        isSelected ? "border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.5)]" : "border-white/10 hover:border-white/30"
+                    )}
+                    style={{ zIndex: isDragging.current ? 100 : 1 }}
+                >
+                    <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
+                    <div className="p-2 pl-3 flex-1 flex flex-col justify-center">
+                        <div
+                            contentEditable={!isReadOnly}
+                            suppressContentEditableWarning
+                            onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="text-[12px] font-medium leading-tight text-white/90 outline-none"
+                        >
+                            {note.title || ''}
+                        </div>
+                        {note.dueDate && (
+                            <div className="mt-1 flex items-center gap-1 text-[9px] text-white/40 font-mono">
+                                {new Date(note.dueDate).toLocaleDateString()}
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
+                <AnimatePresence>
+                    {isSelected && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -8, scale: 0.9 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -8, scale: 0.9 }}
+                            className="absolute -top-10 left-1/2 -translate-x-1/2 z-[200]"
+                        >
+                            <div className="bg-[#111121]/90 backdrop-blur-xl border border-white/10 rounded-lg px-2 py-1 shadow-xl whitespace-nowrap text-[10px] text-purple-400 font-mono flex items-center gap-2">
+                                <span>Timeline Event</span>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Handles */}
+                {renderHandle('top')}
+                {renderHandle('right')}
+                {renderHandle('bottom')}
+                {renderHandle('left')}
+            </div>
+        );
+    }
+
+    if (viewMode === 'archive') {
+        const isZippedOut = zoom < 0.3;
+
+        if (isZippedOut) {
+            return (
+                <div
+                    ref={noteRef}
+                    data-note-id={note.id}
+                    className="absolute top-0 left-0 hover:z-50 opacity-30"
+                >
+                    <motion.div
+                        className="rounded-sm bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                        style={{ width: 8, height: 8 }}
+                    />
+                </div>
+            );
+        }
+
+        return (
+            <div
+                ref={noteRef}
+                data-note-id={note.id}
+                className={clsx(
+                    "absolute top-0 left-0 hover:z-50",
+                    !isDragging.current && "transition-transform duration-300 ease-out"
+                )}
+            >
+                <motion.div
+                    {...bindHandlers}
+                    onPointerUp={(e: React.PointerEvent) => {
+                        if (!isReadOnly) {
+                            bindHandlers.onPointerUp?.(e);
+                            onPointerUp?.(e);
+                        }
+                    }}
+                    onDoubleClick={handleDoubleClick}
+                    className={clsx(
+                        "relative flex flex-col w-[140px] h-[140px] rounded-lg overflow-hidden cursor-grab active:cursor-grabbing border",
+                        "bg-[#05100a]/80 backdrop-blur-md shadow-lg transition-all border-emerald-900/40",
+                        isSelected && "border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                    )}
+                    style={{ zIndex: isDragging.current ? 100 : 1 }}
+                >
+                    <div className="absolute top-0 left-0 w-full h-1 bg-emerald-900" />
+                    <div className="p-3 flex-1 flex flex-col items-center justify-center gap-2">
+                        <span className="material-symbols-outlined text-emerald-700/50 text-[32px]">inventory_2</span>
+                        <div className="text-[10px] uppercase font-bold text-emerald-600/60 tracking-wider text-center line-clamp-2 px-1">
+                            {note.title || 'ARCHIVED'}
+                        </div>
+                    </div>
+                </motion.div>
+
+                <AnimatePresence>
+                    {isSelected && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                            className="absolute -bottom-12 left-1/2 -translate-x-1/2 z-[200]"
+                        >
+                            <div className="bg-[#111121]/90 backdrop-blur-xl border border-emerald-500/30 rounded-lg px-2 py-1.5 shadow-xl flex items-center gap-2">
+                                <button onClick={(e) => { e.stopPropagation(); updateNoteStore(note.id, { originMode: 'void' }); window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'Restored from Archive', type: 'success' } })); }} className="hover:bg-emerald-500/20 text-emerald-400 p-1.5 rounded transition-colors group" title="Restore">
+                                    <span className="material-symbols-outlined text-[14px]">unarchive</span>
+                                </button>
+                                <div className="w-px h-4 bg-white/10" />
+                                <button onClick={(e) => { e.stopPropagation(); useStore.getState().deleteNote(note.id); window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'Permanently Deleted', type: 'error' } })); }} className="hover:bg-red-500/20 text-red-500 p-1.5 rounded transition-colors group" title="Delete Forever">
+                                    <span className="material-symbols-outlined text-[14px]">delete_forever</span>
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Handles */}
+                {renderHandle('top')}
+                {renderHandle('right')}
+                {renderHandle('bottom')}
+                {renderHandle('left')}
+            </div>
+        );
+    }
+
     return (
-        <div ref={noteRef} data-note-id={note.id} className="absolute top-0 left-0 hover:z-50">
+        <div
+            ref={noteRef}
+            data-note-id={note.id}
+            className={clsx(
+                "absolute top-0 left-0 hover:z-50",
+                viewMode === 'orbital' && !isDragging.current ? "transition-transform duration-300 ease-out" : ""
+            )}
+        >
             <motion.div
                 {...bindHandlers}
                 onPointerUp={(e: React.PointerEvent) => {
@@ -288,31 +658,23 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                     isEnhanced && viewMode === 'free' && `planet-${effectiveType}-pro`,
                     isReadOnly && "pointer-events-none cursor-default"
                 )}
+                onDoubleClick={handleDoubleClick}
                 style={{
                     '--planet-size': `${size}px`,
-                    width: 'var(--planet-size)',
-                    height: 'var(--planet-size)',
-                    ...(note.color || visualColor ? {
-                        boxShadow: `0 0 30px -5px ${visualColor || note.color}, inset 0 0 20px -5px ${visualColor || note.color}`,
-                        borderColor: visualColor || note.color
-                    } : {
-                        borderColor: 'var(--mode-accent, rgba(255,255,255,0.5))',
-                        boxShadow: '0 0 20px -5px var(--mode-accent, transparent)'
-                    }),
+                    zIndex: isDragging.current ? 100 : 1,
+                    // Force strict astronomical colors via className, suppressing custom overrides
+                    borderColor: 'var(--mode-accent, rgba(255,255,255,0.2))',
+                    boxShadow: '0 0 20px -5px var(--mode-accent, transparent)'
                 } as any}
-                layoutId={`note-${note.id}`}
                 initial={false}
                 animate={{
                     width: size,
                     height: size,
-                    scale: note.isDying ? (viewMode === 'orbital' ? 2.5 : 0) : (isFocused ? 1.2 : 1),
                     opacity: note.isDying ? 0 : (isDimmed ? 0.2 : 1),
-                    filter: note.isDying && viewMode === 'orbital' ? 'brightness(3) blur(4px)' : undefined
                 }}
                 transition={{
-                    width: { duration: 0.4, type: "spring" },
-                    height: { duration: 0.4, type: "spring" },
-                    scale: { type: 'spring', stiffness: 200, damping: 20 },
+                    width: { type: 'spring', stiffness: 300, damping: 25 },
+                    height: { type: 'spring', stiffness: 300, damping: 25 },
                     opacity: { duration: 0.3 }
                 }}
             >
@@ -330,101 +692,240 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                             <>
                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[260%] h-[260%] opacity-40 mix-blend-screen"
                                     style={{
-                                        background: `radial-gradient(ellipse at center, transparent 40%, ${note.color || '#eab308'} 45%, transparent 60%)`,
+                                        background: `radial-gradient(ellipse at center, transparent 40%, ${style.color || '#eab308'} 45%, transparent 60%)`,
                                         transform: 'rotateX(75deg) rotateY(10deg)'
                                     }}
                                 />
                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[220%] h-[220%] opacity-90"
                                     style={{
-                                        background: `radial-gradient(ellipse at center, transparent 30%, ${note.color || '#eab308'} 40%, transparent 50%, ${note.color || '#eab308'} 60%, transparent 70%)`,
+                                        background: `radial-gradient(ellipse at center, transparent 30%, ${style.color || '#eab308'} 40%, transparent 50%, ${style.color || '#eab308'} 60%, transparent 70%)`,
                                         transform: 'rotateX(75deg) rotateY(10deg)',
-                                        boxShadow: `0 0 20px -5px ${note.color || '#eab308'}`
+                                        boxShadow: `0 0 20px -5px ${style.color || '#eab308'}`
                                     }}
                                 />
                             </>
                         )}
                     </div>
                 )}
-                <div
-                    ref={textRef}
-                    className={clsx(
-                        "absolute inset-0 z-20 flex items-center justify-center text-center p-[15%]",
-                        "whitespace-pre-wrap break-words outline-none",
-                        showContent && isEditing ? "overflow-y-auto cursor-text px-2" : "cursor-pointer overflow-hidden"
-                    )}
-                    style={{
-                        fontSize: 'inherit',
-                        fontFamily: 'var(--mode-font)',
-                        color: note.textColor || (designSystem === 'solar' ? '#1a1a1a' : 'white'),
-                        textShadow: designSystem === 'solar' ? 'none' : '0 2px 4px rgba(0,0,0,0.5)',
-                        lineHeight: 1.2
-                    }}
-                    contentEditable={showContent && isEditing}
-                    suppressContentEditableWarning
-                    onBlur={handleBlur}
-                    onPointerDown={(e) => isEditing && e.stopPropagation()}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleBlur();
-                        }
-                    }}
-                >
-                    {showText && (note.title || style.label)}
-                </div>
-                {isEditing && (
-                    <motion.button
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        onClick={async (e) => {
-                            e.stopPropagation();
-                            if (!note.title) return;
-                            window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'Expanding thought...', type: 'info' } }));
-                            try {
-                                const expanded = await planetExpander(note.title, note.content || '');
-                                updateNote(note.id, { title: expanded });
-                                if (textRef.current) textRef.current.innerText = expanded;
-                                setIsEditing(false);
-                            } catch (err: any) {
-                                window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: err.message, type: 'info' } }));
-                            }
-                        }}
-                        className="absolute -top-10 right-0 p-2 rounded-full glass-panel border-purple-500/50 text-purple-400 hover:scale-110 transition-transform z-50 pointer-events-auto"
-                        title="AI Expand (Planet Expander)"
-                    >
-                        <Sparkles size={16} />
-                    </motion.button>
-                )}
+                {/* TEXT CONTENT / LOD RENDERING */}
+                <AnimatePresence mode="wait">
+                    {lod === 'surface' ? (
+                        <motion.div
+                            key="surface"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className="absolute inset-0 flex items-center justify-center text-center p-[15%] pointer-events-none"
+                        >
+                            {/* TEXT CONTENT - INLINE EDITABLE */}
+                            <div
+                                className="absolute inset-0 flex items-center justify-center p-3 pointer-events-none"
+                                style={{ opacity: showText ? 1 : 0 }}
+                            >
+                                <div
+                                    ref={textRef}
+                                    contentEditable={!isReadOnly}
+                                    suppressContentEditableWarning
+                                    onInput={(e) => {
+                                        const newTitle = e.currentTarget.innerText;
+                                        updateNoteStore(note.id, { title: newTitle });
+                                        autoFitText();
+                                    }}
+                                    onBlur={() => {
+                                        // When blurring, ensure text is clamped if it overflows
+                                        autoFitText();
+                                    }}
+                                    onPointerDown={(e) => e.stopPropagation()} // Allow clicking inside to focus
+                                    className={clsx(
+                                        "max-w-full w-full text-center font-bold tracking-tight leading-tight outline-none pointer-events-auto break-words whitespace-pre-wrap",
+                                        isSolar ? "text-slate-900" : "text-white"
+                                    )}
+                                    style={{
+                                        textShadow: isSolar ? 'none' : '0 2px 4px rgba(0,0,0,0.5)',
+                                    }}
+                                >
+                                    {note.title || (note.content ? '' : 'Unnamed Note')}
+                                </div>
+                                {note.content && (
+                                    <div
+                                        className={clsx(
+                                            "w-full text-center mt-1.5 text-[0.45em] font-medium leading-[1.4] opacity-70 line-clamp-3 break-words whitespace-pre-wrap pointer-events-auto",
+                                            isSolar ? "text-slate-700" : "text-indigo-100"
+                                        )}
+                                        style={{ textShadow: isSolar ? 'none' : '0 1px 2px rgba(0,0,0,0.8)' }}
+                                    >
+                                        {extractPlainText(note.content)}
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    ) : lod === 'planet' ? (
+                        <motion.div
+                            key="planet"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            className="absolute top-[110%] left-1/2 -translate-x-1/2 text-center pointer-events-none"
+                        >
+                            <div className="bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 shadow-lg">
+                                <span className="text-[10px] uppercase tracking-[0.2em] font-black text-white/80">
+                                    {note.title || 'Unnamed Star'}
+                                </span>
+                            </div>
+                        </motion.div>
+                    ) : null}
+                </AnimatePresence>
+
                 {isSelected && (
                     <motion.div
-                        layoutId="selection-ring"
                         className="selection-ring z-0 absolute inset-[-4px] rounded-full border-2 border-blue-400"
-                        initial={{ opacity: 0, scale: 0.9 }}
+                        initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.2 }}
                     />
                 )}
-                {isSelected && !isEditing && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex gap-2 p-2 rounded-full glass-panel border-white/5 z-[100]"
-                    >
-                        {(
-                            effectiveType === NoteType.Sun ? ['#f59e0b', '#ef4444', '#f87171', '#0ea5e9'] :
-                                ['earth', 'venus', 'mars'].includes(effectiveType) ? ['#3b82f6', '#22c55e', '#f97316', '#ef4444', '#a855f7'] :
-                                    ['jupiter', 'saturn'].includes(effectiveType) ? ['#eab308', '#d97706', '#78350f', '#f59e0b'] :
-                                        ['#94a3b8', '#e2e8f0', '#ffffff', '#475569']
-                        ).map(color => (
+
+                {/* ACTION PANEL (Floating) */}
+                <AnimatePresence>
+                    {isSelected && !isCosmosOpen && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                            animate={{ opacity: 1, y: -size / 2 - 40, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                            className="absolute flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 shadow-2xl border border-white/10 z-[100]"
+                        >
                             <button
-                                key={color}
-                                onClick={() => updateNote(note.id, { color })}
-                                className="w-4 h-4 rounded-full border border-white/20 transition-transform hover:scale-125 hover:border-white/50"
-                                style={{ background: color }}
-                            />
-                        ))}
-                    </motion.div>
-                )}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCosmosOpen(true);
+                                }}
+                                className="flex items-center gap-2 text-[10px] font-bold text-white tracking-widest uppercase px-2 hover:text-indigo-400 transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-sm">rocket_launch</span>
+                                Open Universe
+                            </button>
+                            <div className="w-px h-3 bg-white/10 mx-1" />
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    // Handle color/type ring?
+                                }}
+                                className="p-1 text-white/50 hover:text-white transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-[16px]">palette</span>
+                            </button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                <AnimatePresence>
+                    {isSelected && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 8, scale: 0.9 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 8, scale: 0.9 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute left-1/2 -translate-x-1/2 flex flex-col gap-2 z-[200] pointer-events-auto"
+                            style={{ top: size + 12 }}
+                        >
+                            {viewMode === 'orbital' ? (
+                                <div className="bg-[#111121]/90 backdrop-blur-xl border border-white/10 rounded-2xl px-3 py-2 flex flex-col gap-2 shadow-xl whitespace-nowrap">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <span className={clsx(
+                                            "text-[10px] font-black tracking-widest uppercase",
+                                            note.priority === 'critical' ? 'text-red-400' :
+                                                note.priority === 'high' ? 'text-amber-400' :
+                                                    note.priority === 'medium' ? 'text-blue-400' : 'text-slate-400'
+                                        )}>
+                                            {note.priority || 'medium'} RING
+                                        </span>
+                                        <div className="flex gap-1">
+                                            {(['critical', 'high', 'medium', 'low'] as const).map((p) => (
+                                                <button
+                                                    key={p}
+                                                    onClick={() => updateNoteStore(note.id, { priority: p })}
+                                                    className={clsx(
+                                                        "w-3 h-3 rounded-full border border-white/20 transition-all hover:scale-125",
+                                                        p === 'critical' ? 'bg-red-500' :
+                                                            p === 'high' ? 'bg-amber-500' :
+                                                                p === 'medium' ? 'bg-blue-500' : 'bg-slate-500'
+                                                    )}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="w-full h-px bg-white/10" />
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => {
+                                                const promoteNote = useStore.getState().promoteNote;
+                                                promoteNote?.(note.id, 'prism');
+                                            }}
+                                            className="flex-1 flex items-center justify-center gap-1 bg-purple-500/20 hover:bg-purple-500/40 text-purple-200 px-2 py-1 rounded text-[9px] uppercase tracking-wider transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined text-[12px]">view_kanban</span>
+                                            Prism
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                const dateStr = window.prompt("Enter due date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+                                                if (dateStr) {
+                                                    const dueDate = new Date(dateStr).getTime();
+                                                    if (!isNaN(dueDate)) {
+                                                        const promoteNote = useStore.getState().promoteNote;
+                                                        promoteNote?.(note.id, 'timeline');
+                                                        updateNoteStore(note.id, { dueDate });
+                                                    }
+                                                }
+                                            }}
+                                            className="flex-1 flex items-center justify-center gap-1 bg-amber-500/20 hover:bg-amber-500/40 text-amber-200 px-2 py-1 rounded text-[9px] uppercase tracking-wider transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined text-[12px]">calendar_today</span>
+                                            Timeline
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="bg-[#111121]/90 backdrop-blur-xl border border-white/10 rounded-2xl px-2 py-1.5 flex items-center gap-1 shadow-xl whitespace-nowrap">
+                                    <button
+                                        onClick={() => setSelectedId(note.id)}
+                                        className="w-8 h-8 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                                        title="Edit Content"
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onConnectStart(note.id, note.x + size / 2, note.y + size / 2);
+                                        }}
+                                        className="w-8 h-8 rounded-xl flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                                        title="Connect"
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">link</span>
+                                    </button>
+                                    <div className="w-px h-4 bg-white/10 mx-0.5" />
+                                    <div className="flex gap-1 px-1">
+                                        {(['critical', 'high', 'medium', 'low'] as const).map((p) => (
+                                            <button
+                                                key={p}
+                                                onClick={() => updateNoteStore(note.id, { priority: p })}
+                                                className={clsx(
+                                                    "px-2 py-1 rounded-lg text-[8px] uppercase font-bold tracking-tighter transition-all border",
+                                                    note.priority === p
+                                                        ? "bg-white/20 border-white/40 text-white"
+                                                        : "bg-white/5 border-white/5 text-white/30 hover:bg-white/10"
+                                                )}
+                                            >
+                                                {p[0]}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 {renderHandle('top')}
                 {renderHandle('right')}
@@ -438,10 +939,17 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
 export const PlanetNote = React.memo(PlanetNoteComponent, (prev, next) => {
     if (prev.isSelected !== next.isSelected) return false;
     if (prev.zoom !== next.zoom) return false;
+    if (prev.viewMode !== next.viewMode) return false;
     const pNote = prev.note;
     const nNote = next.note;
-    if (pNote.x !== nNote.x || pNote.y !== nNote.y) return false;
+    // CRITICAL: Skip x/y comparison for physics performance.
+    // engine + visualRegistry handles the positioning.
+    if (pNote.id !== nNote.id) return false;
     if (pNote.title !== nNote.title) return false;
     if (pNote.color !== nNote.color) return false;
+    if (pNote.type !== nNote.type) return false;
+    if (pNote.priority !== nNote.priority) return false;
+    if (pNote.isDying !== nNote.isDying) return false;
+    if (pNote.fixed !== nNote.fixed) return false;
     return true;
 });
