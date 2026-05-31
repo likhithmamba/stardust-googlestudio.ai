@@ -5,7 +5,7 @@ import { useSettingsStore } from '../../ui/settings/settingsStore';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const QuestOverlay: React.FC = () => {
-    const showQuest = useSettingsStore((state) => state.ultra.questMode);
+    const showQuest = useSettingsStore((state) => state.ultra?.questMode);
     const notes = useStore((state) => state.notes);
     const updateNote = useStore((state) => state.updateNote);
     const setViewport = useStore((state) => state.setViewport);

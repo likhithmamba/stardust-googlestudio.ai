@@ -10,11 +10,9 @@ import type {
     Note,
     Link,
     Vector2,
-    Bounds,
     GravityScore,
     SpectralFacets,
     Snapshot,
-    SnapshotDiff,
     ProjectVelocity,
     SemanticCluster,
     MatrixCoordinate,
@@ -31,7 +29,8 @@ class WorkerBridge {
     private worker: Worker | null = null;
     private pendingRequests = new Map<string, PendingRequest>();
     private requestCounter = 0;
-    private isReady = false;
+    // @ts-expect-error — used via readyPromise/readyResolve pattern
+    private _isReady = false;
     private readyPromise: Promise<void>;
     private readyResolve!: () => void;
 
@@ -61,7 +60,7 @@ class WorkerBridge {
         const { type, data, requestId } = event.data;
 
         if (type === 'READY') {
-            this.isReady = true;
+            this._isReady = true;
             this.readyResolve();
             return;
         }

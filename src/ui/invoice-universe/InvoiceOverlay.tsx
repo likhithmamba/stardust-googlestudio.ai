@@ -4,7 +4,7 @@ import { useStore } from '../../store/useStore';
 import { Download, X } from 'lucide-react';
 
 export const InvoiceOverlay: React.FC = () => {
-    const showInvoiceUniverse = useSettingsStore((state) => state.ultra.invoiceUniverse);
+    const showInvoiceUniverse = useSettingsStore((state) => state.ultra?.invoiceUniverse);
     const setShowInvoiceUniverse = useSettingsStore((state) => state.setToggle); // Generic toggle
     const notes = useStore((state) => state.notes);
 

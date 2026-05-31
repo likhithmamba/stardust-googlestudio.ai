@@ -10,6 +10,7 @@ export const StarfieldLayer: React.FC = () => {
     const viewport = useStore((state) => state.viewport);
     const theme = useStore((state) => state.theme);
     const mode = useSettingsStore((state) => state.mode);
+    const designSystem = useSettingsStore((state) => state.designSystem);
     const proMode = mode === 'pro' || mode === 'ultra';
 
     const stars = useRef<{ x: number; y: number; size: number; opacity: number; speed: number; layer: 'back' | 'mid' | 'front' }[]>([]);
@@ -47,12 +48,21 @@ export const StarfieldLayer: React.FC = () => {
         });
 
         // Generate nebulas
-        const nebulaColors = ['#4c1d95', '#312e81', '#1e1b4b', '#581c87', '#0f172a'];
+        const getNebulaColor = (index: number): string => {
+            switch (index) {
+                case 0: return '#4c1d95';
+                case 1: return '#312e81';
+                case 2: return '#1e1b4b';
+                case 3: return '#581c87';
+                default: return '#0f172a';
+            }
+        };
+
         nebulas.current = Array.from({ length: 12 }, () => ({
             x: Math.random() * window.innerWidth * 1.5,
             y: Math.random() * window.innerHeight * 1.5,
             size: Math.random() * 600 + 400,
-            color: nebulaColors[Math.floor(Math.random() * nebulaColors.length)],
+            color: getNebulaColor(Math.floor(Math.random() * 5)),
             speed: Math.random() * 0.03 + 0.005
         }));
     }, []);
@@ -186,6 +196,10 @@ export const StarfieldLayer: React.FC = () => {
         render();
         return () => cancelAnimationFrame(animationFrameId);
     }, [viewport, theme, proMode]); // Only reubin when these change
+
+    if (designSystem !== 'zero-point') {
+        return null;
+    }
 
     return (
         <div ref={containerRef} className="absolute inset-0 w-full h-full pointer-events-none z-0">

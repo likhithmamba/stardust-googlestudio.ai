@@ -1,16 +1,40 @@
 export class SoundManager {
     private ctx: AudioContext | null = null;
     private masterGain: GainNode | null = null;
+    private volume: number = 0.3;
+    private muted: boolean = false;
 
     constructor() {
         try {
             this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
             this.masterGain = this.ctx.createGain();
-            this.masterGain.gain.value = 0.3; // Master volume
+            this.masterGain.gain.value = this.volume; // Master volume
             this.masterGain.connect(this.ctx.destination);
         } catch (e) {
             console.warn('Web Audio API not supported');
         }
+    }
+
+    setVolume(vol: number) {
+        this.volume = Math.max(0, Math.min(1, vol));
+        if (this.masterGain && !this.muted) {
+            this.masterGain.gain.value = this.volume;
+        }
+    }
+
+    getVolume(): number {
+        return this.volume;
+    }
+
+    setMuted(mute: boolean) {
+        this.muted = mute;
+        if (this.masterGain) {
+            this.masterGain.gain.value = mute ? 0 : this.volume;
+        }
+    }
+
+    isMuted(): boolean {
+        return this.muted;
     }
 
     private ensureContext() {

@@ -74,9 +74,13 @@ export const AppShell: React.FC = () => {
     useEffect(() => {
         const html = document.documentElement;
         html.classList.remove('solar', 'zero-point', 'dark');
-        html.classList.add(designSystem);
-        if (designSystem === 'zero-point') html.classList.add('dark');
-        html.setAttribute('data-mode', viewMode);
+        if (designSystem && typeof designSystem === 'string') {
+            html.classList.add(designSystem);
+            if (designSystem === 'zero-point') html.classList.add('dark');
+        }
+        if (viewMode && typeof viewMode === 'string') {
+            html.setAttribute('data-mode', viewMode);
+        }
     }, [designSystem, viewMode]);
 
     const handleCreate = () => {

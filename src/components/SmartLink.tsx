@@ -85,7 +85,7 @@ export const SmartLink: React.FC<SmartLinkProps> = React.memo(({ connection, sou
             </circle>
 
             {/* Midpoint pill label */}
-            <foreignObject width="1" height="1" className="overflow-visible pointer-events-none">
+            <foreignObject x="-50000" y="-50000" width="100000" height="100000" className="pointer-events-none">
                 <div
                     ref={labelRef}
                     className="absolute flex items-center justify-center p-4"

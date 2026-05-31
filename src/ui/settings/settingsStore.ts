@@ -8,7 +8,7 @@ export interface SettingsState {
     mode: Mode;
     showHierarchy: boolean;
     showLinks: boolean;
-    showChooserPreview: boolean; // dev/test preview; not persisted by default
+
     pro: {
         magneticAlignment: boolean;
         smartZoom: boolean;
@@ -122,7 +122,7 @@ export const useSettingsStore = create<SettingsState>()(
             mode: 'ultra', // Default to Ultra for Showcase
             showHierarchy: true,
             showLinks: true,
-            showChooserPreview: false,
+
             toolbarMode: 'fixed',
             pro: {
                 magneticAlignment: true,
@@ -210,6 +210,35 @@ export const useSettingsStore = create<SettingsState>()(
                 }
             },
         }),
-        { name: 'stardust.settings.v3' }
+        { 
+            name: 'stardust.settings.v3',
+            storage: {
+                getItem: (name: string) => {
+                    const str = localStorage.getItem(name);
+                    if (!str) return null;
+                    try {
+                        const parsed = JSON.parse(str);
+                        // Rehydrate freePositions from array back to Map
+                        if (parsed?.state?.freePositions && Array.isArray(parsed.state.freePositions)) {
+                            parsed.state.freePositions = new Map(parsed.state.freePositions);
+                        } else if (parsed?.state) {
+                            parsed.state.freePositions = new Map();
+                        }
+                        return parsed;
+                    } catch {
+                        return null;
+                    }
+                },
+                setItem: (name: string, value: any) => {
+                    // Convert Map to array entries for JSON serialization
+                    const clone = JSON.parse(JSON.stringify(value, (_key, val) => {
+                        if (val instanceof Map) return Array.from(val.entries());
+                        return val;
+                    }));
+                    localStorage.setItem(name, JSON.stringify(clone));
+                },
+                removeItem: (name: string) => localStorage.removeItem(name),
+            },
+        }
     )
 );

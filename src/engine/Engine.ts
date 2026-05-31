@@ -30,22 +30,16 @@ export class Engine {
     private handleConsumption = (victimId: string, _consumerId: string) => {
         // Remove from World immediately
         this.world.notes.delete(victimId);
-        // Clean up connections
-        this.world.connections.forEach(c => {
+        // Clean up connections — collect IDs first to avoid mutating during iteration
+        const connIdsToDelete: string[] = [];
+        this.world.connections.forEach((c, id) => {
             if (c.from === victimId || c.to === victimId) {
-                // Remove connection
-                // Effectively we just filter them out next sync or delete from map if map key is ID.
-                // But connections are Map<string, Connection>.
-                // We need to find ID.
+                connIdsToDelete.push(id);
             }
         });
+        connIdsToDelete.forEach(id => this.world.connections.delete(id));
 
-        // Notify React (via Store or Event)
-        // Since World is sync'd FROM React, we need to tell React to delete it.
-        // We can dispatch a custom event or callback?
-        // Ideally we should have an Output Bus.
-        // For now, let's emit a window event that the Store can listen to?
-        // Or better, callback passed to Engine.start?
+        // Notify React to sync the deletion
         window.dispatchEvent(new CustomEvent('stardust:delete-note', { detail: { id: victimId } }));
     };
 
@@ -85,13 +79,17 @@ export class Engine {
             targets = this.layoutManager.getTargets();
         }
 
-        // 2. Physics Step
+        // 2. Physics Step (general N-body forces — can be disabled for stability)
         if (FLAGS.ENABLE_PHYSICS) {
             this.physicsSystem.step(targets);
-            this.singularitySystem.step(); // Run Singularity
         }
 
-        // 3. Visual Sync
+        // 3. Singularity Step (black hole suction — independent, always-on when flagged)
+        if (FLAGS.ENABLE_SINGULARITY) {
+            this.singularitySystem.step();
+        }
+
+        // 4. Visual Sync
         if (FLAGS.ENABLE_RENDER) {
             this.notifyVisuals();
         }

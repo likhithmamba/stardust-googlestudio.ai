@@ -175,7 +175,7 @@ export const LOGICAL_SLOT_RADIUS: Record<string, number> = {
 };
 
 // Unified View Mode Definition
-export type ViewMode = 'free' | 'orbital' | 'constellation' | 'nebula' | 'project' | 'matrix' | 'prism' | 'timeline' | 'void' | 'stream' | 'archive';
+export type ViewMode = 'free' | 'void' | 'orbital' | 'matrix' | 'prism' | 'timeline' | 'archive';
 
 export const ALLOWED_TYPES_PER_MODE: Record<string, NoteType[]> = {
     void: [

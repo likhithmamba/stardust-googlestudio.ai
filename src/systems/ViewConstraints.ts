@@ -1,6 +1,6 @@
 
 import type { ViewMode } from '../constants';
-import { ORBITAL_CONFIG, TIMELINE_CONFIG, PRISM_CONFIG } from './LayoutConstants';
+import { ORBITAL_CONFIG, TIMELINE_CONFIG, PRISM_CONFIG } from '../engine/layout/LayoutConstants';
 
 export interface DragConstraintResult {
     x: number;

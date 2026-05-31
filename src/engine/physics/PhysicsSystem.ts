@@ -72,11 +72,11 @@ export class PhysicsSystem {
 
 
             // 2. MATRIX MODE: Resistance (Decision Engine)
-            // "Drag a node from 'Starlight' to 'Solar Core'. It should feel heavy to move it there."
+            // "Drag a note from 'Starlight' to 'Solar Core'. It should feel heavy to move it there."
             if (this.world.mode === 'matrix') {
-                // Ensure we have center
-                const cx = this.world.camera.x;
-                const cy = this.world.camera.y;
+                // Ensure we have stable center
+                const cx = 0;
+                const cy = 0;
 
                 // Solar Core is Top-Left Quadrant relative to center
                 const inSolarCore = note.x < cx && note.y < cy;

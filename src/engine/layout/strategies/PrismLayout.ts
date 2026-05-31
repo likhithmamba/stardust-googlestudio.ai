@@ -1,10 +1,9 @@
 import type { EngineNote, WorldConfig } from '../../types/EngineTypes';
 import type { LayoutStrategy } from '../LayoutStrategy';
 import { PRISM_CONFIG, type Vector2 } from '../LayoutConstants';
+import type { SpectralFacets } from '../../../types/StardustSchema';
 import {
-    refractNote,
     SPECTRAL_COLORS,
-    type SpectralFacets
 } from '../../cognitive/PrismEngine';
 
 /**
@@ -14,7 +13,6 @@ import {
  */
 export class PrismLayout implements LayoutStrategy {
     private noteWavelengths: Map<string, keyof SpectralFacets> = new Map();
-    private noteFacets: Map<string, SpectralFacets> = new Map();
 
     calculateTargets(notes: EngineNote[], config: WorldConfig): Map<string, Vector2> {
         const targets = new Map<string, Vector2>();
@@ -28,13 +26,21 @@ export class PrismLayout implements LayoutStrategy {
         // Count items per column for stacking
         const colCounts = { action: 0, strategy: 0, resource: 0, counter: 0 };
 
-        notes.forEach(note => {
+        // Sort notes deterministically by createdAt (fallback to ID) to guarantee stable column stacking
+        const sortedNotes = [...notes].sort((a, b) => {
+            const timeA = a.createdAt || 0;
+            const timeB = b.createdAt || 0;
+            if (timeA !== timeB) return timeA - timeB;
+            return a.id.localeCompare(b.id);
+        });
+
+        sortedNotes.forEach(note => {
             // Determine wavelength based on content analysis
             const wavelength = this.determineWavelength(note);
             this.noteWavelengths.set(note.id, wavelength);
 
-            const colIndex = columns.indexOf(wavelength);
-            const count = colCounts[wavelength]++;
+            const colIndex = columns.indexOf(wavelength as typeof columns[number]);
+            const count = colCounts[wavelength as keyof typeof colCounts]++;
 
             // Stack vertically within column
             const x = startX + (colIndex * (COL_WIDTH + GAP));
@@ -89,6 +95,6 @@ export class PrismLayout implements LayoutStrategy {
 
     getColor(noteId: string): string {
         const wavelength = this.noteWavelengths.get(noteId) || 'strategy';
-        return SPECTRAL_COLORS[wavelength];
+        return SPECTRAL_COLORS[wavelength as keyof typeof SPECTRAL_COLORS];
     }
 }

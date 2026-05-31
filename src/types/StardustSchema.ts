@@ -206,7 +206,15 @@ export type WorkerResultType =
     | 'SNAPSHOT_RESULT'
     | 'VELOCITY_RESULT'
     | 'CLUSTERS_RESULT'
-    | 'MATRIX_RESULT';
+    | 'MATRIX_RESULT'
+    | 'COMPUTE_PHYSICS_RESULT'
+    | 'CALCULATE_LAYOUT_RESULT'
+    | 'REFRACT_NOTE_RESULT'
+    | 'CREATE_SNAPSHOT_RESULT'
+    | 'CALCULATE_VELOCITY_RESULT'
+    | 'DETECT_CLUSTERS_RESULT'
+    | 'EVALUATE_MATRIX_RESULT'
+    | 'ERROR';
 
 export interface WorkerResult {
     type: WorkerResultType;

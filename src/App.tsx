@@ -1,13 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { soundManager } from './utils/sound';
 import { ModeManager } from './ui/modes/ModeManager';
-import { LandingUltimate } from './pages/LandingUltimate';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { startDecayEngine, stopDecayEngine } from './engine/decayEngine';
+
+import { LandingUltimate } from './pages/LandingUltimate';
 
 function App() {
     const [hasEnteredApp, setHasEnteredApp] = useState(false);
     useKeyboardShortcuts();
+
+    // Start/stop the decay engine when the app canvas is active
+    useEffect(() => {
+        if (hasEnteredApp) {
+            startDecayEngine();
+            return () => stopDecayEngine();
+        }
+    }, [hasEnteredApp]);
 
     const handleEnterApp = () => {
         soundManager.playWarp();

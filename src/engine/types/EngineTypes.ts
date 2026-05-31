@@ -45,4 +45,4 @@ export interface WorldConfig {
     centerY: number;
 }
 
-export type LayoutMode = 'free' | 'orbital' | 'constellation' | 'nebula' | 'project' | 'matrix' | 'prism' | 'timeline' | 'void' | 'stream' | 'archive';
+export type LayoutMode = 'free' | 'void' | 'orbital' | 'matrix' | 'prism' | 'timeline' | 'archive';

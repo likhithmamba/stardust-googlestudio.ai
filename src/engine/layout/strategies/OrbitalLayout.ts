@@ -1,10 +1,9 @@
 import type { EngineNote, WorldConfig } from '../../types/EngineTypes';
 import type { LayoutStrategy } from '../LayoutStrategy';
 import { ORBITAL_CONFIG, type Vector2 } from '../LayoutConstants';
+import type { GravityScore } from '../../../types/StardustSchema';
 import {
     calculateGravityScore,
-    getGravityOrbitalTargets,
-    type GravityScore
 } from '../../cognitive/OrbitalEngine';
 
 /**

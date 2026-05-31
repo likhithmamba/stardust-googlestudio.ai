@@ -8,6 +8,7 @@ import clsx from 'clsx';
 import { visualRegistry } from '../engine/render/VisualRegistry';
 import { useZoomLOD, type ZoomLOD } from '../hooks/useZoomLOD';
 import { useSettingsStore } from '../ui/settings/settingsStore';
+import { touchNote, getDecayOpacity } from '../engine/decayEngine';
 
 interface PlanetNoteProps {
     note: Note;
@@ -48,6 +49,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
 }) => {
     const updateNote = useStore((state) => state.updateNote);
     const setSelectedId = useStore((state) => state.setSelectedId);
+    const toggleSelectedId = useStore((state) => state.toggleSelectedId);
     const setCosmosOpen = useStore((state) => state.setCosmosOpen);
     const isCosmosOpen = useStore((state) => state.isCosmosOpen);
 
@@ -72,6 +74,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
     const isDragging = useRef(false);
     const noteRef = useRef<HTMLDivElement>(null);
     const textRef = useRef<HTMLDivElement>(null);
+    const [isHovered, setIsHovered] = React.useState(false);
 
     // Compute Size - use REAL_SIZES for ALL modes
     let size = Math.max(40, REAL_SIZES[note.type] || style.width || 80);
@@ -158,6 +161,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
             isDragging.current = true;
             setSelectedId(note.id);
             onDragStart?.(note.id);
+            useStore.getState().takeSnapshot();
             updateNote(note.id, { fixed: true });
         },
         onDrag: ({ delta: [dx, dy], event, memo = { x: dragPositionRef.current.x, y: dragPositionRef.current.y } }) => {
@@ -208,7 +212,11 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
         onPointerDown: ({ event }) => {
             if (isReadOnly) return;
             event.stopPropagation();
-            setSelectedId(note.id);
+            if (event.shiftKey) {
+                toggleSelectedId(note.id);
+            } else {
+                setSelectedId(note.id);
+            }
         }
     }, {
         drag: { filterTaps: true, threshold: 5, from: () => [dragPositionRef.current.x, dragPositionRef.current.y] },
@@ -217,12 +225,13 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
     const handleDoubleClick = () => {
         setCosmosOpen(true);
         setSelectedId(note.id);
+        touchNote(note.id); // Reset decay timer on interaction
     };
 
     const updateNoteStore = useStore((state) => state.updateNote);
 
     const renderHandle = (position: 'top' | 'right' | 'bottom' | 'left') => {
-        if (!isSelected || isReadOnly) return null;
+        if ((!isSelected && !isHovered) || isReadOnly) return null;
 
         const handleColor = note.color || '#6366f1';
 
@@ -292,6 +301,8 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
             <div
                 ref={noteRef}
                 data-note-id={note.id}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
                 className={clsx(
                     "absolute top-0 left-0 hover:z-50",
                     !isDragging.current && "transition-transform duration-300 ease-out"
@@ -395,6 +406,8 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
             <div
                 ref={noteRef}
                 data-note-id={note.id}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
                 className={clsx(
                     "absolute top-0 left-0 hover:z-50",
                     !isDragging.current && "transition-transform duration-300 ease-out"
@@ -489,6 +502,8 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
             <div
                 ref={noteRef}
                 data-note-id={note.id}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
                 className={clsx(
                     "absolute top-0 left-0 hover:z-50",
                     !isDragging.current && "transition-transform duration-300 ease-out"
@@ -574,6 +589,8 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
             <div
                 ref={noteRef}
                 data-note-id={note.id}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
                 className={clsx(
                     "absolute top-0 left-0 hover:z-50",
                     !isDragging.current && "transition-transform duration-300 ease-out"
@@ -638,6 +655,8 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
         <div
             ref={noteRef}
             data-note-id={note.id}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
             className={clsx(
                 "absolute top-0 left-0 hover:z-50",
                 viewMode === 'orbital' && !isDragging.current ? "transition-transform duration-300 ease-out" : ""
@@ -670,7 +689,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                 animate={{
                     width: size,
                     height: size,
-                    opacity: note.isDying ? 0 : (isDimmed ? 0.2 : 1),
+                    opacity: note.isDying ? 0 : (isDimmed ? 0.2 : getDecayOpacity(note)),
                 }}
                 transition={{
                     width: { type: 'spring', stiffness: 300, damping: 25 },
@@ -951,5 +970,15 @@ export const PlanetNote = React.memo(PlanetNoteComponent, (prev, next) => {
     if (pNote.priority !== nNote.priority) return false;
     if (pNote.isDying !== nNote.isDying) return false;
     if (pNote.fixed !== nNote.fixed) return false;
+    // Mode-specific fields that affect rendering
+    if (pNote.status !== nNote.status) return false;
+    if (pNote.urgency !== nNote.urgency) return false;
+    if (pNote.importance !== nNote.importance) return false;
+    if (pNote.content !== nNote.content) return false;
+    if (pNote.luminance !== nNote.luminance) return false;
+    if (pNote.dueDate !== nNote.dueDate) return false;
+    if (pNote.textColor !== nNote.textColor) return false;
+    if (pNote.fontSize !== nNote.fontSize) return false;
+    if (pNote.fontFamily !== nNote.fontFamily) return false;
     return true;
 });

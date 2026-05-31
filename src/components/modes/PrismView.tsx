@@ -1,5 +1,4 @@
 import React from 'react';
-import clsx from 'clsx';
 
 const PRISM_COLUMNS = [
     { id: 'focus', label: 'Focus' },

@@ -28,6 +28,8 @@ import { NotesChoiceRing } from './NotesChoiceRing';
 import { DashboardBackground } from './DashboardBackground';
 import { EditorOverlay } from './EditorOverlay';
 import { AppShell } from './AppShell';
+import { InvoiceOverlay } from '../ui/invoice-universe/InvoiceOverlay';
+import { QuestOverlay } from '../ui/quest-mode/QuestOverlay';
 
 // Per-mode Chrome Overlays
 import { VoidChrome } from './chrome/VoidChrome';
@@ -35,6 +37,7 @@ import { OrbitalChrome } from './chrome/OrbitalChrome';
 import { MatrixChrome } from './chrome/MatrixChrome';
 import { PrismChrome } from './chrome/PrismChrome';
 import { TimelineChrome } from './chrome/TimelineChrome';
+import { ArchiveChrome } from './chrome/ArchiveChrome';
 
 // Mode accent colors for transition announcements
 const MODE_ACCENTS: Record<string, string> = {
@@ -59,13 +62,18 @@ export const CanvasViewport: React.FC = () => {
     const addConnection = useStore((state) => state.addConnection);
     const updateNote = useStore((state) => state.updateNote);
     const deleteNote = useStore((state) => state.deleteNote);
+    const softDeleteNote = useStore((state) => state.softDeleteNote);
     const selectedId = useStore((state) => state.selectedId);
     const setSelectedId = useStore((state) => state.setSelectedId);
+    const selectedIds = useStore((state) => state.selectedIds);
+    const setSelectedIds = useStore((state) => state.setSelectedIds);
+    const takeSnapshot = useStore((state) => state.takeSnapshot);
 
     // Migrated: UI Toggles & Modes from SettingsStore
     const mode = useSettingsStore((state) => state.mode);
     const viewMode = useSettingsStore((state) => state.viewMode);
     const transitionPhase = useSettingsStore((state) => state.transitionPhase);
+    const designSystem = useSettingsStore((state) => state.designSystem);
 
     // ENGINE INTEGRATION
     const engine = useEngine();
@@ -79,9 +87,7 @@ export const CanvasViewport: React.FC = () => {
     // Origin Capture for Structured Modes
     useEffect(() => {
         if (viewMode !== 'free' && viewMode !== 'void') {
-            const centerX = (-viewport.x + window.innerWidth / 2) / viewport.zoom;
-            const centerY = (-viewport.y + window.innerHeight / 2) / viewport.zoom;
-            setLayoutOrigin({ x: centerX, y: centerY });
+            setLayoutOrigin({ x: 0, y: 0 }); // Anchor to stable world origin (0,0)
         }
     }, [viewMode]);
 
@@ -96,6 +102,9 @@ export const CanvasViewport: React.FC = () => {
     const setConnectionStart = useStore((state) => state.setConnectionStart);
     const [tempConnectionEnd, setTempConnectionEnd] = useState<{ x: number; y: number } | null>(null);
     const [blackHoleActive, setBlackHoleActive] = useState(false);
+
+    // Lasso Selection State
+    const [lasso, setLasso] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
 
     // Unified Genesis Ring (Creation) Menu State
     const [activeMenu, setActiveMenu] = useState<{ isOpen: boolean; x: number; y: number; worldX: number; worldY: number } | null>(null);
@@ -143,6 +152,265 @@ export const CanvasViewport: React.FC = () => {
             setActiveMenu(null);
         }
     }, [activeMenu, viewMode, layoutOrigin, addNote]);
+
+    const handleSpawnTemplate = useCallback((targetMode: ViewMode) => {
+        const CX = window.innerWidth / 2;
+        const CY = window.innerHeight / 2;
+        
+        takeSnapshot();
+
+        switch (targetMode) {
+            case 'orbital': {
+                const coreId = 'orbital-core-idea';
+                const highId = 'orbital-high-action';
+                const lowId = 'orbital-low-thought';
+                addNote({
+                    id: coreId,
+                    x: CX - 50,
+                    y: CY - 150,
+                    w: 80,
+                    h: 80,
+                    type: NoteType.Sun,
+                    title: 'Core Epic Theme 🌟',
+                    content: 'This is the most critical item. In Orbital Mode, it stays locked near the center.',
+                    priority: 'critical',
+                    status: 'todo',
+                    originMode: 'orbital',
+                });
+                addNote({
+                    id: highId,
+                    x: CX + 180,
+                    y: CY - 80,
+                    w: 64,
+                    h: 64,
+                    type: NoteType.Earth,
+                    title: 'High Priority Task 🎯',
+                    content: 'An important supporting action. Dragging it onto a different ring updates its priority.',
+                    priority: 'high',
+                    status: 'in-progress',
+                    originMode: 'orbital',
+                });
+                addNote({
+                    id: lowId,
+                    x: CX - 220,
+                    y: CY + 100,
+                    w: 48,
+                    h: 48,
+                    type: NoteType.Moon,
+                    title: 'Minor backlog item 💬',
+                    content: 'A low priority nice-to-have suggestion.',
+                    priority: 'low',
+                    status: 'captured',
+                    originMode: 'orbital',
+                });
+                addConnection({ id: 'orbit-c1', from: coreId, to: highId, label: 'requires' });
+                addConnection({ id: 'orbit-c2', from: highId, to: lowId, label: 'suggested' });
+                break;
+            }
+            case 'matrix': {
+                addNote({
+                    id: 'matrix-n1',
+                    x: CX - 250,
+                    y: CY - 180,
+                    w: 60,
+                    h: 60,
+                    type: NoteType.Earth,
+                    title: 'Do First 🔴',
+                    content: 'Urgent and Important. Address these immediately.',
+                    urgency: 'urgent',
+                    importance: 'important',
+                    status: 'in-progress',
+                    originMode: 'matrix',
+                });
+                addNote({
+                    id: 'matrix-n2',
+                    x: CX + 150,
+                    y: CY - 180,
+                    w: 60,
+                    h: 60,
+                    type: NoteType.Jupiter,
+                    title: 'Schedule / Strategy 📅',
+                    content: 'Important but Not Urgent. Plan dedicated focus blocks for these.',
+                    urgency: 'not-urgent',
+                    importance: 'important',
+                    status: 'todo',
+                    originMode: 'matrix',
+                });
+                addNote({
+                    id: 'matrix-n3',
+                    x: CX - 250,
+                    y: CY + 100,
+                    w: 60,
+                    h: 60,
+                    type: NoteType.Moon,
+                    title: 'Delegate 👥',
+                    content: 'Urgent but Not Important. Delegate, automate, or reject.',
+                    urgency: 'urgent',
+                    importance: 'not-important',
+                    status: 'review',
+                    originMode: 'matrix',
+                });
+                addNote({
+                    id: 'matrix-n4',
+                    x: CX + 150,
+                    y: CY + 100,
+                    w: 60,
+                    h: 60,
+                    type: NoteType.Asteroid,
+                    title: 'Delete / Archive 🗑️',
+                    content: 'Neither Urgent nor Important. Drop them from your roadmap.',
+                    urgency: 'not-urgent',
+                    importance: 'not-important',
+                    status: 'captured',
+                    originMode: 'matrix',
+                });
+                break;
+            }
+            case 'prism': {
+                addNote({
+                    id: 'prism-todo',
+                    x: window.innerWidth * 0.125 - 45,
+                    y: window.innerHeight * 0.20,
+                    w: 60,
+                    h: 60,
+                    type: NoteType.Asteroid,
+                    title: 'Draft landing mockups 🎨',
+                    content: 'Todo lane card. Drag right to promote status.',
+                    status: 'todo',
+                    originMode: 'prism',
+                });
+                addNote({
+                    id: 'prism-ip',
+                    x: window.innerWidth * 0.375 - 45,
+                    y: window.innerHeight * 0.20,
+                    w: 60,
+                    h: 60,
+                    type: NoteType.Earth,
+                    title: 'Revamp physics formulas ⚙️',
+                    content: 'Currently active work items belong in In Progress.',
+                    status: 'in-progress',
+                    originMode: 'prism',
+                });
+                addNote({
+                    id: 'prism-review',
+                    x: window.innerWidth * 0.625 - 45,
+                    y: window.innerHeight * 0.20,
+                    w: 60,
+                    h: 60,
+                    type: NoteType.Jupiter,
+                    title: 'Peer code check 👁️',
+                    content: 'Items undergoing QA review.',
+                    status: 'review',
+                    originMode: 'prism',
+                });
+                addNote({
+                    id: 'prism-done',
+                    x: window.innerWidth * 0.875 - 45,
+                    y: window.innerHeight * 0.20,
+                    w: 60,
+                    h: 60,
+                    type: NoteType.Sun,
+                    title: 'Release update v2.5 🎉',
+                    content: 'Completed objectives!',
+                    status: 'done',
+                    originMode: 'prism',
+                });
+                break;
+            }
+            case 'timeline': {
+                const baseTime = Date.now();
+                addNote({
+                    id: 'time-m1',
+                    x: CX - 300,
+                    y: CY - 200,
+                    w: 60,
+                    h: 60,
+                    type: NoteType.Asteroid,
+                    title: 'Design Alpha 💡',
+                    content: 'Initial brainstorming phase milestone.',
+                    dueDate: baseTime - 4 * 24 * 60 * 60 * 1000,
+                    status: 'done',
+                    originMode: 'timeline',
+                });
+                addNote({
+                    id: 'time-m2',
+                    x: CX,
+                    y: CY + 100,
+                    w: 60,
+                    h: 60,
+                    type: NoteType.Earth,
+                    title: 'Beta Release 🚀',
+                    content: 'Stable working release milestone.',
+                    dueDate: baseTime,
+                    status: 'in-progress',
+                    originMode: 'timeline',
+                });
+                addNote({
+                    id: 'time-m3',
+                    x: CX + 300,
+                    y: CY - 200,
+                    w: 60,
+                    h: 60,
+                    type: NoteType.Sun,
+                    title: 'V1.0 Market launch 🏆',
+                    content: 'Commercial public announcement and campaign.',
+                    dueDate: baseTime + 6 * 24 * 60 * 60 * 1000,
+                    status: 'todo',
+                    originMode: 'timeline',
+                });
+                break;
+            }
+            case 'void':
+            case 'free': {
+                const rootId = 'void-root-brainstorm';
+                const leaf1 = 'void-leaf-1';
+                const leaf2 = 'void-leaf-2';
+                addNote({
+                    id: rootId,
+                    x: CX - 50,
+                    y: CY - 100,
+                    w: 80,
+                    h: 80,
+                    type: NoteType.Nebula,
+                    title: 'Organic Brainstorm 🌌',
+                    content: 'Start with a central core node. Double click around it to expand ideas.',
+                    status: 'captured',
+                    originMode: 'void',
+                });
+                addNote({
+                    id: leaf1,
+                    x: CX - 200,
+                    y: CY + 100,
+                    w: 50,
+                    h: 50,
+                    type: NoteType.Jupiter,
+                    title: 'Concept Branch A 🧩',
+                    content: 'Sub-topic idea supporting the core theme.',
+                    status: 'captured',
+                    originMode: 'void',
+                });
+                addNote({
+                    id: leaf2,
+                    x: CX + 100,
+                    y: CY + 120,
+                    w: 50,
+                    h: 50,
+                    type: NoteType.Moon,
+                    title: 'Concept Branch B 🔍',
+                    content: 'Another sub-concept linked organically.',
+                    status: 'captured',
+                    originMode: 'void',
+                });
+                addConnection({ id: 'void-c1', from: rootId, to: leaf1 });
+                addConnection({ id: 'void-c2', from: rootId, to: leaf2 });
+                break;
+            }
+            default:
+                break;
+        }
+
+        window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: `Spawned ${targetMode.toUpperCase()} template!`, type: 'success' } }));
+    }, [addNote, addConnection, takeSnapshot]);
 
     // Linking System State
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; noteId: string } | null>(null);
@@ -263,7 +531,7 @@ export const CanvasViewport: React.FC = () => {
     }, []);
 
     useGesture({
-        onDrag: ({ delta: [dx, dy], event }) => {
+        onDrag: ({ delta: [dx, dy], initial: [ix, iy], xy: [cx, cy], last, event }) => {
             const target = event.target as HTMLElement;
 
             if (connectionStart) {
@@ -279,6 +547,35 @@ export const CanvasViewport: React.FC = () => {
             }
 
             if (target.closest('.note-planet') || target.closest('.handle-base')) return;
+
+            // Shift+Drag lasso selection!
+            if (event.shiftKey) {
+                const rect = containerRef.current?.getBoundingClientRect();
+                if (rect) {
+                    if (last) {
+                        setLasso(null);
+                        return;
+                    }
+                    const startX = (ix - rect.left - viewport.x) / viewport.zoom;
+                    const startY = (iy - rect.top - viewport.y) / viewport.zoom;
+                    const currentX = (cx - rect.left - viewport.x) / viewport.zoom;
+                    const currentY = (cy - rect.top - viewport.y) / viewport.zoom;
+
+                    setLasso({ start: { x: startX, y: startY }, end: { x: currentX, y: currentY } });
+
+                    const xMin = Math.min(startX, currentX);
+                    const xMax = Math.max(startX, currentX);
+                    const yMin = Math.min(startY, currentY);
+                    const yMax = Math.max(startY, currentY);
+
+                    const matchedIds = visibleNotes
+                        .filter(n => n.x >= xMin && n.x <= xMax && n.y >= yMin && n.y <= yMax)
+                        .map(n => n.id);
+
+                    setSelectedIds(matchedIds);
+                }
+                return;
+            }
 
             setViewport({ ...viewport, x: viewport.x + dx, y: viewport.y + dy });
         },
@@ -313,8 +610,10 @@ export const CanvasViewport: React.FC = () => {
             // Prevent deselect if this is part of a double-click (which should open the ring)
             if (event.detail > 1) return;
             setSelectedId(undefined);
+            setSelectedIds([]);
         },
         onPointerUp: ({ event }) => {
+            setLasso(null);
             if (connectionStart) {
                 checkConnectionDrop(event);
             }
@@ -360,8 +659,9 @@ export const CanvasViewport: React.FC = () => {
         setAlignmentLines(null);
         if (blackHoleActive) {
             soundManager.playWarp();
-            deleteNote(id);
+            softDeleteNote(id); // Send to recoverable graveyard, not permanent delete
             setBlackHoleActive(false);
+            window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'Star consumed by singularity — recoverable from Event Horizon', type: 'info' } }));
             return;
         }
     };
@@ -508,7 +808,7 @@ export const CanvasViewport: React.FC = () => {
 
             {/* Visual Layer: Starfield & Background */}
             <DashboardBackground />
-            <StarfieldLayer />
+            {designSystem === 'zero-point' && <StarfieldLayer />}
 
             {/* MODE OVERLAYS (Static Grids/Layouts) */}
             {viewMode === 'archive' && <DecayOverlay />}
@@ -631,7 +931,7 @@ export const CanvasViewport: React.FC = () => {
                                     <PlanetNote
                                         key={note.id}
                                         note={note}
-                                        isSelected={selectedId === note.id}
+                                        isSelected={selectedId === note.id || selectedIds.includes(note.id)}
                                         zoom={viewport.zoom}
                                         isReadOnly={false}
                                         layoutOrigin={layoutOrigin}
@@ -663,15 +963,71 @@ export const CanvasViewport: React.FC = () => {
                             })}
                         </AnimatePresence>
                     </div>
+
+                    {lasso && (
+                        <div
+                            className="absolute border border-indigo-500/50 bg-indigo-500/10 pointer-events-none rounded backdrop-blur-[0.5px]"
+                            style={{
+                                left: Math.min(lasso.start.x, lasso.end.x),
+                                top: Math.min(lasso.start.y, lasso.end.y),
+                                width: Math.abs(lasso.start.x - lasso.end.x),
+                                height: Math.abs(lasso.start.y - lasso.end.y),
+                                zIndex: 10000,
+                            }}
+                        />
+                    )}
                 </motion.div>
             </motion.div> {/* end canvas transition wrapper */}
 
-            {viewMode === 'void' && visibleNotes.length === 0 && (
+            {visibleNotes.length === 0 && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20">
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.8 }} className="flex flex-col items-center gap-5 text-center">
-                        <p className="text-white/20 text-[14px] tracking-[0.3em] uppercase font-light italic">This is your void. Begin anywhere.</p>
-                        <p className="text-white/10 text-[10px] tracking-[0.2em] uppercase">Double-click the canvas to capture a thought</p>
-                        <button className="pointer-events-auto px-5 py-2 rounded-full bg-white/5 border border-white/10 text-white/40 text-[10px] tracking-widest uppercase hover:bg-white/10 hover:text-white/70 transition-all" onClick={() => window.dispatchEvent(new CustomEvent('stardust:openSphericalMenu', { detail: { x: window.innerWidth / 2, y: window.innerHeight / 2 } }))}>+ Capture first thought</button>
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.6 }} className="flex flex-col items-center gap-5 text-center px-6">
+                        <span className="material-symbols-outlined text-white/20 text-4xl">
+                            {viewMode === 'void' || viewMode === 'free' ? 'blur_on' :
+                             viewMode === 'orbital' ? 'motion_photos_on' :
+                             viewMode === 'matrix' ? 'grid_view' :
+                             viewMode === 'prism' ? 'view_week' :
+                             viewMode === 'timeline' ? 'calendar_today' :
+                             viewMode === 'archive' ? 'archive' : 'blur_on'}
+                        </span>
+                        <p className="text-white/30 text-[13px] tracking-[0.25em] uppercase font-light leading-relaxed max-w-md">
+                            {viewMode === 'void' || viewMode === 'free' ? "This is your void. Begin anywhere." :
+                             viewMode === 'orbital' ? "Focus priority rings are empty." :
+                             viewMode === 'matrix' ? "Decision matrix quadrants are clear." :
+                             viewMode === 'prism' ? "Prism status lanes are clear." :
+                             viewMode === 'timeline' ? "Chronological milestone timeline is clear." :
+                             viewMode === 'archive' ? "Event Horizon is clear. No archived star systems." : "System workspace is clear."}
+                        </p>
+                        <p className="text-white/15 text-[9px] tracking-[0.2em] uppercase max-w-sm leading-relaxed">
+                            {viewMode === 'archive'
+                                ? "Dimmed notes will automatically drift here over time"
+                                : "Double-click the canvas empty space to capture a thought"}
+                        </p>
+                        {viewMode !== 'archive' && (
+                            <div className="flex flex-col items-center gap-3 mt-4 pointer-events-auto">
+                                <p className="text-[#9393c8]/40 text-[9.5px] tracking-widest max-w-[400px] leading-relaxed italic bg-white/5 border border-white/5 p-4 rounded-2xl">
+                                    {viewMode === 'orbital' && "◎ Gravitational flows capture importance: Critical elements snap closer to the CORE. Drag nodes across orbital tracks to dynamically pivot priority."}
+                                    {viewMode === 'matrix' && "⊞ Strategic quadrants sort Urgency vs. Importance. Drag elements between boxes to dynamically update their prioritization status."}
+                                    {viewMode === 'prism' && "▨ Status columns represent Kanban execution. Drag cards horizontally to advance tasks through the entropy distribution pipeline."}
+                                    {viewMode === 'timeline' && "── The timeline streams thoughts chronologically. Drag items along the date-axis to shift due dates. Heights resolve visual overlap."}
+                                    {(viewMode === 'void' || viewMode === 'free') && "∞ Freeform void allows organic association. Drag handles to connect nodes and create custom gravity linkages."}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        className="px-5 py-2.5 rounded-full bg-white/5 border border-white/10 text-white/40 text-[9px] tracking-widest uppercase hover:bg-white/10 hover:text-white/70 hover:scale-[1.03] active:scale-[0.98] transition-all"
+                                        onClick={() => window.dispatchEvent(new CustomEvent('stardust:openSphericalMenu', { detail: { x: window.innerWidth / 2, y: window.innerHeight / 2 } }))}
+                                    >
+                                        + Create New Star
+                                    </button>
+                                    <button
+                                        className="px-5 py-2.5 rounded-full bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 text-[9px] tracking-widest uppercase hover:scale-[1.03] active:scale-[0.98] transition-all font-bold"
+                                        onClick={() => handleSpawnTemplate(viewMode || 'void')}
+                                    >
+                                        ✨ Spawn Template
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </motion.div>
                 </div>
             )}
@@ -752,11 +1108,18 @@ export const CanvasViewport: React.FC = () => {
                         <TimelineChrome />
                     </motion.div>
                 )}
+                {viewMode === 'archive' && (
+                    <motion.div key="archive-chrome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6, ease: 'easeInOut' }} className="absolute inset-0 pointer-events-none z-40">
+                        <ArchiveChrome />
+                    </motion.div>
+                )}
             </AnimatePresence>
 
             {/* UNIFIED APP SHELL & EDITOR */}
             <AppShell />
             <EditorOverlay />
+            <InvoiceOverlay />
+            <QuestOverlay />
         </div>
     );
 };

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ORBITAL_CONFIG, MATRIX_CONFIG, TIMELINE_CONFIG, PRISM_CONFIG } from '../systems/LayoutConstants';
+import { ORBITAL_CONFIG, MATRIX_CONFIG, TIMELINE_CONFIG, PRISM_CONFIG } from '../engine/layout/LayoutConstants';
 
 interface LayoutVisualsProps {
     viewMode: string;

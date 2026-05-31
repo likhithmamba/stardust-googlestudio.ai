@@ -8,7 +8,6 @@
  */
 
 import {
-    calculateGravityScore,
     calculateAllGravityScores,
     buildQuadtree,
     calculateRepulsionForce,
@@ -17,7 +16,6 @@ import {
 } from '../engine/cognitive/OrbitalEngine';
 
 import {
-    evaluateNote,
     evaluateAllNotes,
     getPruningCandidates,
     applyGhostLayer,
@@ -48,9 +46,6 @@ import type {
     SpectralFacets,
     Snapshot,
     SnapshotDiff,
-    ProjectVelocity,
-    SemanticCluster,
-    MatrixCoordinate,
     WorkerMessage,
     WorkerResult,
     GhostLayer
@@ -204,7 +199,7 @@ const handlers: Record<string, MessageHandler> = {
         for (const note of notes) {
             if (note.fixed) continue;
 
-            const target = targets[note.id];
+            const target = targets ? Reflect.get(targets, note.id) : undefined;
             if (target) {
                 const dx = target.x - note.x;
                 const dy = target.y - note.y;
@@ -264,12 +259,12 @@ const handlers: Record<string, MessageHandler> = {
             const newX = note.x + vx;
             const newY = note.y + vy;
 
-            updates[note.id] = {
+            Reflect.set(updates, note.id, {
                 x: isNaN(newX) ? note.x : newX,
                 y: isNaN(newY) ? note.y : newY,
                 vx,
                 vy
-            };
+            });
         }
 
         return updates;
@@ -278,10 +273,12 @@ const handlers: Record<string, MessageHandler> = {
 
 // === WORKER MESSAGE LISTENER ===
 
+const handlersMap = new Map(Object.entries(handlers));
+
 self.onmessage = (event: MessageEvent<WorkerMessage>) => {
     const { type, payload, requestId } = event.data;
 
-    const handler = handlers[type];
+    const handler = handlersMap.get(type);
     if (!handler) {
         self.postMessage({
             type: 'ERROR',

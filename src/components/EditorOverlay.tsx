@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import { useSettingsStore } from '../ui/settings/settingsStore';
 import { RichTextEditor } from './editor/RichTextEditor';
 import { X, Trash2, BarChart, Sparkles } from 'lucide-react';
 import clsx from 'clsx';
+import { touchNote } from '../engine/decayEngine';
 
 
 export const EditorOverlay: React.FC = () => {
@@ -25,6 +26,11 @@ export const EditorOverlay: React.FC = () => {
     if (!note) return null;
 
     const isSolar = designSystem === 'solar';
+
+    // Touch note on editor open to reset decay
+    useEffect(() => {
+        if (note) touchNote(note.id);
+    }, [note?.id]);
 
     const handleClose = () => {
         setCosmosOpen(false);

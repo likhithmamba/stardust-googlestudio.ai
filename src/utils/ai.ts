@@ -82,14 +82,16 @@ export const generateChat = async (options: AIGenerateOptions): Promise<string> 
     if (!key) throw new Error("No API Key configured. Add your OpenRouter key in Settings.");
 
     const model = options.model || getModel();
+    const cleanKey = key.replace(/[\r\n]/g, '');
+    const cleanOrigin = window.location.origin.replace(/[\r\n]/g, '');
 
     try {
         const response = await fetch(OPENROUTER_URL, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${key}`,
+                'Authorization': `Bearer ${cleanKey}`,
                 'Content-Type': 'application/json',
-                'HTTP-Referer': window.location.origin,
+                'HTTP-Referer': cleanOrigin,
                 'X-Title': 'Stardust',
             },
             body: JSON.stringify({

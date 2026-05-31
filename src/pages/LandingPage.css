@@ -4,8 +4,6 @@
    Scoped under .landing-root to avoid conflicts with app CSS
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=JetBrains+Mono:wght@300;400;500&display=swap');
-
 :root {
   --lp-void: #020205;
   --lp-deep: #05050f;

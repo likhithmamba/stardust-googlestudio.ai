@@ -77,18 +77,11 @@ export const CanvasInputHandler: React.FC = () => {
 
                 // Check if we should allow chooser
                 const currentMode = useSettingsStore.getState().mode;
-                const chooserPreview = useSettingsStore.getState().showChooserPreview;
 
-                if (currentMode === 'pro' || currentMode === 'ultra' || chooserPreview) {
-                    // In a real app, we'd import the spherical chooser function.
-                    // For now, let's dispatch an event or invoke the logic.
-                    // Since we typically use state to show the chooser:
-
-                    // We can set a global state or dispatch event
+                if (currentMode === 'pro' || currentMode === 'ultra') {
                     window.dispatchEvent(new CustomEvent('stardust:openSphericalMenu', {
                         detail: { x: touch.clientX, y: touch.clientY }
                     }));
-
                 }
             }
         }

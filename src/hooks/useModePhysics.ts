@@ -100,12 +100,30 @@ const DEFAULT_PHYSICS: ModePhysicsConfig = MODE_PHYSICS.free;
  */
 export function useModePhysics(): ModePhysicsConfig {
     const viewMode = useSettingsStore((state) => state.viewMode);
-    return useMemo(() => MODE_PHYSICS[viewMode] || DEFAULT_PHYSICS, [viewMode]);
+    return useMemo(() => {
+        switch (viewMode) {
+            case 'void': return MODE_PHYSICS.void;
+            case 'matrix': return MODE_PHYSICS.matrix;
+            case 'prism': return MODE_PHYSICS.prism;
+            case 'orbital': return MODE_PHYSICS.orbital;
+            case 'timeline': return MODE_PHYSICS.timeline;
+            case 'free': return MODE_PHYSICS.free;
+            default: return DEFAULT_PHYSICS;
+        }
+    }, [viewMode]);
 }
 
 /**
  * Get physics config for a specific mode (non-hook version).
  */
 export function getModePhysics(mode: string): ModePhysicsConfig {
-    return MODE_PHYSICS[mode] || DEFAULT_PHYSICS;
+    switch (mode) {
+        case 'void': return MODE_PHYSICS.void;
+        case 'matrix': return MODE_PHYSICS.matrix;
+        case 'prism': return MODE_PHYSICS.prism;
+        case 'orbital': return MODE_PHYSICS.orbital;
+        case 'timeline': return MODE_PHYSICS.timeline;
+        case 'free': return MODE_PHYSICS.free;
+        default: return DEFAULT_PHYSICS;
+    }
 }

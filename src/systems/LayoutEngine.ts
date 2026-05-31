@@ -1,6 +1,6 @@
 import type { Note } from '../store/useStore';
 import { differenceInDays } from 'date-fns';
-import { ORBITAL_CONFIG, MATRIX_CONFIG, TIMELINE_CONFIG, PRISM_CONFIG } from './LayoutConstants';
+import { ORBITAL_CONFIG, MATRIX_CONFIG, TIMELINE_CONFIG, PRISM_CONFIG } from '../engine/layout/LayoutConstants';
 
 export type Vector2 = { x: number; y: number };
 

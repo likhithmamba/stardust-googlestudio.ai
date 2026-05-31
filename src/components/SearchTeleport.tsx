@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
-import { motion, AnimatePresence } from 'framer-motion';
-import { NOTE_STYLES, NoteType } from '../constants';
+import { motion } from 'framer-motion';
+import { NoteType } from '../constants';
 
 // Relative time formatter
 const relativeTime = (ts?: number): string => {

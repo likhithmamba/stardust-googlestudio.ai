@@ -2,7 +2,7 @@ export * from './HeroSection';
 export * from './FeatureDeepDive';
 export * from './ComparisonSection';
 export * from './RoadmapSection';
-export * from './LandingFooter';
+// LandingFooter is embedded inline in EventHorizonCTA — no separate module needed
 export * from './ModesShowcase';
 
 export * from './HeroPrime';

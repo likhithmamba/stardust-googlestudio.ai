@@ -31,9 +31,9 @@ export const MATRIX_CONFIG = {
 } as const;
 
 export const TIMELINE_CONFIG = {
-    LANE_HEIGHT: 120, // For snapping
+    LANE_HEIGHT: 150, // For snapping
     SNAP_THRESHOLD: 50,
-    PIXELS_PER_DAY: 100
+    PIXELS_PER_DAY: 180
 } as const;
 
 export const PRISM_CONFIG = {

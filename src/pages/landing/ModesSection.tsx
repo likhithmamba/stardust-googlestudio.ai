@@ -1,5 +1,15 @@
 import React from 'react';
 
+interface OrbitalPlanet {
+    rad: number; sp: string; st: string; w: number; bg: string;
+    bs: string; o?: number; br?: string; h?: number;
+}
+
+interface PrismItem {
+    w: number; bg: string; bs?: string; t?: string;
+    br?: string; pulse?: boolean;
+}
+
 /* ── Void Visual ── */
 const VoidVisual = () => (
     <div className="lp-void-vis">
@@ -25,7 +35,7 @@ const OrbitalVisual = () => (
         <div className="lp-orb-ring-el" style={{ width: 116, height: 116 }} />
         <div className="lp-orb-center"><span style={{ fontFamily: "var(--lp-font-display)", fontSize: '.42rem', letterSpacing: '.15em', color: 'rgba(255,255,255,0.35)' }}>CORE</span></div>
         <div className="lp-ow">
-            {[
+            {([
                 { rad: 58, sp: '6s', st: '0deg', w: 28, bg: 'radial-gradient(circle at 35% 35%,#fca5a5,#ef4444)', bs: '0 0 12px rgba(239,68,68,0.7)' },
                 { rad: 58, sp: '6s', st: '180deg', w: 24, bg: 'radial-gradient(circle at 35% 35%,#fde68a,#f59e0b)', bs: '0 0 10px rgba(245,158,11,0.6)' },
                 { rad: 98, sp: '11s', st: '60deg', w: 32, bg: 'radial-gradient(circle at 35% 35%,#bfdbfe,#3b82f6)', bs: '0 0 14px rgba(59,130,246,0.6)' },
@@ -33,7 +43,7 @@ const OrbitalVisual = () => (
                 { rad: 150, sp: '17s', st: '30deg', w: 36, bg: 'radial-gradient(circle at 35% 35%,#d9f99d,#65a30d)', bs: '0 0 14px rgba(101,163,13,0.5)' },
                 { rad: 150, sp: '17s', st: '150deg', w: 16, bg: '#334155', bs: 'none', o: .55 },
                 { rad: 150, sp: '17s', st: '280deg', w: 13, bg: '#475569', bs: 'none', o: .45, br: '42% 58% 70% 30% / 45% 45% 55% 55%' },
-            ].map((p, i) => (
+            ] as OrbitalPlanet[]).map((p, i) => (
                 <div key={i} className="lp-op" style={{ '--lp-rad': `${p.rad}px`, '--lp-sp': p.sp, '--lp-st': p.st, width: p.w, height: p.h || p.w, margin: `-${p.w / 2}px`, background: p.bg, boxShadow: p.bs !== 'none' ? p.bs : undefined, opacity: p.o, borderRadius: p.br } as React.CSSProperties} />
             ))}
         </div>
@@ -73,12 +83,12 @@ const MatrixVisual = () => (
 /* ── Prism Visual ── */
 const PrismVisual = () => (
     <div className="lp-prism-vis">
-        {[
+        {([
             { label: 'Mercury', items: [{ w: 26, bg: 'radial-gradient(circle at 35% 35%,#e2e8f0,#94a3b8)', bs: '0 0 6px rgba(148,163,184,0.4)', t: 'quick' }, { w: 20, bg: 'rgba(71,85,105,0.5)', br: '42% 58% 70% 30% / 45% 45% 55% 55%' }, { w: 22, bg: 'rgba(71,85,105,0.38)' }] },
             { label: 'Venus', items: [{ w: 50, bg: 'radial-gradient(circle at 35% 35%,#fed7aa,#f97316)', bs: '0 0 16px rgba(249,115,22,0.5)', t: 'brand\nvision' }, { w: 30, bg: 'radial-gradient(circle at 35% 35%,#fde68a,#f59e0b)', bs: '0 0 10px rgba(245,158,11,0.4)', t: 'design' }] },
             { label: 'Earth', items: [{ w: 64, bg: 'radial-gradient(circle at 35% 35%,#bfdbfe,#3b82f6,#1e3a8a)', bs: '0 0 22px rgba(59,130,246,0.5)', t: 'Product\nLaunch\nv2.0' }, { w: 36, bg: 'radial-gradient(circle at 35% 35%,#d1fae5,#059669)', bs: '0 0 12px rgba(5,150,105,0.5)', t: 'growth' }] },
             { label: 'Mars', items: [{ w: 44, bg: 'radial-gradient(circle at 35% 35%,#fca5a5,#ef4444)', bs: '0 0 16px rgba(239,68,68,0.6)', t: 'critical\nbug', pulse: true }, { w: 26, bg: 'radial-gradient(circle at 35% 35%,#fca5a5,#ef4444)', bs: '0 0 10px rgba(239,68,68,0.4)', t: 'block' }] },
-        ].map((col, ci) => (
+        ] as { label: string; items: PrismItem[] }[]).map((col, ci) => (
             <div key={ci} className="lp-pcol">
                 <span className="lp-pcol-label">{col.label}</span>
                 {col.items.map((it, ii) => (

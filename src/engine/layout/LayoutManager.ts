@@ -34,8 +34,8 @@ export class LayoutManager {
             width: this.world.width,
             height: this.world.height,
             zoom: this.world.zoom,
-            centerX: this.world.camera.x,
-            centerY: this.world.camera.y
+            centerX: 0, // Anchor layout to stable world origin (0,0) to prevent pan desync
+            centerY: 0
         };
 
         return strategy.calculateTargets(notes, config);

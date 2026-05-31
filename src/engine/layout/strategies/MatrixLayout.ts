@@ -1,9 +1,9 @@
 import type { EngineNote, WorldConfig } from '../../types/EngineTypes';
 import type { LayoutStrategy } from '../LayoutStrategy';
 import { MATRIX_CONFIG, type Vector2 } from '../LayoutConstants';
+import type { MatrixCoordinate } from '../../../types/StardustSchema';
 import {
     evaluateNote,
-    type MatrixCoordinate
 } from '../../cognitive/MatrixEngine';
 
 /**
@@ -46,8 +46,9 @@ export class MatrixLayout implements LayoutStrategy {
             }
 
             const quad = evaluation.quadrant;
-            const offset = quadOffsets[quad];
-            const count = quadrantCounts[quad]++;
+            const offset = quadOffsets[quad as keyof typeof quadOffsets];
+            const count = quadrantCounts[quad as keyof typeof quadrantCounts]++;
+
 
             // Grid within quadrant
             const col = count % GRID.COLS;
