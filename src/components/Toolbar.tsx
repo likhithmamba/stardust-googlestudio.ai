@@ -100,17 +100,17 @@ export const Toolbar: React.FC = () => {
             {/* Hover Trigger for Auto-Hide Mode */}
             {toolbarMode === 'auto-hide' && (
                 <div
-                    className="fixed bottom-0 left-0 right-0 h-16 z-[899] bg-transparent"
+                    className="fixed left-0 top-0 bottom-0 w-16 z-[899] bg-transparent"
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
                 />
             )}
 
             <motion.div
-                className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[900] pointer-events-auto flex flex-col items-center"
+                className="fixed left-6 top-1/2 -translate-y-1/2 z-[900] pointer-events-auto flex flex-col items-center"
                 initial={false}
                 animate={{
-                    y: isHidden ? 120 : 0,
+                    x: isHidden ? -120 : 0,
                     opacity: isHidden ? 0 : 1,
                     scale: isCollapsed ? 0.9 : 1,
                 }}
@@ -118,16 +118,16 @@ export const Toolbar: React.FC = () => {
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
             >
-                {/* Theme Menu Popover - Floats above */}
+                {/* Theme Menu Popover - Floats to the right */}
                 <div className="relative w-full flex justify-center">
                     <AnimatePresence>
                         {showThemeMenu && !isCollapsed && (
                             <motion.div
                                 key="theme-menu"
-                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                className="absolute bottom-full mb-6 p-5 rounded-[28px] bg-[#0A0B10]/80 border border-white/10 w-72 backdrop-blur-3xl shadow-[0_32px_80px_rgba(0,0,0,0.8)] origin-bottom"
+                                initial={{ opacity: 0, x: -10, scale: 0.95 }}
+                                animate={{ opacity: 1, x: 0, scale: 1 }}
+                                exit={{ opacity: 0, x: -10, scale: 0.95 }}
+                                className="absolute left-full ml-4 top-0 p-5 rounded-[28px] bg-[#0A0B10]/80 border border-white/10 w-72 backdrop-blur-3xl shadow-[0_32px_80px_rgba(0,0,0,0.8)] origin-left"
                             >
                                 <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] mb-4 text-center">Appearance Control</h3>
 
@@ -214,7 +214,7 @@ export const Toolbar: React.FC = () => {
                 <motion.div
                     layout
                     className={clsx(
-                        "ui-interactive-area flex items-center gap-1 px-2 py-2 rounded-full bg-[#050505]/60 backdrop-blur-2xl border border-white/10 shadow-[0_12px_48px_rgba(0,0,0,0.5)] transition-all hover:border-white/20 hover:bg-[#050505]/80 hover:shadow-[0_16px_48px_rgba(0,0,0,0.6)]",
+                        "ui-interactive-area flex flex-col items-center gap-1 px-2 py-2 rounded-full bg-[#050505]/60 backdrop-blur-2xl border border-white/10 shadow-[0_12px_48px_rgba(0,0,0,0.5)] transition-all hover:border-white/20 hover:bg-[#050505]/80 hover:shadow-[0_16px_48px_rgba(0,0,0,0.6)]",
                         isCollapsed && "px-2 py-2"
                     )}
                 >
@@ -222,10 +222,10 @@ export const Toolbar: React.FC = () => {
                     {/* Collapsed Logic: Hide most items */}
                     {(!isCollapsed) && (
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.9, width: 0 }}
-                            animate={{ opacity: 1, scale: 1, width: 'auto' }}
-                            exit={{ opacity: 0, scale: 0.9, width: 0 }}
-                            className="flex items-center gap-2 overflow-hidden"
+                            initial={{ opacity: 0, scale: 0.9, height: 0 }}
+                            animate={{ opacity: 1, scale: 1, height: 'auto' }}
+                            exit={{ opacity: 0, scale: 0.9, height: 0 }}
+                            className="flex flex-col items-center gap-2 overflow-hidden"
                         >
                             <Button
                                 onClick={() => setSearchOpen(true)}
@@ -234,7 +234,7 @@ export const Toolbar: React.FC = () => {
                                 active={isSearchOpen}
                             />
 
-                            <div className="w-px h-6 bg-white/5 mx-1" />
+                            <div className="w-6 h-px bg-white/5 my-1" />
 
                             <Button
                                 onClick={() => setShowThemeMenu(!showThemeMenu)}
@@ -252,7 +252,7 @@ export const Toolbar: React.FC = () => {
 
                             <Button onClick={handleClear} icon={Trash2} title="Clear" />
 
-                            <div className="w-px h-6 bg-white/5 mx-1" />
+                            <div className="w-6 h-px bg-white/5 my-1" />
 
                             <Button
                                 onClick={() => setScaleMode(scaleMode === 'real' ? 'compact' : 'real')}

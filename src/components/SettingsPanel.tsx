@@ -8,6 +8,7 @@ import { saveApiKey, getApiKey, clearApiKey, saveModel, getModel, AI_MODELS, typ
 import { DECAY_CONFIG, updateDecayConfig, isDecayEngineRunning } from '../engine/decayEngine';
 import { FLAGS } from '../engine/flags/FeatureFlags';
 import { initDB } from '../db/idb';
+import { exportCanvasToJSON, exportCanvasToPNG, exportToMarkdownZip } from '../utils/export';
 
 type SettingsTab = 'canvas' | 'intelligence' | 'physics' | 'decay' | 'sound' | 'data' | 'shortcuts' | 'about';
 
@@ -57,9 +58,7 @@ export const SettingsPanel: React.FC = () => {
         ENABLE_PARTICLES: FLAGS.ENABLE_PARTICLES
     });
 
-    // Import/Export hooks
-    const store = useStore.getState();
-    const exportData = (store as any).exportData;
+
 
     // Load initial settings on mount
     useEffect(() => {
@@ -217,33 +216,22 @@ export const SettingsPanel: React.FC = () => {
         }
     };
 
-    const handleFallbackExport = async () => {
-        if (exportData) {
-            await exportData();
-            return;
-        }
-        // Fallback standard download
-        try {
-            const state = useStore.getState();
-            const data = {
-                version: 2,
-                timestamp: Date.now(),
-                notes: state.notes,
-                connections: state.connections,
-                viewMode: currentViewMode,
-                designSystem,
-            };
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `stardust_backup_${new Date().toISOString().slice(0, 10)}.stardust`;
-            a.click();
-            URL.revokeObjectURL(url);
-            window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'Export completed successfully.', type: 'info' } }));
-        } catch (e) {
-            console.error(e);
-        }
+    const handleExportJSON = () => {
+        const state = useStore.getState();
+        exportCanvasToJSON(state.notes, state.connections, currentViewMode, designSystem);
+        window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'Universe backup exported.', type: 'success' } }));
+    };
+
+    const handleExportPNG = () => {
+        const state = useStore.getState();
+        exportCanvasToPNG(state.notes, state.connections, currentViewMode, designSystem);
+        window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'Canvas snapshot exported.', type: 'success' } }));
+    };
+
+    const handleExportMarkdown = async () => {
+        const state = useStore.getState();
+        await exportToMarkdownZip(state.notes);
+        window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'Markdown files exported.', type: 'success' } }));
     };
 
     const handleFallbackImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -553,6 +541,32 @@ export const SettingsPanel: React.FC = () => {
                                                 />
                                             </div>
                                         </div>
+
+                                        <div className="pt-6 border-t border-white/5 mt-6">
+                                            <button
+                                                onClick={() => {
+                                                    const state = useStore.getState();
+                                                    let updatedCount = 0;
+                                                    state.notes.forEach(note => {
+                                                        if (note.status !== 'archived' && !note.isDying && !['sun', 'galaxy', 'nebula', 'black-hole'].includes(note.type)) {
+                                                            const currentLum = note.luminance ?? 1.0;
+                                                            const newLum = Math.max(0, currentLum - 0.15); // Lose 15% luminance
+                                                            const patch: any = { luminance: newLum };
+                                                            if (newLum <= 0.15) {
+                                                                patch.status = 'archived';
+                                                                patch.isDying = true;
+                                                            }
+                                                            state.updateNote(note.id, patch);
+                                                            updatedCount++;
+                                                        }
+                                                    });
+                                                    window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: `Simulated decay step on ${updatedCount} notes!`, type: 'info' } }));
+                                                }}
+                                                className="w-full py-4 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-[10px] font-black uppercase tracking-[0.2em] text-white transition-colors"
+                                            >
+                                                ⚡ Simulate Fading Step (Force Decay)
+                                            </button>
+                                        </div>
                                     </section>
                                 </div>
                             )}
@@ -596,29 +610,43 @@ export const SettingsPanel: React.FC = () => {
                                     <TabHeader title="Database & Operations" subtitle="Perform spatial database dumps, retrieve full backups, and manage local storage." />
                                     
                                     <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="bg-white/3 border border-white/5 rounded-3xl p-8 flex flex-col justify-between h-56">
+                                        <div className="bg-white/3 border border-white/5 rounded-3xl p-8 flex flex-col justify-between h-[300px]">
                                             <div>
-                                                <SectionTitle title="Backup Universe" />
+                                                <SectionTitle title="Backup & Export" />
                                                 <p className="text-[10px] leading-relaxed text-white/40 mt-2">
-                                                    Export your entire spatial mindmap including all notes, tag categorizations, and connections into a single file backup.
+                                                    Export your spatial mindmap in various formats for local backups, sharing, or publishing.
                                                 </p>
                                             </div>
-                                            <button
-                                                onClick={handleFallbackExport}
-                                                className="w-full py-4 rounded-2xl bg-white/5 border border-white/15 text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-white/10 transition-colors text-center"
-                                            >
-                                                Export Universe File
-                                            </button>
+                                            <div className="flex flex-col gap-2 mt-4">
+                                                <button
+                                                    onClick={handleExportJSON}
+                                                    className="w-full py-2.5 rounded-xl bg-white/5 border border-white/15 text-[9px] font-black uppercase tracking-[0.2em] text-white hover:bg-white/10 transition-colors text-center"
+                                                >
+                                                    Export Universe (.stardust)
+                                                </button>
+                                                <button
+                                                    onClick={handleExportPNG}
+                                                    className="w-full py-2.5 rounded-xl bg-white/5 border border-white/15 text-[9px] font-black uppercase tracking-[0.2em] text-white hover:bg-white/10 transition-colors text-center"
+                                                >
+                                                    Export Snapshot (.png)
+                                                </button>
+                                                <button
+                                                    onClick={handleExportMarkdown}
+                                                    className="w-full py-2.5 rounded-xl bg-[#5046e5]/10 border border-[#5046e5]/40 text-[9px] font-black uppercase tracking-[0.2em] text-indigo-400 hover:bg-[#5046e5]/20 transition-colors text-center"
+                                                >
+                                                    Export Markdown (.zip)
+                                                </button>
+                                            </div>
                                         </div>
 
-                                        <div className="bg-white/3 border border-white/5 rounded-3xl p-8 flex flex-col justify-between h-56">
+                                        <div className="bg-white/3 border border-white/5 rounded-3xl p-8 flex flex-col justify-between h-[300px]">
                                             <div>
                                                 <SectionTitle title="Restore Backup" />
                                                 <p className="text-[10px] leading-relaxed text-white/40 mt-2">
                                                     Load a previously saved stardust system mapping backup to overwrite your current canvas coordinates.
                                                 </p>
                                             </div>
-                                            <label className="w-full py-4 rounded-2xl bg-[#5046e5]/10 border border-[#5046e5]/40 text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 hover:bg-[#5046e5]/20 transition-colors text-center cursor-pointer block">
+                                            <label className="w-full py-2.5 rounded-xl bg-[#5046e5]/10 border border-[#5046e5]/40 text-[9px] font-black uppercase tracking-[0.2em] text-indigo-400 hover:bg-[#5046e5]/20 transition-colors text-center cursor-pointer block mt-4">
                                                 Restore Backup File
                                                 <input type="file" accept=".stardust,.json" onChange={handleFallbackImport} className="hidden" />
                                             </label>

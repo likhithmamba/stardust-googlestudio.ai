@@ -1,10 +1,7 @@
 import type { EngineNote, WorldConfig } from '../../types/EngineTypes';
 import type { LayoutStrategy } from '../LayoutStrategy';
 import { PRISM_CONFIG, type Vector2 } from '../LayoutConstants';
-import type { SpectralFacets } from '../../../types/StardustSchema';
-import {
-    SPECTRAL_COLORS,
-} from '../../cognitive/PrismEngine';
+
 
 /**
  * PRISM LAYOUT - Spectral Refraction Layout
@@ -12,19 +9,19 @@ import {
  * Resource (Green), Counter (Violet)
  */
 export class PrismLayout implements LayoutStrategy {
-    private noteWavelengths: Map<string, keyof SpectralFacets> = new Map();
+    private noteStatuses: Map<string, string> = new Map();
 
     calculateTargets(notes: EngineNote[], config: WorldConfig): Map<string, Vector2> {
         const targets = new Map<string, Vector2>();
         const center = { x: config.centerX, y: config.centerY };
 
-        const columns = ['action', 'strategy', 'resource', 'counter'] as const;
+        const columns = ['todo', 'in-progress', 'review', 'done'] as const;
         const { COL_WIDTH, GAP } = PRISM_CONFIG;
         const totalWidth = (columns.length * COL_WIDTH) + ((columns.length - 1) * GAP);
         const startX = center.x - (totalWidth / 2) + (COL_WIDTH / 2);
 
         // Count items per column for stacking
-        const colCounts = { action: 0, strategy: 0, resource: 0, counter: 0 };
+        const colCounts = { 'todo': 0, 'in-progress': 0, 'review': 0, 'done': 0 };
 
         // Sort notes deterministically by createdAt (fallback to ID) to guarantee stable column stacking
         const sortedNotes = [...notes].sort((a, b) => {
@@ -35,12 +32,14 @@ export class PrismLayout implements LayoutStrategy {
         });
 
         sortedNotes.forEach(note => {
-            // Determine wavelength based on content analysis
-            const wavelength = this.determineWavelength(note);
-            this.noteWavelengths.set(note.id, wavelength);
+            let status = note.status || 'todo';
+            if (status === 'captured' || status === 'archived') {
+                status = 'todo';
+            }
+            this.noteStatuses.set(note.id, status);
 
-            const colIndex = columns.indexOf(wavelength as typeof columns[number]);
-            const count = colCounts[wavelength as keyof typeof colCounts]++;
+            const colIndex = columns.indexOf(status as typeof columns[number]);
+            const count = colCounts[status as keyof typeof colCounts]++;
 
             // Stack vertically within column
             const x = startX + (colIndex * (COL_WIDTH + GAP));
@@ -52,49 +51,16 @@ export class PrismLayout implements LayoutStrategy {
         return targets;
     }
 
-    private determineWavelength(note: EngineNote): keyof SpectralFacets {
-        const tags = (note.tags || []).map(t => t.toLowerCase());
 
-        // Quick tag-based classification
-        if (tags.some(t => ['todo', 'task', 'action', 'deadline', 'urgent'].includes(t))) {
-            return 'action';
-        }
-        if (tags.some(t => ['resource', 'reference', 'link', 'data', 'code'].includes(t))) {
-            return 'resource';
-        }
-        if (tags.some(t => ['risk', 'concern', 'blocker', 'issue', 'problem'].includes(t))) {
-            return 'counter';
-        }
-        if (tags.some(t => ['goal', 'strategy', 'vision', 'plan', 'objective'].includes(t))) {
-            return 'strategy';
-        }
-
-        // Type-based fallback
-        switch (note.type) {
-            case 'sun':
-            case 'galaxy':
-            case 'nebula':
-                return 'strategy'; // Big-picture items
-            case 'black-hole':
-                return 'counter'; // Risks/sinks
-            case 'jupiter':
-            case 'saturn':
-                return 'resource'; // Large data stores
-            case 'asteroid':
-            case 'comet':
-                return 'action'; // Quick tasks
-            default:
-                return 'strategy';
-        }
-    }
-
-    // Public API for UI to access wavelength info
-    getWavelength(noteId: string): keyof SpectralFacets | undefined {
-        return this.noteWavelengths.get(noteId);
-    }
 
     getColor(noteId: string): string {
-        const wavelength = this.noteWavelengths.get(noteId) || 'strategy';
-        return SPECTRAL_COLORS[wavelength as keyof typeof SPECTRAL_COLORS];
+        const status = this.noteStatuses.get(noteId) || 'todo';
+        const statusColors: Record<string, string> = {
+            'todo': '#94a3b8',
+            'in-progress': '#60a5fa',
+            'review': '#fbbf24',
+            'done': '#34d399',
+        };
+        return statusColors[status] || '#94a3b8';
     }
 }

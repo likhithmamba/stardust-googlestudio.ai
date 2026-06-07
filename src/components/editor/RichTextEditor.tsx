@@ -15,6 +15,7 @@ import { AutoLinkNode, LinkNode } from '@lexical/link';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import type { EditorState } from 'lexical';
+import { $getRoot, $createParagraphNode, $createTextNode } from 'lexical';
 
 import exampleTheme from './EditorTheme';
 
@@ -44,10 +45,30 @@ interface RichTextEditorProps {
     onChange: (editorState: EditorState) => void;
 }
 
+const isLexicalJson = (str: string) => {
+    try {
+        const parsed = JSON.parse(str);
+        return parsed && typeof parsed === 'object' && parsed.root !== undefined;
+    } catch {
+        return false;
+    }
+};
+
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({ initialContent, onChange }) => {
     const initialConfig = {
         ...editorConfig,
         editorState: initialContent
+            ? (isLexicalJson(initialContent)
+                ? initialContent
+                : () => {
+                    const root = $getRoot();
+                    if (root.getFirstChild() === null) {
+                        const paragraph = $createParagraphNode();
+                        paragraph.append($createTextNode(initialContent));
+                        root.append(paragraph);
+                    }
+                  })
+            : undefined
     };
 
     return (

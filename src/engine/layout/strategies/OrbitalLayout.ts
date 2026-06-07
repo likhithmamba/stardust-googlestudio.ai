@@ -72,8 +72,10 @@ export class OrbitalLayout implements LayoutStrategy {
             // Offset each ring slightly for visual separation
             const ringOffset = zone === 'core' ? 0 : zone === 'active' ? Math.PI / 6 : Math.PI / 3;
 
+            const speedMultiplier = zone === 'core' ? 1.5 : zone === 'active' ? 0.8 : 0.3;
+
             zoneNotes.forEach((note, i) => {
-                const angle = i * angleStep + this.rotationOffset + ringOffset;
+                const angle = i * angleStep + (this.rotationOffset * speedMultiplier) + ringOffset;
                 targets.set(note.id, {
                     x: center.x + radius * Math.cos(angle),
                     y: center.y + radius * Math.sin(angle)

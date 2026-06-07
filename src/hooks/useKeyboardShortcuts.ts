@@ -124,6 +124,63 @@ export function useKeyboardShortcuts() {
                 return;
             }
 
+            // Ctrl+N: New constellation
+            if (isMod && e.key === 'n') {
+                e.preventDefault();
+                const name = prompt('Enter name for new constellation:');
+                if (name && name.trim()) {
+                    const store = useStore.getState();
+                    const sanitized = name.trim().replace(/[<>]/g, '');
+                    store.addConstellation(sanitized);
+                    window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: `Switched to constellation: ${sanitized}`, type: 'success' } }));
+                }
+                return;
+            }
+
+            // A: Toggle Archive Mode
+            if (!isMod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'a') {
+                e.preventDefault();
+                const settings = useSettingsStore.getState();
+                if (settings.viewMode === 'archive') {
+                    settings.setViewMode('void');
+                } else {
+                    settings.setViewMode('archive');
+                }
+                return;
+            }
+
+            // H: Toggle Help
+            if (!isMod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'h') {
+                e.preventDefault();
+                window.dispatchEvent(new CustomEvent('stardust:toggleHelp'));
+                return;
+            }
+
+            // C: Spawn note at center of viewport
+            if (!isMod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'c') {
+                e.preventDefault();
+                window.dispatchEvent(new CustomEvent('stardust:createNoteAtCenter'));
+                return;
+            }
+
+            // Delete/Backspace: delete selected note(s)
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                const store = useStore.getState();
+                const selectedIds = store.selectedIds;
+                const activeId = store.selectedId;
+                const targetIds = selectedIds.length > 0 ? selectedIds : (activeId ? [activeId] : []);
+                if (targetIds.length > 0) {
+                    if (confirm(`Delete ${targetIds.length} selected star system(s)?`)) {
+                        store.takeSnapshot();
+                        targetIds.forEach(id => store.deleteNote(id));
+                        store.setSelectedIds([]);
+                        window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: `Deleted ${targetIds.length} star system(s)`, type: 'info' } }));
+                    }
+                    e.preventDefault();
+                }
+                return;
+            }
+
             // Escape: Close panels
             if (e.key === 'Escape') {
                 const store = useStore.getState();

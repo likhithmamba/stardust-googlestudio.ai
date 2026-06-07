@@ -29,7 +29,7 @@ export const CanvasInputHandler: React.FC = () => {
             if (
                 target.closest('.stardust-toolbar') ||
                 target.closest('.ui-interactive-area') ||
-                target.closest('.note-planet') ||
+                target.closest('[data-note-id]') ||
                 target.closest('.handle-base') ||
                 target.closest('button') ||
                 target.closest('input')
@@ -39,8 +39,8 @@ export const CanvasInputHandler: React.FC = () => {
             const currentViewMode = useSettingsStore.getState().viewMode;
 
             if (currentViewMode === 'void') {
-                // In Void mode, double click creates a black hole
-                window.dispatchEvent(new CustomEvent('stardust:createBlackHole', {
+                // In Void mode, double click creates a standard thought note (Earth)
+                window.dispatchEvent(new CustomEvent('stardust:createStandardNote', {
                     detail: { x: ev.clientX, y: ev.clientY }
                 }));
                 return;
@@ -67,7 +67,7 @@ export const CanvasInputHandler: React.FC = () => {
                 // double-tap
                 // only when tapping empty canvas (not on notes)
                 if (target && (
-                    target.closest('.note-planet') ||
+                    target.closest('[data-note-id]') ||
                     target.closest('.stardust-toolbar') ||
                     target.closest('.ui-interactive-area') ||
                     target.closest('.handle-base')

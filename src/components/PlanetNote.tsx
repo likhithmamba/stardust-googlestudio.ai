@@ -9,6 +9,7 @@ import { visualRegistry } from '../engine/render/VisualRegistry';
 import { useZoomLOD, type ZoomLOD } from '../hooks/useZoomLOD';
 import { useSettingsStore } from '../ui/settings/settingsStore';
 import { touchNote, getDecayOpacity } from '../engine/decayEngine';
+import { sanitizePlainText } from '../utils/sanitize';
 
 interface PlanetNoteProps {
     note: Note;
@@ -37,10 +38,25 @@ const extractPlainText = (contentStr?: string): string => {
             if (node.children) node.children.forEach(traverse);
         };
         if (state.root) traverse(state.root);
-        return text.trim();
+        return sanitizePlainText(text.trim());
     } catch {
-        return contentStr;
+        return sanitizePlainText(contentStr);
     }
+};
+
+const getDecayLevel = (note: Note): number => {
+    // Suns, Galaxies, Nebulae, Black Holes are immune
+    if (['sun', 'galaxy', 'nebula', 'black-hole'].includes(note.type)) return 1;
+    // In-progress or review items are immune
+    if (note.status && ['in-progress', 'review'].includes(note.status)) return 1;
+    if (note.fixed) return 1;
+
+    const lum = note.luminance ?? 1.0;
+    if (lum >= 0.8) return 1;
+    if (lum >= 0.6) return 2;
+    if (lum >= 0.4) return 3;
+    if (lum >= 0.2) return 4;
+    return 5;
 };
 
 const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
@@ -86,10 +102,11 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
         else size = 48;
     }
 
-    const showText = lod === 'surface' || lod === 'planet';
+    const showText = zoom >= 0.3;
     // deep-galaxy: when zoom < 0.1 show as tiny 3px dot
     const showAsDeepGalaxyDot = zoom < 0.1;
-    const showAsMinimalDot = lod === 'galaxy' && !showAsDeepGalaxyDot;
+    const isStructuredMode = ['matrix', 'prism', 'timeline', 'archive'].includes(viewMode || '');
+    const showAsMinimalDot = !isStructuredMode && zoom < 0.3 && !showAsDeepGalaxyDot;
     const tier = [NoteType.Sun, NoteType.Galaxy, NoteType.Nebula, NoteType.Jupiter, NoteType.Saturn].includes(effectiveType as any) ? 1 : 2;
     const isMajor = tier === 1;
 
@@ -175,6 +192,60 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
             visualRegistry.updatePosition(note.id, newX, newY);
             dragPositionRef.current = { x: newX, y: newY };
             onDrag?.(note.id, newX, newY);
+
+            // Dynamic snapping updates while dragging
+            if (layoutOrigin && viewMode) {
+                if (viewMode === 'matrix') {
+                    const relX = newX - layoutOrigin.x;
+                    const relY = newY - layoutOrigin.y;
+                    const isLeft = relX < 0;
+                    const isTop = relY < 0;
+                    const newUrgency = isLeft ? 'urgent' : 'not-urgent';
+                    const newImportance = isTop ? 'important' : 'not-important';
+                    if (note.urgency !== newUrgency || note.importance !== newImportance) {
+                        updateNoteStore(note.id, { urgency: newUrgency, importance: newImportance });
+                    }
+                } else if (viewMode === 'orbital') {
+                    const dx = newX - layoutOrigin.x;
+                    const dy = newY - layoutOrigin.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const baseSize = Math.min(window.innerWidth, window.innerHeight) / 2;
+                    const rings = [
+                        { r: Math.max(80, baseSize * 0.15), p: 'critical' },
+                        { r: Math.max(200, baseSize * 0.40), p: 'high' },
+                        { r: Math.max(300, baseSize * 0.65), p: 'medium' },
+                        { r: Math.max(400, baseSize * 0.85), p: 'low' }
+                    ];
+                    const closest = rings.reduce((prev, curr) =>
+                        Math.abs(curr.r - dist) < Math.abs(prev.r - dist) ? curr : prev
+                    );
+                    if (note.priority !== closest.p) {
+                        updateNoteStore(note.id, { priority: closest.p as any });
+                    }
+                } else if (viewMode === 'prism') {
+                    const totalWidth = 300 + 40; // PRISM_CONFIG.COL_WIDTH + PRISM_CONFIG.GAP
+                    const relX = newX - layoutOrigin.x;
+                    let colIndex = Math.round((relX / totalWidth) + 1.5);
+                    if (colIndex < 0) colIndex = 0;
+                    if (colIndex > 3) colIndex = 3;
+                    const statuses = ['todo', 'in-progress', 'review', 'done'];
+                    const newStatus = statuses[colIndex];
+                    if (note.status !== newStatus) {
+                        updateNoteStore(note.id, { status: newStatus as any });
+                    }
+                } else if (viewMode === 'timeline') {
+                    const totalHeight = 150 * 4;
+                    const startY = layoutOrigin.y - totalHeight / 2;
+                    let laneIndex = Math.floor((newY - startY) / 150);
+                    if (laneIndex < 0) laneIndex = 0;
+                    if (laneIndex > 3) laneIndex = 3;
+                    const statuses = ['in-progress', 'todo', 'review', 'done'];
+                    const newStatus = statuses[laneIndex];
+                    if (note.status !== newStatus) {
+                        updateNoteStore(note.id, { status: newStatus as any });
+                    }
+                }
+            }
 
             return { x: newX, y: newY };
         },
@@ -280,7 +351,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
 
     if (showAsMinimalDot) {
         return (
-            <div ref={noteRef} data-note-id={note.id} className="absolute top-0 left-0">
+            <div ref={noteRef} data-note-id={note.id} className="absolute top-0 left-0 flex flex-col items-center pointer-events-none">
                 <div
                     style={{
                         width: size * 0.2,
@@ -290,6 +361,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                         boxShadow: `0 0 10px ${note.color || visualColor || baseStyle.color || '#6366f1'}`,
                     }}
                 />
+                <span className="text-[8px] text-white/50 mt-1 whitespace-nowrap">{note.title || 'Unnamed'}</span>
             </div>
         );
     }
@@ -297,6 +369,20 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
     if (viewMode === 'matrix') {
         const u = note.urgency || 'medium';
         const i = note.importance || 'medium';
+        const isDoFirst = u === 'urgent' && i === 'important';
+        const isEliminate = u === 'not-urgent' && i === 'not-important';
+        const isSchedule = u === 'not-urgent' && i === 'important';
+
+        const borderClass = isSelected
+            ? "border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)]"
+            : isDoFirst
+                ? "border-emerald-500/50 hover:border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                : isEliminate
+                    ? "border-red-500/50 hover:border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.15)]"
+                    : isSchedule
+                        ? "border-blue-500/40 hover:border-blue-500/80 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
+                        : "border-amber-500/40 hover:border-amber-500/80 shadow-[0_0_15px_rgba(245,158,11,0.1)]";
+
         return (
             <div
                 ref={noteRef}
@@ -320,37 +406,86 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                     className={clsx(
                         "relative flex flex-col w-[160px] h-[100px] rounded-xl overflow-hidden cursor-grab active:cursor-grabbing border",
                         "bg-[#111121]/90 backdrop-blur-md shadow-xl transition-all",
-                        isSelected ? "border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)]" : "border-white/10 hover:border-white/30"
+                        borderClass
                     )}
                     style={{ zIndex: isDragging.current ? 100 : 1 }}
                     animate={{ x: 0, y: 0, opacity: note.isDying ? 0 : isDimmed ? 0.3 : 1 }}
                 >
-                    <div className="absolute top-0 left-0 w-full h-1" style={{ background: note.color || '#3b82f6' }} />
-                    <div className="p-3 flex-1 flex flex-col">
-                        <div
-                            contentEditable={!isReadOnly}
-                            suppressContentEditableWarning
-                            onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
-                            onPointerDown={(e) => e.stopPropagation()}
-                            className="flex-1 text-[13px] font-medium leading-tight text-white/90 outline-none overflow-hidden"
-                            style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
-                        >
-                            {note.title || ''}
-                        </div>
-                        <div className="mt-auto flex items-center justify-between gap-1">
-                            <span className={clsx(
-                                "text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold",
-                                u === 'urgent' ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/40"
-                            )}>
-                                {u === 'urgent' ? 'URGENT' : 'NOT URGENT'}
-                            </span>
-                            <span className={clsx(
-                                "text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold",
-                                i === 'important' ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-white/40"
-                            )}>
-                                {i === 'important' ? 'IMPT' : 'NOT IMPT'}
-                            </span>
-                        </div>
+                    <div className="absolute top-0 left-0 w-full h-1" style={{ background: note.color || (isDoFirst ? '#10b981' : isEliminate ? '#ef4444' : isSchedule ? '#3b82f6' : '#f59e0b') }} />
+                     <div className="p-3 flex-1 flex flex-col justify-center">
+                        {zoom < 0.3 ? (
+                            // Zoom < 30%: Title-only
+                            <div
+                                contentEditable={!isReadOnly}
+                                suppressContentEditableWarning
+                                onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                className="text-[12px] font-medium leading-tight text-white/90 outline-none overflow-hidden"
+                                style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
+                            >
+                                {note.title || ''}
+                            </div>
+                        ) : zoom > 1.5 ? (
+                            // Zoom > 150%: Full detail (Title + content + badges)
+                            <div className="flex-1 flex flex-col gap-1.5 overflow-hidden">
+                                <div
+                                    contentEditable={!isReadOnly}
+                                    suppressContentEditableWarning
+                                    onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="text-[13px] font-semibold leading-tight text-white/90 outline-none"
+                                >
+                                    {note.title || ''}
+                                </div>
+                                {note.content && (
+                                    <div className="text-[10px] text-white/60 leading-normal line-clamp-2 overflow-hidden">
+                                        {extractPlainText(note.content)}
+                                    </div>
+                                )}
+                                <div className="mt-auto flex items-center justify-between gap-1">
+                                    <span className={clsx(
+                                        "text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold",
+                                        u === 'urgent' ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/40"
+                                    )}>
+                                        {u === 'urgent' ? 'URGENT' : 'NOT URGENT'}
+                                    </span>
+                                    <span className={clsx(
+                                        "text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold",
+                                        i === 'important' ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-white/40"
+                                    )}>
+                                        {i === 'important' ? 'IMPT' : 'NOT IMPT'}
+                                    </span>
+                                </div>
+                            </div>
+                        ) : (
+                            // Zoom [30% - 150%]: Standard detail (Title + badges)
+                            <div className="flex-1 flex flex-col">
+                                <div
+                                    contentEditable={!isReadOnly}
+                                    suppressContentEditableWarning
+                                    onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="flex-1 text-[13px] font-medium leading-tight text-white/90 outline-none overflow-hidden"
+                                    style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
+                                >
+                                    {note.title || ''}
+                                </div>
+                                <div className="mt-auto flex items-center justify-between gap-1">
+                                    <span className={clsx(
+                                        "text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold",
+                                        u === 'urgent' ? "bg-red-500/20 text-red-400" : "bg-white/5 text-white/40"
+                                    )}>
+                                        {u === 'urgent' ? 'URGENT' : 'NOT URGENT'}
+                                    </span>
+                                    <span className={clsx(
+                                        "text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-bold",
+                                        i === 'important' ? "bg-amber-500/20 text-amber-400" : "bg-white/5 text-white/40"
+                                    )}>
+                                        {i === 'important' ? 'IMPT' : 'NOT IMPT'}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </motion.div>
 
@@ -431,20 +566,62 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                     animate={{ x: 0, y: 0, opacity: note.isDying ? 0 : isDimmed ? 0.3 : 1 }}
                 >
                     <div className="absolute top-0 left-0 w-full h-1.5" style={{ background: barColor }} />
-                    <div className="p-3 pt-4 flex-1 flex flex-col gap-2">
-                        <div
-                            contentEditable={!isReadOnly}
-                            suppressContentEditableWarning
-                            onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
-                            onPointerDown={(e) => e.stopPropagation()}
-                            className="text-[13px] font-medium leading-tight text-white/90 outline-none"
-                        >
-                            {note.title || ''}
-                        </div>
-                        {note.dueDate && (
-                            <div className="mt-auto flex items-center gap-1 text-[10px] text-white/50 bg-white/5 w-fit px-1.5 py-0.5 rounded">
-                                <span>📅</span>
-                                {new Date(note.dueDate).toLocaleDateString()}
+                    <div className="p-3 pt-4 flex-1 flex flex-col justify-center">
+                        {zoom < 0.3 ? (
+                            // Zoom < 30%: Title-only
+                            <div
+                                contentEditable={!isReadOnly}
+                                suppressContentEditableWarning
+                                onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                className="text-[12px] font-medium leading-tight text-white/90 outline-none overflow-hidden"
+                                style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
+                            >
+                                {note.title || ''}
+                            </div>
+                        ) : zoom > 1.5 ? (
+                            // Zoom > 150%: Full detail (Title + content + due date)
+                            <div className="flex-1 flex flex-col gap-1.5 overflow-hidden">
+                                <div
+                                    contentEditable={!isReadOnly}
+                                    suppressContentEditableWarning
+                                    onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="text-[13px] font-semibold leading-tight text-white/90 outline-none"
+                                >
+                                    {note.title || ''}
+                                </div>
+                                {note.content && (
+                                    <div className="text-[10px] text-white/60 leading-normal line-clamp-2 overflow-hidden">
+                                        {extractPlainText(note.content)}
+                                    </div>
+                                )}
+                                {note.dueDate && (
+                                    <div className="mt-auto flex items-center gap-1 text-[10px] text-white/50 bg-white/5 w-fit px-1.5 py-0.5 rounded">
+                                        <span>📅</span>
+                                        {new Date(note.dueDate).toLocaleDateString()}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            // Zoom [30% - 150%]: Standard detail (Title + due date)
+                            <div className="flex-1 flex flex-col">
+                                <div
+                                    contentEditable={!isReadOnly}
+                                    suppressContentEditableWarning
+                                    onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="flex-1 text-[13px] font-medium leading-tight text-white/90 outline-none overflow-hidden"
+                                    style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
+                                >
+                                    {note.title || ''}
+                                </div>
+                                {note.dueDate && (
+                                    <div className="mt-auto flex items-center gap-1 text-[10px] text-white/50 bg-white/5 w-fit px-1.5 py-0.5 rounded">
+                                        <span>📅</span>
+                                        {new Date(note.dueDate).toLocaleDateString()}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -481,22 +658,16 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
     }
 
     if (viewMode === 'timeline') {
-        const isZippedOut = zoom < 0.3;
+        const isActive = note.status === 'in-progress';
+        const isStalled = (note.status === 'todo' || note.status === 'in-progress') && getDecayLevel(note) >= 3;
 
-        if (isZippedOut) {
-            return (
-                <div
-                    ref={noteRef}
-                    data-note-id={note.id}
-                    className="absolute top-0 left-0 hover:z-50"
-                >
-                    <motion.div
-                        className="rounded-full bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.8)]"
-                        style={{ width: 10, height: 10, opacity: isDimmed ? 0.3 : 0.8 }}
-                    />
-                </div>
-            );
-        }
+        const borderClass = isSelected
+            ? "border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.5)]"
+            : isActive
+                ? "border-emerald-500/80 shadow-[0_0_15px_rgba(16,185,129,0.4)]"
+                : isStalled
+                    ? "border-dashed border-amber-500/70 shadow-[0_0_10px_rgba(245,158,11,0.2)] animate-pulse"
+                    : "border-white/10 hover:border-white/30";
 
         return (
             <div
@@ -521,25 +692,65 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                     className={clsx(
                         "relative flex flex-col w-[180px] min-h-[60px] rounded-lg overflow-hidden cursor-grab active:cursor-grabbing border",
                         "bg-[#111121]/90 backdrop-blur-md shadow-xl transition-all",
-                        isSelected ? "border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.5)]" : "border-white/10 hover:border-white/30"
+                        borderClass
                     )}
                     style={{ zIndex: isDragging.current ? 100 : 1 }}
                 >
-                    <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
+                    <div className={clsx("absolute top-0 left-0 w-1 h-full", isActive ? "bg-emerald-500" : isStalled ? "bg-amber-500" : "bg-purple-500")} />
                     <div className="p-2 pl-3 flex-1 flex flex-col justify-center">
-                        <div
-                            contentEditable={!isReadOnly}
-                            suppressContentEditableWarning
-                            onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
-                            onPointerDown={(e) => e.stopPropagation()}
-                            className="text-[12px] font-medium leading-tight text-white/90 outline-none"
-                        >
-                            {note.title || ''}
-                        </div>
-                        {note.dueDate && (
-                            <div className="mt-1 flex items-center gap-1 text-[9px] text-white/40 font-mono">
-                                {new Date(note.dueDate).toLocaleDateString()}
+                        {zoom < 0.3 ? (
+                            // Zoom < 30%: Title-only
+                            <div
+                                contentEditable={!isReadOnly}
+                                suppressContentEditableWarning
+                                onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                className="text-[11px] font-medium leading-tight text-white/90 outline-none overflow-hidden"
+                                style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
+                            >
+                                {note.title || ''}
                             </div>
+                        ) : zoom > 1.5 ? (
+                            // Zoom > 150%: Full detail (Title + content + due date)
+                            <div className="flex-1 flex flex-col gap-1 overflow-hidden justify-center">
+                                <div
+                                    contentEditable={!isReadOnly}
+                                    suppressContentEditableWarning
+                                    onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="text-[12px] font-semibold leading-tight text-white/90 outline-none"
+                                >
+                                    {note.title || ''}
+                                </div>
+                                {note.content && (
+                                    <div className="text-[9px] text-white/60 leading-normal line-clamp-2 overflow-hidden">
+                                        {extractPlainText(note.content)}
+                                    </div>
+                                )}
+                                {note.dueDate && (
+                                    <div className="mt-1 flex items-center gap-1 text-[9px] text-white/40 font-mono">
+                                        {new Date(note.dueDate).toLocaleDateString()}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            // Zoom [30% - 150%]: Standard detail (Title + due date)
+                            <>
+                                <div
+                                    contentEditable={!isReadOnly}
+                                    suppressContentEditableWarning
+                                    onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    className="text-[12px] font-medium leading-tight text-white/90 outline-none"
+                                >
+                                    {note.title || ''}
+                                </div>
+                                {note.dueDate && (
+                                    <div className="mt-1 flex items-center gap-1 text-[9px] text-white/40 font-mono">
+                                        {new Date(note.dueDate).toLocaleDateString()}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </motion.div>
@@ -683,7 +894,12 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                     zIndex: isDragging.current ? 100 : 1,
                     // Force strict astronomical colors via className, suppressing custom overrides
                     borderColor: 'var(--mode-accent, rgba(255,255,255,0.2))',
-                    boxShadow: '0 0 20px -5px var(--mode-accent, transparent)'
+                    boxShadow: '0 0 20px -5px var(--mode-accent, transparent)',
+                    filter: (viewMode === 'orbital' && (note.priority === 'low' || !note.priority) && getDecayLevel(note) >= 3)
+                        ? 'grayscale(100%) brightness(0.6)'
+                        : getDecayLevel(note) >= 2
+                            ? `saturate(${Math.max(0.2, note.luminance ?? 1)}) brightness(${Math.max(0.5, note.luminance ?? 1)})`
+                            : 'none'
                 } as any}
                 initial={false}
                 animate={{
@@ -697,6 +913,12 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                     opacity: { duration: 0.3 }
                 }}
             >
+                {/* Archive me? badge */}
+                {getDecayLevel(note) === 5 && (
+                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-red-500/90 text-white font-mono text-[8.5px] uppercase tracking-wider px-2 py-0.5 rounded shadow-[0_0_10px_rgba(239,68,68,0.5)] whitespace-nowrap pointer-events-none z-50">
+                        Archive me?
+                    </div>
+                )}
                 {lod !== 'surface' && !isMajor && (
                     <div className="absolute inset-0 rounded-full bg-inherit" />
                 )}
@@ -726,20 +948,34 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                         )}
                     </div>
                 )}
-                {/* TEXT CONTENT / LOD RENDERING */}
+                 {/* TEXT CONTENT / LOD RENDERING */}
                 <AnimatePresence mode="wait">
-                    {lod === 'surface' ? (
+                    {zoom < 0.3 ? (
+                        // Zoom < 30%: Title-only underneath the planet note
                         <motion.div
-                            key="surface"
+                            key="planet-under"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            className="absolute top-[110%] left-1/2 -translate-x-1/2 text-center pointer-events-none"
+                        >
+                            <div className="bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 shadow-lg">
+                                <span className="text-[10px] uppercase tracking-[0.2em] font-black text-white/80">
+                                    {note.title || 'Unnamed Star'}
+                                </span>
+                            </div>
+                        </motion.div>
+                    ) : zoom > 1.5 ? (
+                        // Zoom > 150%: Full detail (Title + Content) inside the planet note
+                        <motion.div
+                            key="surface-full"
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
                             className="absolute inset-0 flex items-center justify-center text-center p-[15%] pointer-events-none"
                         >
-                            {/* TEXT CONTENT - INLINE EDITABLE */}
                             <div
-                                className="absolute inset-0 flex items-center justify-center p-3 pointer-events-none"
-                                style={{ opacity: showText ? 1 : 0 }}
+                                className="absolute inset-0 flex items-center justify-center p-3 pointer-events-none flex-col"
                             >
                                 <div
                                     ref={textRef}
@@ -751,7 +987,6 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                         autoFitText();
                                     }}
                                     onBlur={() => {
-                                        // When blurring, ensure text is clamped if it overflows
                                         autoFitText();
                                     }}
                                     onPointerDown={(e) => e.stopPropagation()} // Allow clicking inside to focus
@@ -778,21 +1013,44 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                 )}
                             </div>
                         </motion.div>
-                    ) : lod === 'planet' ? (
+                    ) : (
+                        // Zoom [30% - 150%]: Title-only inside the planet note
                         <motion.div
-                            key="planet"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                            className="absolute top-[110%] left-1/2 -translate-x-1/2 text-center pointer-events-none"
+                            key="surface-title"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className="absolute inset-0 flex items-center justify-center text-center p-[15%] pointer-events-none"
                         >
-                            <div className="bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 shadow-lg">
-                                <span className="text-[10px] uppercase tracking-[0.2em] font-black text-white/80">
-                                    {note.title || 'Unnamed Star'}
-                                </span>
+                            <div
+                                className="absolute inset-0 flex items-center justify-center p-3 pointer-events-none"
+                            >
+                                <div
+                                    ref={textRef}
+                                    contentEditable={!isReadOnly}
+                                    suppressContentEditableWarning
+                                    onInput={(e) => {
+                                        const newTitle = e.currentTarget.innerText;
+                                        updateNoteStore(note.id, { title: newTitle });
+                                        autoFitText();
+                                    }}
+                                    onBlur={() => {
+                                        autoFitText();
+                                    }}
+                                    onPointerDown={(e) => e.stopPropagation()} // Allow clicking inside to focus
+                                    className={clsx(
+                                        "max-w-full w-full text-center font-bold tracking-tight leading-tight outline-none pointer-events-auto break-words whitespace-pre-wrap",
+                                        isSolar ? "text-slate-900" : "text-white"
+                                    )}
+                                    style={{
+                                        textShadow: isSolar ? 'none' : '0 2px 4px rgba(0,0,0,0.5)',
+                                    }}
+                                >
+                                    {note.title || (note.content ? '' : 'Unnamed Note')}
+                                </div>
                             </div>
                         </motion.div>
-                    ) : null}
+                    )}
                 </AnimatePresence>
 
                 {isSelected && (

@@ -18,6 +18,7 @@ import type {
     MatrixCoordinate,
     GhostLayer
 } from '../types/StardustSchema';
+import { validateWorkerResponse } from './messageValidator';
 
 type PendingRequest = {
     resolve: (value: any) => void;
@@ -43,6 +44,10 @@ class WorkerBridge {
 
     private initWorker() {
         try {
+            this._isReady = false;
+            this.readyPromise = new Promise(resolve => {
+                this.readyResolve = resolve;
+            });
             // Create worker using Vite's worker import syntax
             this.worker = new Worker(
                 new URL('./engine.worker.ts', import.meta.url),
@@ -57,7 +62,11 @@ class WorkerBridge {
     }
 
     private handleMessage(event: MessageEvent) {
-        const { type, data, requestId } = event.data;
+        // Validate all inbound messages with Zod
+        const validated = validateWorkerResponse(event.data);
+        if (!validated) return; // Invalid message silently dropped
+
+        const { type, data, requestId } = validated;
 
         if (type === 'READY') {
             this._isReady = true;
@@ -90,6 +99,9 @@ class WorkerBridge {
     }
 
     private async send<T>(type: string, payload: any, timeout = 5000): Promise<T> {
+        if (!this.worker) {
+            this.initWorker();
+        }
         await this.readyPromise;
 
         if (!this.worker) {

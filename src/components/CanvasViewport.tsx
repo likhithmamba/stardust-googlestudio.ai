@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGesture } from '@use-gesture/react';
+import clsx from 'clsx';
 import { useStore, noteVisibleInMode, defaultNotePropsForMode } from '../store/useStore';
 import { useMemo } from 'react';
 import type { ViewMode } from '../constants';
@@ -21,6 +22,8 @@ import { SemanticZoomController } from './SemanticZoomController';
 import { LayoutVisuals } from './LayoutVisuals';
 import { StarfieldLayer } from './StarfieldLayer';
 import { soundManager } from '../utils/sound';
+import { Toolbar } from './Toolbar';
+import { workerBridge } from '../workers/WorkerBridge';
 
 // Mode Overlays
 import { DecayOverlay } from './modes/DecayView';
@@ -28,8 +31,6 @@ import { NotesChoiceRing } from './NotesChoiceRing';
 import { DashboardBackground } from './DashboardBackground';
 import { EditorOverlay } from './EditorOverlay';
 import { AppShell } from './AppShell';
-import { InvoiceOverlay } from '../ui/invoice-universe/InvoiceOverlay';
-import { QuestOverlay } from '../ui/quest-mode/QuestOverlay';
 
 // Per-mode Chrome Overlays
 import { VoidChrome } from './chrome/VoidChrome';
@@ -102,12 +103,38 @@ export const CanvasViewport: React.FC = () => {
     const setConnectionStart = useStore((state) => state.setConnectionStart);
     const [tempConnectionEnd, setTempConnectionEnd] = useState<{ x: number; y: number } | null>(null);
     const [blackHoleActive, setBlackHoleActive] = useState(false);
+    const [spacePressed, setSpacePressed] = useState(false);
 
     // Lasso Selection State
     const [lasso, setLasso] = useState<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
 
     // Unified Genesis Ring (Creation) Menu State
     const [activeMenu, setActiveMenu] = useState<{ isOpen: boolean; x: number; y: number; worldX: number; worldY: number } | null>(null);
+
+    // Track Spacebar for Panning
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement;
+            if (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
+                return;
+            }
+            if (e.key === ' ' || e.code === 'Space') {
+                setSpacePressed(true);
+                e.preventDefault();
+            }
+        };
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === ' ' || e.code === 'Space') {
+                setSpacePressed(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, []);
 
     const handleCreateNote = useCallback((type: NoteType, overrideX?: number, overrideY?: number) => {
         if (activeMenu || (overrideX !== undefined && overrideY !== undefined)) {
@@ -491,14 +518,41 @@ export const CanvasViewport: React.FC = () => {
             }
         };
 
+        const handleCreateStandardNote = (e: any) => {
+            const { x, y } = e.detail;
+            const rect = containerRef.current?.getBoundingClientRect();
+            if (rect) {
+                const currentViewport = useStore.getState().viewport;
+                const worldX = (x - rect.left - currentViewport.x) / currentViewport.zoom;
+                const worldY = (y - rect.top - currentViewport.y) / currentViewport.zoom;
+
+                handleCreateNote(NoteType.Earth, worldX, worldY);
+            }
+        };
+
+        const handleCreateNoteAtCenter = () => {
+            const currentViewport = useStore.getState().viewport;
+            const worldX = (-currentViewport.x + window.innerWidth / 2) / currentViewport.zoom;
+            const worldY = (-currentViewport.y + window.innerHeight / 2) / currentViewport.zoom;
+
+            const allowedTypes = ALLOWED_TYPES_PER_MODE[viewMode || 'void'] || ALLOWED_TYPES_PER_MODE['void'];
+            const type = allowedTypes[0] || NoteType.Asteroid;
+            handleCreateNote(type, worldX, worldY);
+        };
+
         window.addEventListener('stardust:openRadialMenu', handleOpenRadial);
         window.addEventListener('stardust:openSphericalMenu', handleOpenSpherical);
         window.addEventListener('stardust:createBlackHole', handleCreateBlackHole);
+        window.addEventListener('stardust:createNoteAtCenter', handleCreateNoteAtCenter);
+        window.addEventListener('stardust:createStandardNote', handleCreateStandardNote);
 
         return () => {
             window.removeEventListener('stardust:openRadialMenu', handleOpenRadial);
             window.removeEventListener('stardust:openSphericalMenu', handleOpenSpherical);
             window.removeEventListener('stardust:createBlackHole', handleCreateBlackHole);
+            window.removeEventListener('stardust:createNoteAtCenter', handleCreateNoteAtCenter);
+            window.removeEventListener('stardust:createStandardNote', handleCreateStandardNote);
+            workerBridge.terminate();
         };
     }, [viewMode, handleCreateNote]); // Stable dependencies
 
@@ -546,10 +600,10 @@ export const CanvasViewport: React.FC = () => {
                 return;
             }
 
-            if (target.closest('.note-planet') || target.closest('.handle-base')) return;
+            if (!spacePressed && (target.closest('[data-note-id]') || target.closest('.handle-base'))) return;
 
             // Shift+Drag lasso selection!
-            if (event.shiftKey) {
+            if (event.shiftKey && !spacePressed) {
                 const rect = containerRef.current?.getBoundingClientRect();
                 if (rect) {
                     if (last) {
@@ -584,7 +638,7 @@ export const CanvasViewport: React.FC = () => {
             // Ctrl+scroll = pan
             if (!ctrlKey) {
                 const zoomFactor = dy > 0 ? 0.95 : 1.05;
-                const newZoom = Math.max(0.1, Math.min(5, viewport.zoom * zoomFactor));
+                const newZoom = Math.max(0.1, Math.min(4.0, viewport.zoom * zoomFactor));
 
                 // Cursor-centric zoom: zoom toward mouse position
                 const rect = containerRef.current?.getBoundingClientRect();
@@ -606,7 +660,7 @@ export const CanvasViewport: React.FC = () => {
         },
         onPointerDown: ({ event }) => {
             const target = event.target as HTMLElement;
-            if (target.closest('.note-planet')) return;
+            if (target.closest('[data-note-id]')) return;
             // Prevent deselect if this is part of a double-click (which should open the ring)
             if (event.detail > 1) return;
             setSelectedId(undefined);
@@ -719,10 +773,12 @@ export const CanvasViewport: React.FC = () => {
 
 
 
+    const activeConstellation = useStore((state) => state.activeConstellation);
+
     // Show notes filtered by mode visibility rules
     const visibleNotes = useMemo(() => {
-        return notes.filter(note => noteVisibleInMode(note, viewMode));
-    }, [notes, viewMode]);
+        return notes.filter(note => noteVisibleInMode(note, viewMode, activeConstellation));
+    }, [notes, viewMode, activeConstellation]);
 
     // Prism strict vertical stacking
     useEffect(() => {
@@ -804,7 +860,10 @@ export const CanvasViewport: React.FC = () => {
     }, [notes, setViewport]);
 
     return (
-        <div ref={containerRef} className="absolute inset-0 w-full h-full overflow-hidden bg-white dark:bg-[#020617] select-none transition-colors duration-500">
+        <div ref={containerRef} className={clsx(
+            "absolute inset-0 w-full h-full overflow-hidden bg-white dark:bg-[#020617] select-none transition-colors duration-500",
+            spacePressed ? "cursor-grab active:cursor-grabbing" : ""
+        )}>
 
             {/* Visual Layer: Starfield & Background */}
             <DashboardBackground />
@@ -859,19 +918,9 @@ export const CanvasViewport: React.FC = () => {
                         y: viewport.y,
                         scale: viewport.zoom
                     }}
-                    transition={{ duration: 0 }}
+                    transition={{ duration: transitionPhase === 'stable' ? 0 : 0.2, ease: 'easeOut' }}
                 >
-                    {/* Core Focus Ring from Design - Only in Orbital Mode */}
-                    {viewMode === 'orbital' && (
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-                            <div className="w-[800px] h-[800px] border border-blue-500/20 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
-                            <div className="w-[600px] h-[600px] border border-blue-500/20 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-60"></div>
-                            <div className="w-[400px] h-[400px] border border-blue-500/20 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-80"></div>
-                            <div className="w-[160px] h-[160px] bg-gradient-radial from-white to-zinc-100 dark:from-zinc-800 dark:to-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-lg flex items-center justify-center z-0">
-                                <span className="text-zinc-800 dark:text-zinc-200 font-medium tracking-wide cinzel">CORE</span>
-                            </div>
-                        </div>
-                    )}
+
 
                     <ConnectionLayer
                         connections={visibleConnections}
@@ -910,9 +959,7 @@ export const CanvasViewport: React.FC = () => {
                         </svg>
                     )}
 
-                    {blackHoleActive && viewMode === 'void' && (
-                        <BlackHole isActive={blackHoleActive} />
-                    )}
+
 
                     {/* MODE SPECIFIC BACKGROUND VISUALS */}
                     <div className="absolute inset-0 pointer-events-none select-none overflow-visible">
@@ -1062,7 +1109,7 @@ export const CanvasViewport: React.FC = () => {
                 </div>
             )}
 
-            <BlackHole isActive={blackHoleActive} />
+            <BlackHole isActive={blackHoleActive} isDragging={isDraggingNote} />
 
             <AnimatePresence>
                 {activeMenu?.isOpen && (
@@ -1116,10 +1163,9 @@ export const CanvasViewport: React.FC = () => {
             </AnimatePresence>
 
             {/* UNIFIED APP SHELL & EDITOR */}
+            <Toolbar />
             <AppShell />
             <EditorOverlay />
-            <InvoiceOverlay />
-            <QuestOverlay />
         </div>
     );
 };

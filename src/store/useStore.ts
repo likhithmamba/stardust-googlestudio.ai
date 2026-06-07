@@ -273,5 +273,17 @@ loadFromDB().catch(err => {
     useStore.getState().setNotes([]);
 });
 
-// Settings persistence is handled by settingsStore (zustand/persist) and uiSlice localStorage.
-// No additional subscriber needed here.
+// Persist UI settings to localStorage
+useStore.subscribe((state) => {
+    try {
+        const uiState = {
+            showMinimap: state.showMinimap,
+            theme: state.theme,
+            activeConstellation: state.activeConstellation,
+            constellations: state.constellations,
+        };
+        localStorage.setItem('stardust_ui_state', JSON.stringify(uiState));
+    } catch (e) {
+        console.error('Failed to save UI state:', e);
+    }
+});

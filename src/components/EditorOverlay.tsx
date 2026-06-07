@@ -20,33 +20,30 @@ export const EditorOverlay: React.FC = () => {
 
     const [activeTab, setActiveTab] = useState<'content' | 'config'>('content');
 
-    if (!selectedId || !isCosmosOpen) return <AnimatePresence />;
-
     const note = notes.find((n) => n.id === selectedId);
-    if (!note) return null;
-
-    const isSolar = designSystem === 'solar';
 
     // Touch note on editor open to reset decay
     useEffect(() => {
-        if (note) touchNote(note.id);
-    }, [note?.id]);
+        if (isCosmosOpen && note) touchNote(note.id);
+    }, [note?.id, isCosmosOpen]);
 
     const handleClose = () => {
         setCosmosOpen(false);
     };
 
     const handleDelete = () => {
-        if (window.confirm('Are you sure you want to delete this star from your universe?')) {
+        if (note && window.confirm('Are you sure you want to delete this star from your universe?')) {
             deleteNote(note.id);
             setCosmosOpen(false);
             setSelectedId(undefined);
         }
     };
 
+    const isSolar = designSystem === 'solar';
+
     return (
         <AnimatePresence>
-            {isCosmosOpen && (
+            {isCosmosOpen && note && (
                 <div className="fixed inset-0 z-[2000] flex items-center justify-center overflow-hidden">
                     {/* Immersive Background */}
                     <motion.div

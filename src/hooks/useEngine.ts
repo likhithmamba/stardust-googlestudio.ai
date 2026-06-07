@@ -65,5 +65,40 @@ export const useEngine = () => {
         };
     }, []);
 
+    // ─── requestAnimationFrame Write-Back Loop ───
+    useEffect(() => {
+        let frameId: number;
+
+        const tick = () => {
+            const world = engine.getWorld();
+            const currentNotes = useStore.getState().notes;
+            const updates: { id: string; x: number; y: number }[] = [];
+
+            world.notes.forEach((wnote, id) => {
+                if (wnote.fixed) return; // Skip updating notes that are currently locked/dragged!
+                const snote = currentNotes.find(n => n.id === id);
+                if (snote) {
+                    const dx = Math.abs(snote.x - wnote.x);
+                    const dy = Math.abs(snote.y - wnote.y);
+                    // 0.3px threshold reduces unnecessary renders
+                    if (dx > 0.3 || dy > 0.3) {
+                        updates.push({ id, x: wnote.x, y: wnote.y });
+                    }
+                }
+            });
+
+            if (updates.length > 0) {
+                useStore.getState().updateNotePositions(updates);
+            }
+
+            frameId = requestAnimationFrame(tick);
+        };
+
+        frameId = requestAnimationFrame(tick);
+        return () => {
+            cancelAnimationFrame(frameId);
+        };
+    }, []);
+
     return engine;
 };

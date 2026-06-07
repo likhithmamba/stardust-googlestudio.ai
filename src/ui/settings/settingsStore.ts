@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useStore, noteVisibleInMode } from '../../store/useStore';
+import { workerBridge } from '../../workers/WorkerBridge';
 
 export type Mode = 'core' | 'pro' | 'ultra';
 
@@ -40,10 +41,11 @@ export interface SettingsState {
 
 import type { ViewMode } from '../../constants';
 
-function autoLayoutForMode(targetMode: ViewMode) {
+async function autoLayoutForMode(targetMode: ViewMode) {
     const viewStore = useStore.getState();
     const allNotes = viewStore.notes;
-    const modeNotes = allNotes.filter(n => noteVisibleInMode(n, targetMode));
+    const activeConstellation = viewStore.activeConstellation;
+    const modeNotes = allNotes.filter(n => noteVisibleInMode(n, targetMode, activeConstellation));
     if (modeNotes.length === 0) return;
 
     const W = window.innerWidth;
@@ -51,64 +53,118 @@ function autoLayoutForMode(targetMode: ViewMode) {
     const cx = W / 2;
     const cy = H / 2;
     const minDim = Math.min(W, H);
+
+    // Map store notes to StardustSchema Note interface format for Web Worker
+    const workerNotes = modeNotes.map(n => ({
+        id: n.id,
+        x: n.x,
+        y: n.y,
+        w: n.w || 80,
+        h: n.h || 80,
+        vx: n.vx || 0,
+        vy: n.vy || 0,
+        mass: n.mass || 1,
+        fixed: n.fixed || false,
+        linkCount: 0,
+        accessCount: 0,
+        lastModified: n.updatedAt || Date.now(),
+        lastAccessed: n.lastAccessedAt || Date.now(),
+        type: n.type,
+        title: n.title || '',
+        content: n.content || '',
+        tags: n.tags || [],
+        priority: n.priority || 'medium',
+        impact: 0.5,
+        effort: 0.5,
+        createdAt: n.createdAt || Date.now(),
+        updatedAt: n.updatedAt || Date.now(),
+        originMode: n.originMode,
+        isCompleted: n.isCompleted,
+        isDying: n.isDying,
+    }));
+
+    let targets: Record<string, { x: number; y: number }> | null = null;
+
+    try {
+        if (targetMode === 'orbital') {
+            const gravityScores = await workerBridge.calculateGravityScores(workerNotes);
+            targets = await workerBridge.getOrbitalTargets(workerNotes, { x: cx, y: cy }, gravityScores);
+        } else if (targetMode === 'matrix') {
+            targets = await workerBridge.getMatrixTargets(workerNotes, { x: cx, y: cy }, { width: W, height: H });
+        } else if (targetMode === 'prism') {
+            targets = await workerBridge.getPrismTargets(workerNotes, { x: cx, y: cy });
+        } else if (targetMode === 'timeline') {
+            targets = await workerBridge.getTimelineTargets(workerNotes, { x: cx, y: cy });
+        }
+    } catch (error) {
+        console.warn('Worker layout computation failed, falling back to sync layout:', error);
+    }
+
     const positions: { id: string; x: number; y: number }[] = [];
 
-    switch (targetMode) {
-        case 'orbital': {
-            const RADII: Record<string, number> = { critical: minDim * 0.17, high: minDim * 0.30, medium: minDim * 0.44, low: minDim * 0.58 };
-            const byPriority: Record<string, typeof modeNotes> = { critical: [], high: [], medium: [], low: [] };
-            modeNotes.forEach(n => { const p = n.priority || 'low'; if (!byPriority[p]) byPriority[p] = []; byPriority[p].push(n); });
-            Object.entries(RADII).forEach(([priority, radius]) => {
-                const group = byPriority[priority] || [];
-                group.forEach((n, i) => {
-                    const angle = (i / Math.max(group.length, 1)) * Math.PI * 2 - Math.PI / 2;
-                    positions.push({ id: n.id, x: cx + radius * Math.cos(angle) - 40, y: cy + radius * Math.sin(angle) - 40 });
+    if (targets) {
+        Object.entries(targets).forEach(([id, pos]) => {
+            positions.push({ id, x: pos.x, y: pos.y });
+        });
+    } else {
+        // Fallback sync layout
+        switch (targetMode) {
+            case 'orbital': {
+                const RADII: Record<string, number> = { critical: minDim * 0.17, high: minDim * 0.30, medium: minDim * 0.44, low: minDim * 0.58 };
+                const byPriority: Record<string, typeof modeNotes> = { critical: [], high: [], medium: [], low: [] };
+                modeNotes.forEach(n => { const p = n.priority || 'low'; if (!byPriority[p]) byPriority[p] = []; byPriority[p].push(n); });
+                Object.entries(RADII).forEach(([priority, radius]) => {
+                    const group = byPriority[priority] || [];
+                    group.forEach((n, i) => {
+                        const angle = (i / Math.max(group.length, 1)) * Math.PI * 2 - Math.PI / 2;
+                        positions.push({ id: n.id, x: cx + radius * Math.cos(angle) - 40, y: cy + radius * Math.sin(angle) - 40 });
+                    });
                 });
-            });
-            break;
-        }
-        case 'matrix': {
-            const QW = W * 0.28; const QH = H * 0.22;
-            const QUADS = [
-                { urgency: 'urgent', importance: 'important', dx: -QW, dy: -QH },
-                { urgency: 'not-urgent', importance: 'important', dx: QW, dy: -QH },
-                { urgency: 'urgent', importance: 'not-important', dx: -QW, dy: QH },
-                { urgency: 'not-urgent', importance: 'not-important', dx: QW, dy: QH },
-            ];
-            QUADS.forEach(q => {
-                const group = modeNotes.filter(n =>
-                    (n.urgency === q.urgency || (!n.urgency && q.urgency === 'not-urgent')) &&
-                    (n.importance === q.importance || (!n.importance && q.importance === 'important'))
-                );
-                group.forEach((n, i) => {
-                    positions.push({ id: n.id, x: cx + q.dx + (i % 3) * 120 - 60, y: cy + q.dy + Math.floor(i / 3) * 100 - 50 });
+                break;
+            }
+            case 'matrix': {
+                const QW = W * 0.28; const QH = H * 0.22;
+                const QUADS = [
+                    { urgency: 'urgent', importance: 'important', dx: -QW, dy: -QH },
+                    { urgency: 'not-urgent', importance: 'important', dx: QW, dy: -QH },
+                    { urgency: 'urgent', importance: 'not-important', dx: -QW, dy: QH },
+                    { urgency: 'not-urgent', importance: 'not-important', dx: QW, dy: QH },
+                ];
+                QUADS.forEach(q => {
+                    const group = modeNotes.filter(n =>
+                        (n.urgency === q.urgency || (!n.urgency && q.urgency === 'not-urgent')) &&
+                        (n.importance === q.importance || (!n.importance && q.importance === 'important'))
+                    );
+                    group.forEach((n, i) => {
+                        positions.push({ id: n.id, x: cx + q.dx + (i % 3) * 120 - 60, y: cy + q.dy + Math.floor(i / 3) * 100 - 50 });
+                    });
                 });
-            });
-            break;
+                break;
+            }
+            case 'prism': {
+                const LANES = [{ status: 'todo', xPct: 0.125 }, { status: 'in-progress', xPct: 0.375 }, { status: 'review', xPct: 0.625 }, { status: 'done', xPct: 0.875 }];
+                LANES.forEach(lane => {
+                    const group = modeNotes.filter(n => n.status === lane.status || (lane.status === 'todo' && (!n.status || n.status === 'captured')));
+                    group.forEach((n, i) => { positions.push({ id: n.id, x: W * lane.xPct - 45, y: H * 0.20 + i * 140 }); });
+                });
+                break;
+            }
+            case 'timeline': {
+                const sorted = [...modeNotes].sort((a, b) => (a.dueDate || a.createdAt || 0) - (b.dueDate || b.createdAt || 0));
+                const spacing = Math.min(220, (W * 0.80) / Math.max(sorted.length, 1));
+                const startX = cx - (sorted.length / 2) * spacing;
+                sorted.forEach((n, i) => { positions.push({ id: n.id, x: startX + i * spacing - 45, y: i % 2 === 0 ? cy - 200 : cy + 100 }); });
+                break;
+            }
+            case 'archive': {
+                modeNotes.forEach((n, i) => {
+                    const angle = i * 0.9; const r = 80 + i * 55;
+                    positions.push({ id: n.id, x: cx + r * Math.cos(angle) - 40, y: cy + r * Math.sin(angle) - 40 });
+                });
+                break;
+            }
+            default: break;
         }
-        case 'prism': {
-            const LANES = [{ status: 'todo', xPct: 0.125 }, { status: 'in-progress', xPct: 0.375 }, { status: 'review', xPct: 0.625 }, { status: 'done', xPct: 0.875 }];
-            LANES.forEach(lane => {
-                const group = modeNotes.filter(n => n.status === lane.status || (lane.status === 'todo' && (!n.status || n.status === 'captured')));
-                group.forEach((n, i) => { positions.push({ id: n.id, x: W * lane.xPct - 45, y: H * 0.20 + i * 140 }); });
-            });
-            break;
-        }
-        case 'timeline': {
-            const sorted = [...modeNotes].sort((a, b) => (a.dueDate || a.createdAt || 0) - (b.dueDate || b.createdAt || 0));
-            const spacing = Math.min(220, (W * 0.80) / Math.max(sorted.length, 1));
-            const startX = cx - (sorted.length / 2) * spacing;
-            sorted.forEach((n, i) => { positions.push({ id: n.id, x: startX + i * spacing - 45, y: i % 2 === 0 ? cy - 200 : cy + 100 }); });
-            break;
-        }
-        case 'archive': {
-            modeNotes.forEach((n, i) => {
-                const angle = i * 0.9; const r = 80 + i * 55;
-                positions.push({ id: n.id, x: cx + r * Math.cos(angle) - 40, y: cy + r * Math.sin(angle) - 40 });
-            });
-            break;
-        }
-        default: break;
     }
 
     positions.forEach((pos, i) => {
@@ -145,24 +201,10 @@ export const useSettingsStore = create<SettingsState>()(
                 const currentMode = state.viewMode;
                 const viewStore = useStore.getState();
 
-                // 1. If leaving FREE mode, snapshot current positions in useStore
-                if (currentMode === 'free') {
-                    const snapshot = new Map<string, { x: number; y: number }>();
-                    viewStore.notes.forEach(n => {
-                        snapshot.set(n.id, { x: n.x, y: n.y });
-                    });
-                    set({ freePositions: snapshot });
-                }
+                // 1. Save current positions to currentMode's snapshot
+                viewStore.saveModePositions(currentMode);
 
                 // 2. Set new mode and enter transition phase
-                if (v === 'free' && state.freePositions.size > 0) {
-                    const restoredNotes = viewStore.notes.map(n => {
-                        const saved = state.freePositions.get(n.id);
-                        return saved ? { ...n, x: saved.x, y: saved.y, vx: 0, vy: 0, fixed: false } : n;
-                    });
-                    viewStore.setNotes(restoredNotes);
-                }
-
                 set({
                     viewMode: v as ViewMode,
                     transitionPhase: 'entering'
@@ -171,7 +213,12 @@ export const useSettingsStore = create<SettingsState>()(
                 // 3. Transition phase cascade: entering → settling → stable
                 setTimeout(() => set({ transitionPhase: 'settling' }), 600);
                 setTimeout(() => set({ transitionPhase: 'stable' }), 1400);
-                setTimeout(() => { autoLayoutForMode(v as ViewMode); }, 350);
+
+                // 4. Try to restore positions for target mode. Fallback to auto-layout if not found.
+                const restored = viewStore.restoreModePositions(v);
+                if (!restored) {
+                    setTimeout(() => { autoLayoutForMode(v as ViewMode); }, 350);
+                }
             },
             setTransitionPhase: (phase) => set({ transitionPhase: phase }),
             setDesignSystem: (ds) => set({ designSystem: ds }),

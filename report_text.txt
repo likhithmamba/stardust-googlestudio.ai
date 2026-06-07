@@ -1,0 +1,1033 @@
+
+STARDUST
+Complete Production Report
+From Audit to Launch — The Definitive Implementation Guide
+
+ImperialX / Likhith Mamba  •  Stardust Codebase  •  June 2026
+
+v3.0 — Consolidated Final Edition
+
+
+Table of Contents
+
+Part I — The Product
+1.1  What Stardust Is
+Stardust is a physics-based, multi-lens note-taking canvas for the web. It is not a markdown editor. It is not a task manager. It is an interactive cognitive environment where notes exist as physical bodies in space, governed by a physics engine, evaluated by a cognitive worker, and displayed through five distinct analytical lenses called modes.
+Each mode — Void, Matrix, Orbital, Prism, and Timeline — represents a different cognitive frame applied to the same underlying note data. Switching modes does not change the notes; it changes the question you are asking of them. Matrix asks: what matters most right now? Orbital asks: what is losing momentum? Prism asks: how do these ideas connect? Timeline asks: what am I actually working on?
+The physics engine governs note position, spring forces, drift, and orbital motion. The cognitive worker (a Web Worker running a WorkerBridge) evaluates each note against the active mode's criteria and returns layout targets. The result is a canvas that feels alive — notes drift, orbit, fade, and respond to interaction in ways that a static list never could.
+1.2  The Core Differentiators
+AI as physics engine: AI determines where notes live in space — not as a writing assistant, but as a layout intelligence layer.
+Five cognitive lenses: No other tool offers mode-switching across Eisenhower (Matrix), gravity (Orbital), semantic clustering (Prism), and temporal velocity (Timeline) from one canvas.
+Decay mechanics: Notes age and fade based on inactivity. The canvas is a living organism, not a filing cabinet.
+Sensory design: Spatial audio, physics-driven animations, and a distinct visual identity make Stardust feel unlike any other productivity tool.
+Local-first architecture: All data lives in IndexedDB. No account required. No server. AI features are opt-in.
+1.3  Audit History
+This report consolidates three successive audits of the Stardust codebase. Each audit built on the previous one.
+
+1.4  The Completion Thesis
+Stardust is not a broken product. It is an incomplete product. The architecture is sound — IndexedDB, WorkerBridge, physics engine, mode components, and RichTextEditor are all correctly designed. The failure is wiring. Data does not flow from the engine back to the store. The database is never called. Mode components are not mounted. The persistence layer writes to nothing.
+This is a solvable problem. It does not require a rebuild. It requires 25 prompts executed in sequence, each wiring one disconnected system to the next, until the canvas is alive from end to end.
+
+Part II — Architecture Assessment
+2.1  Subsystem Status Map
+Status as of audit commit de1b53e4. Security notes added in v3.0.
+
+2.2  Critical Bug Register
+2.3  What Works (Do Not Touch)
+RichTextEditor — TipTap integration, formatting, overlay system. Correctly wired.
+SoundManager — Audio context, spatial positioning, event bindings. Correctly wired.
+Zustand store architecture — Slice pattern, action signatures, store composition. Sound.
+WorkerBridge class definition — Message protocol, ready handshake, worker lifecycle. Sound.
+StardustDB class definition — All CRUD methods implemented. Never called, but correct.
+Physics Engine (World, PhysicsSystem) — Force calculations, spring system, body management. Isolated but correct.
+
+Part III — The AI Note-Taking Reckoning
+3.1  The Market in 2026
+Every major note-taking tool launched or significantly updated an AI layer between 2023 and 2026. The pattern is almost universal: AI was bolted onto an existing paradigm rather than redesigning it. Notion added AI writing to a database. Obsidian added AI plugins to a file system. Heptabase added AI clustering to a whiteboard. None changed the fundamental UX metaphor.
+Stardust's physics-first, multi-lens canvas is the first tool where AI is the engine of the interface — not an add-on. This is the strategic wedge.
+3.2  Competitor Analysis
+
+3.3  The Five Patterns Defining the Race
+AI as writer, not thinker. Most tools help you write better notes. Stardust uses AI to determine where notes live in space, how urgent they are, and how they relate. This is a different cognitive model entirely.
+Nobody solved the temporal layer. Notes pile up and go stale. No tool built decay, entropy, and revival as first-class interaction mechanics. Stardust's decay system has no direct equivalent on the market.
+The privacy-AI tension is unresolved. Users want smart features but not their deepest thoughts sent to a server. Local-first AI is the winning position for 2027+. WorkerBridge is already architected for this.
+Multi-modal capture is becoming table stakes. Voice notes, PDF import, image annotations. Every tool lacking capture parity loses to Apple Notes on mobile.
+Second-brain fatigue is real. Users are exhausted from maintaining a system that requires more maintenance than their primary brain. Stardust's physics engine and decay system do the maintenance automatically.
+3.4  Strategic Positioning
+
+Part IV — User Perspective
+4.1  First-Launch Customer Feedback System
+The most expensive feedback is feedback you never collected. Every user who opens Stardust, gets confused, and closes it takes a product decision with them that you never see. The first-launch feedback modal captures four data points in under 90 seconds: where they came from, what they hope Stardust does, what has frustrated them before, and what would make Stardust feel truly theirs.
+Design Principles
+One time only — show once, after first note creation (30-second delay), never again.
+Four questions maximum — each on its own screen. Skip always visible. No guilt on skip.
+Stellar aesthetic — dark overlay, centered card, orbital progress indicator.
+Local-first data — all answers stored in IndexedDB. No PII. No transmission without explicit consent.
+The Four Questions
+Data Architecture
+
+4.2  User Guide — All Features and Use Cases
+This section is the canonical source of truth for all in-app help content. Every tooltip, mode guide, and help overlay panel draws from these descriptions.
+Help System Architecture (4 Layers)
+Contextual tooltips — first-hover on each UI element. Dismissed on click. Never shown again.
+Mode guides — single-screen overlay on first activation of each mode. Dismisses with one click. Re-accessible via ? key.
+Feature spotlight — after 3 days of use, surfaces one undiscovered advanced feature.
+Help overlay — full reference guide. Opened with H key or ? toolbar button.
+Mode Reference
+
+Feature Reference
+
+Complete Keyboard Shortcut Reference
+
+Part V — Feature Roadmap & Ideation
+5.1  Feature Ideation — 10 Ideas from the Field
+Ten concrete ideas from competitive research and Stardust's unique architecture. Each includes a strategic fit analysis, complexity estimate, and recommended phase.
+
+5.2  Feature Triage — Keep / Fix / Add / Defer / Cut
+
+Part VI — Security & System Design Foundations
+Every implementation prompt in Part VII carries security requirements, error handling, and system design notes. This section establishes the non-negotiable baseline that all prompts build on.
+6.1  Input Sanitization Pipeline
+The RichTextEditor produces HTML. That HTML is stored in IndexedDB and rendered in PlanetNote. Without sanitization, a note containing a malicious script tag executes on render — a stored XSS attack.
+Rule: DOMPurify must be called at BOTH write time (before IndexedDB) AND render time (before dangerouslySetInnerHTML). Defense in depth.
+6.2  Content Security Policy
+Add a CSP meta tag to index.html before running any Phase 1 prompt. This prevents inline script injection even if a stored XSS bypasses DOMPurify. CSP must include: default-src 'self', frame-src 'none', object-src 'none'.
+6.3  Web Worker Message Validation
+All WorkerBridge messages must be validated with Zod schemas before processing. An invalid message silently fails, logs a warning, and does not affect app state. The schema is the contract between the worker thread and the main thread.
+6.4  IndexedDB Schema Versioning
+Use IDB version numbers and a migration chain. Never destroy data during migration. Old data in new schema gets default values. Increment DB_VERSION with every schema change. Run all migration steps sequentially.
+6.5  Error Recovery Architecture
+
+6.6  API Key Security
+NEVER hardcode API keys in frontend code, constants.ts, or .env files that are committed.
+Route all AI calls through a backend proxy. Proxy holds the key, validates requests, and rate-limits.
+User BYOK (bring your own key): encrypt with Web Crypto API. Never store in plaintext in IndexedDB.
+Development only: use VITE_ env variables in .env.local only. .env.local must be in .gitignore.
+6.7  CRDT Foundation (Future Collaboration)
+TipTap (the RichTextEditor) has first-class Y.js CRDT support. Adopting Y.js as the content store for note content now (even without live collaboration) costs minimal complexity but makes real-time collaboration a Phase 5 feature rather than a rewrite. Recommended: use Y.js as the content store from Phase 1 onward.
+6.8  Service Worker / Offline Strategy
+App shell caching: all static assets cached on install. Second visit = sub-100ms load.
+IndexedDB as source of truth: no network required for Void mode, all mode switching, note creation.
+AI features degrade gracefully offline: show "AI unavailable offline." Return cached results where possible.
+Update notifications: opt-in only via updateNotifier toast. Never auto-reload mid-editing session.
+
+Part VII — Implementation Plan
+25 agent prompts across 5 phases. Execute in strict phase order. Every Phase N prompt must pass all test criteria before Phase N+1 begins. Phase 0 prompts are new in v3.0 — they must run before Phase 1.
+
+Phase 0 — Security & Foundation
+These 3 prompts establish security posture, user intelligence, and help infrastructure. Run BEFORE Phase 1. No Phase 1 prompt should start until all Phase 0 test criteria pass.
+
+
+Prompt 0.1 — Security Foundation — DOMPurify, CSP, Zod Worker Validation
+
+Problem Statement
+The RichTextEditor produces HTML stored in IndexedDB and rendered in PlanetNote. Without DOMPurify, a note containing a script tag or onerror attribute executes on render — a stored XSS attack. WorkerBridge message payloads are also unvalidated, meaning a corrupted DB read or racing write can send malformed data into the physics engine. This prompt installs the security layer before any wiring begins.
+
+Primary Files: src/utils/sanitize.ts (CREATE) · index.html (add CSP) · src/workers/messageValidator.ts (CREATE) · src/components/PlanetNote.tsx
+Secondary Files: src/db/StardustDB.ts (migration versioning) · src/store/noteSlice.ts (sanitize on addNote/updateNote) · package.json
+
+Implementation Steps
+Install dependencies: npm install dompurify zod @types/dompurify
+Create src/utils/sanitize.ts with sanitizeNoteContent(html: string): string using DOMPurify.sanitize() with ALLOWED_TAGS: [p, strong, em, u, s, h1–h3, ul, ol, li, a, code, pre, blockquote].
+In noteSlice.ts addNote() and updateNote() actions: call sanitizeNoteContent(content) before writing to state.
+In PlanetNote.tsx: wrap all dangerouslySetInnerHTML with sanitizeNoteContent() wrapper.
+Create src/workers/messageValidator.ts with Zod discriminatedUnion schema for all WorkerBridge message types.
+In WorkerBridge.ts: wrap all worker.onmessage handlers with validateWorkerResponse(event.data). If null returned: log and ignore.
+Add CSP meta tag to index.html: default-src self, script-src self wasm-unsafe-eval, worker-src self blob:, connect-src self [AI endpoint], frame-src none, object-src none.
+Update StardustDB.ts upgrade() function to versioned migration pattern with DB_VERSION constant. Set to current version.
+Add clampCoord(v: number): number utility (Math.max(-50000, Math.min(50000, v))). Apply in CanvasInputHandler before any coordinate reaches the engine or store.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+dompurify and zod installed
+sanitizeNoteContent() in use at write AND render time
+messageValidator.ts created with Zod schema
+WorkerBridge onmessage handlers validate all payloads
+CSP meta tag in index.html
+StardustDB.ts upgrade() uses versioned migration pattern
+clampCoord() applied in CanvasInputHandler
+
+
+
+Prompt 0.2 — First-Launch Feedback Modal — Customer Intelligence System
+
+Problem Statement
+Stardust has no mechanism to hear from users before they leave. A user who opens the app, gets confused, and closes it takes a product decision permanently invisible to you. This prompt creates a one-time, aesthetically-integrated feedback modal triggered 30 seconds after the first note is created. It captures 4 data points in under 90 seconds. All data stored in IndexedDB. No PII. No transmission without explicit consent.
+
+Primary Files: src/components/FeedbackModal.tsx (CREATE) · src/hooks/useFeedbackTrigger.ts (CREATE) · src/db/StardustDB.ts (add feedback store)
+Secondary Files: src/components/AppShell.tsx (mount modal) · src/store/uiSlice.ts (feedbackModalOpen state) · src/types/StardustSchema.ts (FeedbackEntry type)
+
+Implementation Steps
+Add FeedbackEntry type to StardustSchema.ts: { id, completedAt, skipped, q1_source, q2_usecase, q3_frustration, q4_aspiration, appVersion, sessionCount }.
+In StardustDB.ts: add saveFeedback(entry) and getFeedbackStatus() returning completed | skipped | pending. Uses feedback object store from v3 DB migration.
+Create useFeedbackTrigger.ts: watches notes.length in useStore. When goes from 0 to 1 (first note created), starts 30-second timer. After 30s: check getFeedbackStatus(). If pending AND editor NOT open: dispatch openFeedbackModal().
+Create FeedbackModal.tsx: full-screen overlay (backdrop blur). 4 screens, one per question. Each screen: question text, answer controls, Continue button, "Skip for now" link always visible.
+Style: dark overlay rgba(7,7,13,0.92) with backdrop-filter blur(8px). Centered card. Progress shown as 4 orbital dots, active one highlighted.
+On Skip: call saveFeedback({ skipped: true, completedAt: null }). Close modal. Never show again this session or future sessions.
+On completing all 4: save entry to DB. Show 2-second "Your constellation is forming." final screen, auto-close.
+Progressive save: save each answer as it is completed. If browser closed mid-survey, partial data is preserved.
+Mount <FeedbackModal /> in AppShell as conditional render: feedbackModalOpen && <FeedbackModal />. Call useFeedbackTrigger() in AppShell.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+Modal appears 30 seconds after first note creation
+"Skip for now" on every screen
+Skipping: modal never reappears
+Completing all 4: final screen shows 2s, auto-closes
+Feedback store in IndexedDB verified in DevTools
+Free text sanitized (script tags stripped)
+
+
+
+Prompt 0.3 — Help System — Mode Guides, Contextual Discovery, Help Overlay
+
+Problem Statement
+Stardust has five modes with distinct cognitive models. A user switching to Orbital mode for the first time has no idea what the four rings mean. Without contextual guidance, users bounce off complex features within 30 seconds. This prompt creates the layered help system: first-time mode guides (shown once per mode on first activation), and a full help overlay accessible via H key containing all content from Part IV of this report.
+
+Primary Files: src/components/HelpOverlay.tsx (CREATE) · src/components/ModeGuide.tsx (CREATE) · src/hooks/useFirstTime.ts (CREATE) · src/constants/helpContent.ts (CREATE)
+Secondary Files: src/components/AppShell.tsx (mount overlay, wire H shortcut) · src/components/Toolbar.tsx (add ? button)
+
+Implementation Steps
+Create src/constants/helpContent.ts: export all mode descriptions, use cases, and keyboard shortcuts as structured data objects (title, tagline, description, primaryUseCase, keyInteraction, firstTimeTip). Source: Part IV of this report.
+Create useFirstTime.ts: manages "seen" flags in localStorage (low-risk preference data). Methods: hasSeenModeGuide(mode), markModeGuideSeen(mode), hasSeenFeatureSpotlight(feature), markFeatureSpotlightSeen(feature).
+Create ModeGuide.tsx: full-screen overlay shown on first activation of each mode. Contains mode name, tagline, 2–3 sentence description, one key interaction tip. "Got it" button dismisses. Accessible again via ? key while in mode.
+Create HelpOverlay.tsx: full reference guide. Sections: Welcome, 5 mode descriptions (from helpContent.ts), keyboard shortcut grid, Decay & Archive guide, Constellations guide. Rendered as React Portal (z-index:9999).
+Mount ModeGuide inside each mode component (after Prompt 1.3). Checks hasSeenModeGuide() on mount — shows or hides accordingly.
+Mount HelpOverlay in AppShell. Wire H shortcut in useKeyboardShortcuts.ts (Prompt 3.3) to toggle it.
+Add ? button to Toolbar (bottom right, small). On click: toggle HelpOverlay.
+Feature spotlight: after 3 days of use AND user has never dragged to BlackHole: show small tooltip on BlackHole with text "Drag any note here to release it permanently." Dismiss on click or after 5 seconds.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+Mode guide appears on first activation of each of the 5 modes
+Mode guide does NOT reappear after "Got it" click
+"?" button in toolbar toggles HelpOverlay
+H key opens and closes HelpOverlay
+Help overlay shows all 5 mode descriptions and shortcut grid
+BlackHole spotlight appears after 3-day threshold
+
+
+
+Phase 1 — The Promise (Weeks 1–2)
+
+
+Prompt 1.1 — Wire StardustDB — Note & Link Persistence
+
+Problem Statement
+StardustDB.ts is complete (upsertNote, getAllNotes, bulkUpsertNotes, upsertLink, getAllLinks, deleteNote) but has 0 incoming edges. Notes vanish on every reload. The _debouncedSave and _fullSave functions in persistenceSlice.ts run timers but write to nothing.
+
+Primary Files: src/store/persistenceSlice.ts · src/App.tsx (hydration useEffect)
+Secondary Files: src/db/StardustDB.ts (confirm methods exist) · src/store/noteSlice.ts (add hydrateFromDB action)
+
+Implementation Steps
+Import StardustDB singleton at top of persistenceSlice.ts.
+In _debouncedSave(): resolve dirtyNoteIds from store state. Call sanitizeNoteContent() on each note.content BEFORE the DB call. Call await db.bulkUpsertNotes(dirtyNotes) and await db.bulkUpsertLinks(dirtyLinks). Clear dirty sets ONLY after successful write.
+In App.tsx: add useEffect on mount — call db.getAllNotes() and db.getAllLinks(). Call useStore.getState().hydrateFromDB({ notes, links }).
+Add hydrateFromDB(payload) action to noteSlice.ts: replaces entire notes and connections maps from DB payload. One-time mount action.
+Empty DB case: if getAllNotes() returns [], create welcome note { id:"welcome-001", content:"Start here. Double-click to add your first idea.", type:THOUGHT } at canvas center.
+Wrap ALL DB calls in try-catch. On failure: log to console.error and continue. Never crash app over a DB error.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+Notes persist across page reloads
+Content sanitized before storage (script tags stripped)
+Empty DB: welcome note created
+dirty set cleared only on successful DB write
+DB hydration failure shows banner, app still works
+
+
+
+Prompt 1.2 — Engine → Store Write-Back Loop
+
+Problem Statement
+useEngine.ts initialises the Engine but never reads its output back to the store. The rAF write-back loop is missing. Physics positions are computed every frame and discarded. Notes appear static because the store never receives their physics-computed positions.
+
+Primary Files: src/hooks/useEngine.ts · src/store/noteSlice.ts (updateNotePositions action)
+Secondary Files: src/engine/Engine.ts · src/engine/World.ts (getSnapshot)
+
+Implementation Steps
+Add updateNotePositions(updates: {id,x,y}[]) action to noteSlice.ts. Batch-updates positions in one Zustand mutation.
+In useEngine.ts: store engine in a ref. Set up rAF loop calling engine.getWorld().getSnapshot() each frame.
+Apply 0.3px threshold before calling updateNotePositions — only dispatch if positions changed meaningfully.
+Cancel rAF on component unmount to prevent memory leaks.
+Add reverse sync useEffect: watches store positions, pushes them to the engine when externally changed (e.g., from DB hydration or mode restore).
+Clamp all coordinates from engine snapshot with clampCoord() before writing to store. Physics instability can produce NaN or Infinity.
+Validate snapshot.notes is an array before mapping. Malformed snapshot from engine bug must not crash the React tree.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+rAF is cancelled on unmount (verify in DevTools Performance)
+Notes gently drift in Void mode (NOT completely static)
+0.3px threshold reduces unnecessary React renders
+
+
+
+Prompt 1.3 — Mode Router — Mount All 5 Mode Components
+
+Problem Statement
+AppShell.tsx does not route between modes. All 5 mode components and 4 orphaned UI components (CreationMenu, Toolbar, ToastOverlay, ConnectionLayer) are imported but never rendered. The user sees Void mode permanently regardless of which mode they select. This prompt makes AppShell a mode router.
+
+Primary Files: src/components/AppShell.tsx
+Secondary Files: src/ui/modes/VoidMode.tsx, MatrixMode.tsx, OrbitalMode.tsx, PrismMode.tsx, TimelineMode.tsx · src/components/CreationMenu.tsx, Toolbar.tsx, ToastOverlay.tsx, ConnectionLayer.tsx
+
+Implementation Steps
+Import all 5 mode components and 4 orphaned UI components in AppShell.tsx.
+Get viewMode from useStore. Add a switch/case mode router — only render the active mode component.
+Default to VOID. Wrap each mode in React.Suspense with a minimal canvas-coloured fallback.
+Mount CreationMenu, Toolbar, ToastOverlay, and ConnectionLayer as permanent fixtures (outside the mode switch).
+Lazy-load non-default modes: const MatrixMode = lazy(() => import('./MatrixMode')). Reduces initial bundle size.
+Validate viewMode against the ViewMode enum before the switch. Invalid viewMode → default to VOID.
+Wrap each mode in React.memo to prevent re-renders on unrelated state changes.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+App opens in Void mode by default
+Pressing 1–5 changes the active mode component
+No console errors on mode switch
+CreationMenu and Toolbar visible in all modes
+
+
+
+Prompt 1.4 — Connect WorkerBridge — Start the Cognitive Worker
+
+Problem Statement
+WorkerBridge.ts is complete but has 0 incoming edges. The cognitive worker is never instantiated. All AI-powered mode positioning (Matrix quadrant evaluation, Orbital gravity scoring, Prism clustering, Timeline velocity) silently never runs. This prompt wires WorkerBridge into useEngine and connects it to mode transitions.
+
+Primary Files: src/hooks/useEngine.ts · src/workers/WorkerBridge.ts
+Secondary Files: src/constants.ts (ViewMode enum) · src/store/noteSlice.ts (updateNotePositions)
+
+Implementation Steps
+In useEngine.ts: after engine.start(), instantiate WorkerBridge and await bridge.waitForReady(). Store in ref.
+Add useEffect watching viewMode. On mode change: strip notes to {id, type, touchedAt, wordCount, connectionCount} — NEVER include note.content.
+Call the appropriate bridge method: bridge.evaluateNotes() for MATRIX, bridge.getOrbitalTargets() for ORBITAL, bridge.refractNotes() for PRISM, bridge.getTimelineTargets() for TIMELINE. For VOID: call bridge.clearMode() or engine.getWorld().setMode(VOID, []).
+Apply returned layout targets to World via engine.getWorld().setMode(mode, targets).
+Set workerAvailable = false flag if bridge fails. All subsequent bridge calls become heuristic fallbacks.
+Terminate worker on component unmount.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+DevTools → Application → Workers: one active worker
+Switching to Matrix: notes rearrange toward grid
+Switching to Orbital: different positions from Matrix
+No UnhandledPromiseRejection in console
+
+
+
+Prompt 1.5 — Fix Canvas Drag vs Note Drag — Spatial Hit-Test
+
+Problem Statement
+CanvasInputHandler.tsx treats all pointer-down events as canvas pan gestures. Dragging a note pans the canvas instead of moving the note. SpatialIndex is implemented but has 0 incoming edges. This makes the canvas completely unusable — no note can be repositioned. This is the foundational interaction fix.
+
+Primary Files: src/components/CanvasInputHandler.tsx · src/utils/spatial.ts (SpatialIndex)
+Secondary Files: src/hooks/useEngine.ts (InputController)
+
+Implementation Steps
+On pointerDown: convert pointer coordinates to canvas-space using current zoom and pan transform.
+Run SpatialIndex.query(canvasX, canvasY, HIT_RADIUS) to find the nearest note. HIT_RADIUS = note visual radius + 8px tolerance.
+If hit in Void mode: set dragState = { type: NOTE_DRAG, noteId }. On pointerMove: update note.x/y in store. On pointerUp: save final position to dirtyNoteIds.
+If hit in a structured mode (Matrix/Orbital/Prism/Timeline): set dragState = { type: RECATEGORISE, noteId }. Show ghost note following cursor. On pointerUp: determine drop zone by canvas position.
+If no hit: set dragState = { type: CANVAS_PAN }. Apply offset delta to canvas transform on pointerMove.
+Space+drag: always starts CANVAS_PAN regardless of hit-test result. Check panMode state from uiSlice.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+Drag note in Void: note moves, canvas does NOT pan
+Drag canvas background: canvas pans, notes do NOT move
+Drag note in Matrix: zone re-assignment occurs
+Space+drag always pans
+
+
+
+Prompt 1.6 — Dead File Cleanup — Remove Duplicates and Orphans
+
+Problem Statement
+Seven dead or duplicate files with 0 incoming edges cause import confusion, slow TypeScript compilation, and create maintenance burden. These files are: systems/LayoutEngine.ts, systems/VisualRegistry.ts, components/modes/MatrixView.tsx, components/modes/PrismView.tsx, components/modes/TimelineView.tsx, ui/invoice-universe/InvoiceOverlay.tsx, orbitalPhysics.ts, prismEngine.ts.
+
+Primary Files: src/systems/LayoutEngine.ts · src/systems/VisualRegistry.ts · src/components/modes/MatrixView.tsx (duplicate) · src/ui/invoice-universe/InvoiceOverlay.tsx · src/engine/orbitalPhysics.ts (duplicate)
+Secondary Files: tsconfig.json · vite.config.ts (verify no explicit references)
+
+Implementation Steps
+For each file: run grep -r "<ClassName>" src/ --include="*.ts" --include="*.tsx" to verify 0 imports.
+If imports found: update to point to the canonical file, then delete the duplicate.
+Before deleting InvoiceOverlay.tsx: run git grep "apiKey|secret|password|token" on that file and its directory. Sanitize if found.
+After all deletions: run npm run build. Fix any TypeScript errors.
+After build passes: run git grep "apiKey|secret|password|token" across the full codebase to ensure no credentials lurk in remaining files.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+All 7+ dead files deleted
+npm run build: 0 errors
+No "Module not found" in build output
+No credentials found in remaining files
+
+
+
+Phase 2 — Mode Identity (Weeks 3–5)
+
+
+Prompt 2.1 — Void Mode — Freeform Canvas, Note Creation, Drift Physics
+
+Problem Statement
+VoidMode.tsx mounts and drag works but freeform creation is incomplete. Double-click-to-create at cursor is unwired. Physics gravity is missing or wrong. Void is the default — the first impression. It must be immediate and frictionless.
+
+Primary Files: src/ui/modes/VoidMode.tsx · src/components/CreationMenu.tsx
+Secondary Files: src/store/noteSlice.ts (addNote) · src/engine/decayEngine.ts (touchNote) · src/constants.ts
+
+Implementation Steps
+Wire double-click on canvas: convert pointer coords to canvas-space, call addNote({ x: canvasX, y: canvasY, type: NoteType.THOUGHT }).
+Wire CreationMenu + button: 4-option type picker (Thought / Task / Reference / Question). Selection creates note at canvas center. Close on select or Escape.
+On VOID mode entry: call engine.getWorld().setMode(VOID, []). Apply LOW gravity (strength: 0.002) + normal repulsion. Notes drift but never pile up.
+Call touchNote(note.id) immediately after addNote() to reset the decay clock.
+Save current x,y to note.voidPos on mode switch OUT. Restore from voidPos on switch BACK to Void.
+Note spawn animation: CSS scale 0.1 → 1.0 over 280ms ease-out. Play SoundManager.playCreate() concurrently.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+Double-click canvas: note appears at click position with spawn animation
+Create 5 notes: loose scatter, none at center
+Mode switch away and back: Void positions preserved
+New note has decayLevel 0 immediately
+
+
+
+Prompt 2.2 — Matrix Mode — Eisenhower Grid, AI Evaluation, Drag Re-categorisation
+
+Problem Statement
+Matrix is mounted but visually identical to Void. It must divide the canvas into 4 colour-coded Eisenhower quadrants and distribute notes via WorkerBridge scoring. A new user must understand the grid within 5 seconds of activation.
+
+Primary Files: src/ui/modes/MatrixMode.tsx · src/engine/cognitive/MatrixEngine.ts · src/workers/WorkerBridge.ts
+Secondary Files: src/constants.ts (MATRIX_COLOURS) · src/store/noteSlice.ts (updateNoteCategory)
+
+Implementation Steps
+Add MATRIX_COLOURS = { DO_FIRST:'#059669', SCHEDULE:'#2563EB', DELEGATE:'#D97706', ELIMINATE:'#DC2626' } to constants.ts.
+Render 4 semi-transparent quadrant zones (fill opacity 0.06) divided at canvas center. Labels fixed to viewport corners.
+Add updateNoteCategory(id, category, mode) to noteSlice.ts. Stores in note.modeCategory.matrix.
+On entry: strip notes to { id, type, touchedAt, wordCount, connectionCount }. Call bridge.evaluateNotes(stripped). Apply returned targets.
+Apply border color from MATRIX_COLOURS based on modeCategory.matrix. Subtle tint (3% opacity fill).
+Note count badge per quadrant: computed from store via derived selector. Updates reactively.
+Drag re-categorisation: pointerUp detects target quadrant by canvas coordinates. Call updateNoteCategory + recompute positions.
+MATRIX_CONFIG must define gridSpacing ≥ 20px minimum between notes in same quadrant.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+Switch to Matrix: 4 coloured zones with labels and note counts
+Do First = green border, Eliminate = red border
+Drag note to Eliminate: border turns red
+No two notes overlap within same quadrant
+
+
+
+Prompt 2.3 — Orbital Mode — 4 Concentric Rings, Gravity Scoring, Orbital Motion
+
+Problem Statement
+Orbital is mounted but identical to Void. It must render 4 concentric SVG rings and distribute notes by gravity score. Notes in decayLevel ≥ 3 must be forced to ring 4 (graveyard) regardless of score. Without rings, this mode has no reason to exist.
+
+Primary Files: src/ui/modes/OrbitalMode.tsx · src/engine/cognitive/OrbitalEngine.ts
+Secondary Files: src/workers/WorkerBridge.ts (getOrbitalTargets) · src/constants.ts (ORBITAL_CONFIG)
+
+Implementation Steps
+Define 4 rings in ORBITAL_CONFIG: ring1{radius:200,label:Critical,color:#F59E0B}, ring2{400,Active,#3B82F6}, ring3{600,Reference,#6B7280}, ring4{800,Graveyard,#374151}.
+Render rings as SVG circles centered at canvas-space center. Stroke opacity 0.25, no fill. Labels at 3-o'clock of each ring.
+Bridge returns [{id, ring:1|2|3|4, targetX, targetY}]. Score mapping: ≥0.75→ring1, 0.40–0.74→ring2, <0.40→ring3. Override: decayLevel≥3 → force ring4.
+Distribute notes evenly around each ring: angle = (index/ringCount)*2π. targetX/Y = center + radius*cos/sin(angle).
+Slow orbital rotation: increment angular offset per tick. ring1=0.0008 rad/frame, ring2=0.0005, ring3=0.0003, ring4=0.0001. Apply as spring target offset each tick.
+Ring 4 notes: apply CSS grayscale filter. Reinforces "graveyard" concept.
+Drag between rings: pointerUp distance-from-center determines new ring.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+4 concentric ring outlines visible with labels
+Notes distributed across multiple rings
+Notes orbit slowly (inner fastest, outer slowest)
+decayLevel≥3 note on ring 4 with grayscale
+Drag between rings: animates to new ring
+
+
+
+Prompt 2.4 — Prism Mode — Semantic Facet Zones, AI Clustering, Refraction Arcs
+
+Problem Statement
+Prism is mounted but identical to Void. It must group notes into AI-detected semantic clusters with coloured zones and render curved refraction arcs between cross-facet connections. Without facet zones and arcs, the "knowledge crystallization" metaphor fails completely.
+
+Primary Files: src/ui/modes/PrismMode.tsx · src/engine/cognitive/PrismEngine.ts · src/components/ConnectionLayer.tsx
+Secondary Files: src/workers/WorkerBridge.ts (refractNotes, getPrismTargets)
+
+Implementation Steps
+On entry: call bridge.refractNotes(strippedNotes). Returns [{id, facetId, facetLabel, facetColor, targetX, targetY}]. Hard limit: max 8 facets; merge smallest if bridge returns more.
+Compute facet zone centers: distribute in a circle at canvas center, 360/facetCount degree intervals. Zone radius ≈ 200px.
+Render each zone as circle div/SVG: fill opacity 0.08, border opacity 0.3 in facet color, centered label text.
+Assign border + tint color to notes via modeCategory.prism (hex stored from bridge response).
+ConnectionLayer renderMode=prism: cross-facet connections = quadratic bezier curves (control point offset 60px toward canvas center). Same-facet = straight lines.
+Drag to zone: check which facet zone bounding circle contains drop point. Reassign facetId. Call bridge for new position.
+Fallback (no AI): group by NoteType. 4 types = 4 facets.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+Coloured zone circles visible with labels
+Notes clustered within zones
+Cross-facet connection renders as curved arc
+Drag note to different zone: reassigns
+No AI: 4 NoteType-based facets shown
+
+
+
+Prompt 2.5 — Timeline Mode — Lane System, Date Placement, Velocity Indicator
+
+Problem Statement
+Timeline mounts but TIMELINE_LANES is unused. Notes appear in Void layout. The velocity indicator (green glow for actively-edited notes, dashed orange for stalled) is the mode's unique insight — it shows momentum, not just recency.
+
+Primary Files: src/ui/modes/TimelineMode.tsx · src/engine/cognitive/TimelineEngine.ts
+Secondary Files: src/workers/WorkerBridge.ts (getTimelineTargets, calculateProjectVelocity) · src/constants.ts (TIMELINE_LANES)
+
+Implementation Steps
+Define TIMELINE_LANES if missing: [{id:today,label:Today,yOffset:0}, {id:week,label:This Week,yOffset:200}, {id:month,label:This Month,yOffset:400}, {id:older,label:Older,yOffset:600}].
+Render full-width SVG horizontal dividers at each lane yOffset. Lane labels fixed to viewport left edge (absolute DOM, not canvas-space).
+Lane assignment: today = touchedAt within 24h, week = within 7d, month = within 30d, older = beyond. Distribute left-to-right by creation order. intraLaneSpacing ≥ 160px.
+Velocity CSS classes predefined: velocity-0 = dashed orange border, velocity-1 = no decoration, velocity-2 = green glow (0 0 8px rgba(63,182,143,0.5)), velocity-3 = strong green glow.
+Initial Timeline zoom: 80% so all 4 lanes visible. Auto-scroll to lane with most notes.
+Drag between lanes: y-coordinate of drop vs lane yOffsets determines new lane.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+4 horizontal lane bands with fixed left-edge labels
+Note edited today in Today lane
+Note from 3 months ago in Older lane
+Active note shows green glow
+Stalled note shows dashed orange border
+
+
+
+Prompt 2.6 — Per-Mode Position Snapshot System
+
+Problem Statement
+Notes carry the previous mode's positions into every new mode. The Note schema has one x,y pair where it needs five. Every mode switch destroys the previous mode's computed layout. This is a fundamental data architecture gap.
+
+Primary Files: src/types/StardustSchema.ts · src/store/noteSlice.ts · src/hooks/useEngine.ts
+Secondary Files: src/db/StardustDB.ts (persist snapshot fields)
+
+Implementation Steps
+Add to Note type: voidPos?:{x,y}, matrixPos?:{x,y}, orbitalPos?:{x,y}, prismPos?:{x,y}, timelinePos?:{x,y}.
+Add saveModePosSnapshot(mode: ViewMode): copies current x,y into matching modePos field for every note.
+Add restoreModePosSnapshot(mode: ViewMode): sets note.x/y from matching modePos field if it exists. If undefined: does nothing (WorkerBridge sets positions).
+In useEngine.ts viewMode change useEffect: (1) saveModePosSnapshot(previousMode), (2) restoreModePosSnapshot(newMode) — both synchronous before WorkerBridge call.
+After save: add all affected notes to dirtyNoteIds. Debounced DB write persists new modePos fields.
+Void special case: initial x,y from DB IS the voidPos. No snapshot needed on first load.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+Void → Matrix → back to Void: exact Void positions preserved
+Orbital → Matrix → Orbital: orbital positions preserved
+Mode positions persist across reloads
+IndexedDB note record shows modePos fields after visiting modes
+
+
+
+Prompt 2.7 — Mode-Aware Colour System
+
+Problem Statement
+All notes use the same NoteType color regardless of active mode. In Matrix, notes should be colored by quadrant. In Orbital, by ring. In Prism, by facet. Without mode-aware colors, each mode looks like Void with overlaid graphics.
+
+Primary Files: src/components/PlanetNote.tsx · src/constants.ts (MATRIX_COLOURS, ORBITAL_RING_COLOURS)
+Secondary Files: src/store/noteSlice.ts (modeCategory field)
+
+Implementation Steps
+Define MATRIX_COLOURS and ORBITAL_RING_COLOURS (ring 1–4 colors) in constants.ts.
+In PlanetNote.tsx: compute displayColor based on viewMode + note.modeCategory. Fallback chain: mode color → NOTE_STYLES[note.type].color → default grey.
+Apply displayColor as note border-color and 3–5% opacity background tint only. Never apply to content area text.
+Facet colors stored in modeCategory.prism as validated hex string.
+CSS transition: border-color 400ms ease, background-color 400ms ease. Mode switch triggers simultaneous color transition across all notes.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+Matrix: Do First=green border, Eliminate=red
+Orbital: ring 1=gold, ring 4=grey
+Switch Orbital→Void: NoteType color restored
+Color transitions animate ~400ms
+
+
+
+Prompt 2.8 — Zoom System + Semantic Level-of-Detail
+
+Problem Statement
+No bounded zoom exists. Users can reach 1% or 1000% with no level-of-detail adjustment. SemanticZoomController and useZoomLOD exist but their connection to PlanetNote rendering is unconfirmed. Zoom must be bounded [10%–400%] and must change note rendering at different scales.
+
+Primary Files: src/components/SemanticZoomController.tsx · src/hooks/useZoomLOD.ts · src/components/PlanetNote.tsx · src/store/uiSlice.ts
+Secondary Files: src/components/CanvasViewport.tsx
+
+Implementation Steps
+Verify SemanticZoomController is mounted in CanvasViewport. Confirm it reads zoomLevel from uiSlice.
+Zoom bounds in uiSlice zoom action: newZoom = Math.max(0.1, Math.min(4.0, requested)). Clamp once, use everywhere.
+useZoomLOD: OVERVIEW(<0.3)=title only, NAVIGATE(0.3–0.8)=title+40chars, STANDARD(0.8–1.5)=full content, DETAIL(>1.5)=full+metadata panel.
+Scroll-to-zoom: wheel → cursor-centered zoom: newOffset = cursor - (cursor - currentOffset)*(newZoom/oldZoom). event.preventDefault() to block browser scroll.
+Mode switch resets zoom to 1.0 with 200ms CSS transition.
+Pinch-to-zoom: 2-touch distance delta → zoom delta. Guard touches.length >= 2.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+Zoom <30%: title only. Zoom >150%: full content + metadata
+Cursor-centered zoom: point under cursor stays fixed
+Cannot zoom below 10% or above 400%
+Mode switch resets zoom to 100% with 200ms transition
+
+
+
+Phase 3 — Retention Systems (Weeks 6–8)
+
+
+Prompt 3.1 — Decay System — 5 Levels, Store Write-Back, Visual States, Mode Effects
+
+Problem Statement
+decayEngine.ts fires decayTick() but never writes to the store. note.decayLevel is always 0. Notes never fade. Decay is not a feature — it is the product's memory system and primary daily retention hook. Without it, Stardust is a static canvas with no reason to return.
+
+Primary Files: src/engine/decayEngine.ts · src/store/noteSlice.ts · src/components/PlanetNote.tsx
+Secondary Files: src/constants.ts (DECAY_VISUAL_STATES) · src/db/StardustDB.ts (immediate touchedAt flush)
+
+Implementation Steps
+Add updateNoteDecayLevel(id, level: 0|1|2|3|4|5) action to noteSlice.ts. Only call when level actually changes.
+Define DECAY_VISUAL_STATES: L0(fresh):opacity1/scale1, L1(1-3d):0.90/0.98, L2(3-7d):0.75/0.95/grayscale(20%), L3(7-14d):0.60/0.90/grayscale(40%), L4(14-30d):0.40/0.85/grayscale(60%), L5(30d+):0.20/0.80/grayscale(80%).
+Update computeDecay(note) in decayEngine.ts: returns 0–5 based on Date.now() - note.touchedAt in ms (thresholds: 86400000/259200000/604800000/1209600000/2592000000).
+decayTick() runs every 60 seconds via setInterval. For each note: compute level. If differs from current: dispatch updateNoteDecayLevel, add to dirtyNoteIds.
+PlanetNote: apply DECAY_VISUAL_STATES[safeLevel] with CSS transitions 0.6s ease.
+Mode effects: decayLevel≥3 → force modeCategory.orbital = 4. decayLevel≥4 → force modeCategory.matrix = ELIMINATE.
+Level 5: render pulsing "Archive me?" badge. Never show while editorOpenFor === note.id.
+Revival: touchNote(id) sets touchedAt = Date.now(). Flush to DB immediately (not debounced).
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+touchedAt = 10 days ago → note visibly faded after next tick
+Open faded note → returns to full opacity (touchNote fires)
+decayLevel 3 note on Orbital ring 4
+decayLevel 5 note shows "Archive me?" badge
+Decay levels persist across reloads
+
+
+
+Prompt 3.2 — BlackHole + Archive — Deletion Ritual, Archive View, Restore Flow
+
+Problem Statement
+BlackHole.tsx renders but drag-to-delete completes nothing — notes bounce back. ArchiveChrome has no logic. With decay active, the canvas will accumulate ghost notes. Users need a satisfying deletion ritual and reversible archival path.
+
+Primary Files: src/components/BlackHole.tsx · src/components/chrome/ArchiveChrome.tsx · src/store/noteSlice.ts · src/db/StardustDB.ts
+Secondary Files: src/components/ArchiveView.tsx (CREATE NEW)
+
+Implementation Steps
+In CanvasInputHandler: during note drag, check BlackHole bounding box overlap on every pointerMove. On overlap: scale note toward BlackHole (0.7) + play SoundManager.playBlackHole().
+pointerUp inside BlackHole: (1) implosion animation (scale 0.7→0→opacity 0, 500ms). (2) After 500ms: deleteNote(id) from store + await db.deleteNote(id) + SpatialIndex.remove(id). (3) BlackHole pulses (scale 1→1.2→1, 200ms).
+Near-miss: note dropped near but not inside → spring back to last stable position, 350ms ease-out.
+Archive via right-click → "Archive": await db.upsertNote({...note, archived:true, archivedAt:Date.now()}). Call setNoteVisible(id, false) in store.
+Archive drag zone near BlackHole: drag here → archive, not delete. Different sound (softer).
+Create ArchiveView.tsx: slide-in panel (right edge, 320px). Lists archived notes: title, archivedAt formatted, type badge. Each row: "Restore" + "Delete Permanently" buttons. Restore: db.upsertNote({archived:false}) + restore to canvas at voidPos.
+"Delete Permanently" requires confirmation dialog showing note title before db.deleteNote().
+Toggle ArchiveView with A key or toolbar button.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+Drag to BlackHole: implosion. Note gone after reload
+Near-miss: note springs back
+Right-click → Archive: note gone from canvas
+Press A: archive panel shows archived note
+Restore: note reappears at voidPos
+Delete Permanently: confirmation dialog → confirmed → gone from DB
+
+
+
+Prompt 3.3 — Keyboard Shortcuts — Full System, Focus Guards, Undo/Redo
+
+Problem Statement
+useKeyboardShortcuts.ts has 0 incoming edges. No keyboard shortcuts work. Power users — who become product advocates — navigate entirely by keyboard. This prompt wires all shortcuts from the User Guide (Part IV, Section 4.2).
+
+Primary Files: src/hooks/useKeyboardShortcuts.ts · src/components/AppShell.tsx
+Secondary Files: src/store/useStore.ts (all actions) · src/store/uiSlice.ts (zoom, mode, panel actions)
+
+Implementation Steps
+Call useKeyboardShortcuts() in AppShell. Mounts for app lifetime.
+Focus guard: const isInputFocused = () => ["INPUT","TEXTAREA"].includes(document.activeElement?.tagName) || document.activeElement?.getAttribute("contenteditable") === "true". Check at start of every handler except Escape.
+Wire (skip when isInputFocused): C→createNote@center, Delete/Backspace+selection→showDeleteConfirm(note.title), E/Enter+selection→openEditor, Escape→closeAll+clearSelection, 1–5→setViewMode, A→toggleArchiveView, H→toggleHelpOverlay.
+Ctrl shortcuts (always preventDefault): Ctrl+F→openSearch, Ctrl+Z→undo, Ctrl+Y/Ctrl+Shift+Z→redo, Ctrl+N→createConstellation.
+Zoom: +/= → zoomIn(1.2), - → zoomOut(1/1.2), 0 → resetZoom(1.0).
+Space: keydown → panMode:true in uiSlice. keyup → panMode:false. CanvasInputHandler reads panMode.
+Cleanup: return () => document.removeEventListener("keydown", handler) in useEffect.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+Press C: note appears at canvas center
+Select note + Delete: confirmation dialog with title
+Press 2: Matrix mode. Press 1: Void.
+Typing in editor + press C: no new note (focus guard active)
+Hold Space + drag: canvas pans
+
+
+
+Prompt 3.4 — Constellation Workspace System — Context Separation, Filter Layer, Picker UI
+
+Problem Statement
+All notes exist in one global pool. Matrix mode showing grocery items next to Q4 roadmap is worse than useless. Constellations solve this with a filter — not a separate database. The filter constrains the canvas and all mode evaluations to one chosen context.
+
+Primary Files: src/types/StardustSchema.ts · src/store/uiSlice.ts · src/db/StardustDB.ts · src/components/Toolbar.tsx
+Secondary Files: src/hooks/useEngine.ts (filter visibleNotes)
+
+Implementation Steps
+Add Constellation type: {id, name, createdAt, color}. Add constellationId:string to Note. Default: "general".
+DB methods (v3 migration from Prompt 0.1): upsertConstellation, getAllConstellations, deleteConstellation.
+uiSlice: activeConstellationId="general", setActiveConstellation(id), constellations[], setConstellations().
+On mount: getAllConstellations(). If empty: create default General{id:"general",name:"General",color:"#8B5CF6"}, upsert, dispatch.
+Canvas filter: visibleNotes = notes.filter(n => n.constellationId === activeConstellationId). Applied to physics engine, WorkerBridge, SearchTeleport, ArchiveView.
+New notes auto-assign: addNote() sets constellationId = activeConstellationId.
+Toolbar picker: active constellation name + color dot. Dropdown of all + "+ New". Selecting switches instantly. "+ New" → inline name input → Enter → crypto.randomUUID() ID → db.upsertConstellation + store.
+Context menu "Move to…": submenu of all constellation names. Updates constellationId + DB persist.
+Constellation deletion: Settings only. Prompt to move notes first. Never strand notes.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+App opens in General. Toolbar shows "General" with color dot
+Create "Work" + 3 notes. Switch to General: Work notes hidden
+Matrix mode in Work: only Work notes in grid
+Ctrl+N: new constellation prompt
+Notes correctly filtered in SearchTeleport and ArchiveView
+
+
+
+Prompt 3.5 — Animation Pipeline — Fixed Timestep, Mode Transitions, Spawn Effects
+
+Problem Statement
+The rAF loop is frame-rate dependent — 144Hz users see 2.4× faster physics than 60Hz users. Mode transitions are instant snaps. A product as visually ambitious as Stardust cannot afford snapping or frame-rate-variable physics. Every mode transition is a first impression.
+
+Primary Files: src/hooks/useEngine.ts · src/engine/World.ts · src/components/PlanetNote.tsx
+Secondary Files: src/engine/physics/PhysicsSystem.ts
+
+Implementation Steps
+Replace rAF loop with fixed-timestep accumulator (FIXED_DT = 1/60): const dt = Math.min(now - lastTime, 0.1); accumulator += dt; while(accumulator >= FIXED_DT) { engine.step(FIXED_DT); accumulator -= FIXED_DT; } renderFrame();
+The 100ms cap handles tab-restore burst — prevents thousands of physics steps accumulating while tab is backgrounded.
+PlanetNote: CSS transition: transform 50ms linear, opacity 0.6s ease, filter 0.6s ease. The 50ms smooths rAF position updates; 0.6s handles decay visual changes.
+Mode transitions: World.setMode(mode, targets) applies spring forces (k=0.08, d=0.85) not hard snaps. Notes converge in ~600ms.
+Validate k=0.08, d=0.85: note 800px from target must reach within 10px in ≤1200ms. Test in isolation.
+Note spawn animation: new note starts scale(0.1). After 1 rAF tick: add spawning class (scale 0.1→1.0, 300ms ease-out).
+Mode transition sound: SoundManager.playWarp() fires at setMode() call start.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+60Hz and 120Hz: notes reach equilibrium in same clock time (within 100ms)
+Void→Orbital: smooth animation ~600ms, zero snapping
+Create note: scale-in 0.1→1.0 over 300ms
+Close tab 10min + reopen: notes do NOT launch to extreme positions
+
+
+
+Phase 4 — Intelligence Layer (Post-Launch)
+
+
+Prompt 4.1 — Export Engine — Canvas PNG, Markdown Zip, Obsidian Vault
+
+Problem Statement
+Stardust has no export capability. Users with large note collections are locked in. Even satisfied users experience anxiety without an exit path. The Export Engine provides three formats: PNG (canvas snapshot for sharing), Markdown zip (portable to any tool), Obsidian vault (with wikilink connections). This is not an exit door — it is a trust signal.
+
+Primary Files: src/utils/exportEngine.ts (CREATE) · src/components/ExportPanel.tsx (CREATE) · src/components/Toolbar.tsx
+Secondary Files: package.json (add html2canvas, jszip)
+
+Implementation Steps
+Install: npm install html2canvas jszip @types/jszip
+Create exportEngine.ts with three functions: exportAsPNG(canvasEl), exportAsMarkdown(notes, links, constellationName), exportAsObsidianVault(notes, links, constellationName).
+exportAsPNG: html2canvas with scale:2 (high-res). Convert to blob. Download as stardust-[constellation]-[date].png.
+exportAsMarkdown: for each note, strip HTML to plain text with htmlToPlainText() (temporary DOM element + textContent, never innerHTML.replace()). Create .md file with frontmatter (id, type, createdAt as ISO date). Links as "Connected to:" section. Zip with JSZip.
+exportAsObsidianVault: same as Markdown but connections as [[NoteTitle]] wikilinks. Include minimal .obsidian/ config stub for direct drag-and-drop import.
+Create ExportPanel.tsx: modal with 3 format options and descriptions. Each triggers appropriate exportEngine function.
+Add export icon to Toolbar. On click: open ExportPanel.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+Export PNG: downloads correctly, opens in image viewer
+Export Markdown: .zip downloads. .md files readable, no HTML tags
+Export Obsidian: vault opens in Obsidian with notes and wikilinks
+Script-injected note exports as plain text only
+
+
+
+Prompt 4.2 — AI Note Synthesis — Prism Mode Synthesis Document
+
+Problem Statement
+Prism mode groups notes into semantic facets. The logical next step for a researcher or writer is to synthesize those grouped notes into a coherent document. This prompt adds a "Synthesize" button that sends selected facet notes to the AI and creates a new synthesis document note on the canvas. Directly competes with NotebookLM's primary value proposition.
+
+Primary Files: src/utils/aiSynthesis.ts (CREATE) · src/ui/modes/PrismMode.tsx · src/constants.ts (add NoteType.SYNTHESIS)
+Secondary Files: src/db/StardustDB.ts (synthesis note type) · src/store/noteSlice.ts (addNote with SYNTHESIS type)
+
+Implementation Steps
+Add NoteType.SYNTHESIS to enum. Visual: rectangular (not circular), slightly larger, faint glow border matching facet color.
+Create aiSynthesis.ts: synthesizeNotes(notes, facetLabel, apiEndpoint): Promise<string>. Extracts plain text with htmlToPlainText(). Builds prompt: "Synthesize these [n] notes from facet [label] into 2–3 coherent paragraphs." Calls AI proxy endpoint. Returns synthesized HTML string.
+In PrismMode.tsx: floating "Synthesize Facet" button appears on hover/click of facet zone. On click: facet zone pulses with slow glow (loading). Call synthesizeNotes(). Create new SYNTHESIS note at facet zone center with returned content.
+Rate limiting: one synthesis per facet per 10 seconds. Track lastSynthesisTime per facetId in component state.
+Client-side rate limiting: max 5 synthesis calls per session. After limit: toast "Synthesis limit reached for this session."
+Synthesis loading: facet zone pulses while AI call is in flight (CSS keyframe animation on the zone border).
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+Create 4 related notes. Switch to Prism. Click "Synthesize Facet." Synthesis note appears at facet center
+Trigger synthesis 6 times: rate limit message on 6th
+Trigger synthesis offline: error message, no note created
+
+
+
+Prompt 4.3 — Service Worker — Offline-First PWA Foundation
+
+Problem Statement
+Stardust requires a network connection to load for the first time, but there is no reason it needs one after that. Core features (all 5 modes, note creation, editing) are purely local. A Service Worker cache transforms Stardust into a PWA that loads instantly and works offline. This is critical for daily-habit formation: a tool that fails to load due to a spotty connection loses its morning ritual slot.
+
+Primary Files: vite.config.ts (add vite-plugin-pwa) · public/manifest.json · src/pwa/registration.ts (CREATE) · src/pwa/updateNotifier.tsx (CREATE)
+Secondary Files: package.json (add vite-plugin-pwa, workbox-window)
+
+Implementation Steps
+Install: npm install -D vite-plugin-pwa workbox-window
+Configure vite-plugin-pwa in vite.config.ts: strategy: generateSW. Cache app shell (index.html, all JS/CSS bundles). NetworkFirst for AI API calls. CacheFirst for static assets.
+Create public/manifest.json: name: "Stardust", short_name: "Stardust", theme_color: "#08080e", display: "standalone", icons (192x192 and 512x512).
+Create src/pwa/registration.ts: registers SW using workbox-window. Listens for update events. On update available: dispatches custom event for updateNotifier.tsx.
+Create updateNotifier.tsx: non-blocking toast when update is ready. "A new version of Stardust is ready. Reload to update?" with Reload button. Click Reload: window.location.reload(). Dismiss: stop showing for 7 days.
+Add onlineStatus hook: watches navigator.onLine + online/offline events. When offline: small toolbar indicator (not blocking modal). AI features show "AI unavailable offline."
+Deferred install prompt: intercept beforeinstallprompt event. Store it. Add "Add to Home Screen" button in Settings that triggers stored prompt. Never show install prompt automatically.
+
+
+
+
+Do / Don't
+
+Checklist — All must be ticked before proceeding
+Second visit with DevTools Offline enabled: app loads, all notes present
+DevTools → Application → SW: "Activated and running"
+Deploy new version. Revisit: updateNotifier toast appears. Reload works.
+Offline: Matrix mode arranges notes. No network error.
+
+
+
+Part VIII — Master Launch Checklist
+Every item must be ticked before public launch. Phase 0 and Phase 1 items are non-negotiable — launch must be blocked if any remain unchecked. Phase 2–3 items are required for a complete product experience.
+Phase 0 — Security & Foundation
+Security Layer
+dompurify and zod installed (npm audit: 0 critical vulnerabilities in prod dependencies)
+sanitizeNoteContent() called at write time (before DB) AND at render time (before dangerouslySetInnerHTML)
+CSP meta tag in index.html — no CSP violation warnings in browser console during normal use
+WorkerBridge all inbound messages validated with Zod schema
+Canvas coordinates clamped to ±50,000 at input (clampCoord utility applied)
+IndexedDB schema versioning in place (DB_VERSION set to current version)
+XSS test: <script>alert("x")</script> in note content — no alert fires on reload
+git grep "apiKey|secret|password|token" — 0 results in committed files
+Onboarding Intelligence
+Feedback modal triggers 30 seconds after first note created
+Feedback modal appears ONE TIME ONLY — skip or complete prevents re-show
+Skip link visible on every feedback screen
+Free text answers sanitized before IndexedDB storage
+Mode guide appears on first activation of each of the 5 modes
+Mode guide does NOT reappear after "Got it" click
+H key opens help overlay with all 5 mode descriptions and shortcut grid
+"?" toolbar button opens same help overlay
+Phase 1 — Foundation
+Data Persistence
+Create note. Reload. Note present with correct content.
+Create 10 notes. Close browser. Reopen. All 10 present at correct positions.
+Delete note. Reload. Note is gone.
+Connect two notes. Reload. Connection visible.
+Empty DB case: welcome note appears on first launch.
+Physics & Mode System
+Notes gently drift in Void mode — canvas is NOT completely static
+App opens in Void mode by default
+Pressing keys 1–5 switches modes with visible visual difference per mode
+DevTools → Application → Workers: one active worker when app loads
+Canvas Input
+Drag note in Void: note moves, canvas does NOT pan
+Drag canvas background: canvas pans, notes do NOT move
+Space+drag always pans regardless of mode or hover target
+Phase 2 — Mode Identity
+Void Mode
+Double-click canvas: note appears at click position with spawn animation
+Create 5 notes: loose scatter, none piled at canvas center
+Notes return to Void positions when switching back from any other mode
+Matrix Mode
+Canvas shows 4 coloured quadrant zones with labels: Do First / Schedule / Delegate / Eliminate
+Do First notes: green border. Eliminate notes: red border.
+Drag note between quadrants: note re-assigns, border color changes, count badges update
+No two notes overlap within the same quadrant (minimum 20px spacing)
+Orbital Mode
+Canvas shows 4 concentric ring outlines with labels at 3-o'clock position
+Notes distributed across multiple rings (not all on ring 1)
+Notes orbit slowly — inner ring fastest, outer ring slowest
+Note with decayLevel ≥ 3 appears on ring 4 (graveyard) with grayscale appearance
+Prism Mode
+Canvas shows 3–8 coloured zone circles with topic labels
+Notes clustered within their respective facet zones
+Connection between notes in different facets renders as curved bezier arc (not straight line)
+No AI available: 4 NoteType-based facets shown — canvas not empty
+Timeline Mode
+Canvas shows 4 horizontal lane bands with labels fixed to viewport left edge
+Note edited today appears in Today lane
+Note untouched for 3 months appears in Older lane
+Actively edited note shows green glow border
+Stalled note shows dashed orange border
+Mode System
+Void → Matrix → back to Void: exact Void positions preserved
+Orbital → Matrix → Orbital: orbital positions preserved independently
+Mode positions persist across browser reloads (saved to IndexedDB)
+Mode color transitions animate ~400ms — no instant snaps
+Zoom & LOD
+Zoom < 30%: notes show title only, body not rendered
+Zoom > 150%: notes show full content + metadata panel
+Scroll-to-zoom centered on cursor position — point under cursor stays fixed
+Cannot zoom below 10% or above 400%
+Mode switch resets zoom to 100% with 200ms smooth transition
+Phase 3 — Retention Systems
+Decay
+Note with touchedAt = 10 days ago: visibly faded and scaled down after decayTick
+Open faded note: returns to full opacity immediately (touchNote fires)
+decayLevel 3 note appears on Orbital ring 4 (graveyard)
+decayLevel 5 note shows pulsing "Archive me?" badge (hidden while editor open)
+Decay levels persist across browser reloads
+BlackHole & Archive
+Drag to BlackHole: pull animation → implosion animation. Note gone from canvas AND database after reload.
+Near-miss drag (close but not inside): note springs back to origin with ease-out animation
+Right-click note → Archive: note removed from canvas, preserved in database
+Press A: archive panel slides in showing archived notes with titles and dates
+Restore from archive: note reappears on canvas at its last Void position
+"Delete Permanently" from archive: confirmation dialog with note title → confirmed → gone from DB on reload
+Keyboard Shortcuts
+Press C: note appears at canvas center with spawn animation
+Select note, press Delete: confirmation dialog with note title shown — single keypress does NOT delete
+Press 1–5: mode switches correctly for all 5 modes
+Press H: help overlay opens. Press Escape: closes.
+Typing in note editor, press C: no new note created (focus guard active)
+Hold Space, drag: canvas pans. Release Space: pan deactivates.
+Constellations
+App opens in "General" constellation. Toolbar shows constellation name with color dot.
+Create "Work" constellation. Add 3 notes. Switch to General: Work notes are hidden.
+Switch back to Work: all 3 Work notes visible.
+Matrix mode in Work: only Work notes in the grid (correct filtering)
+Notes filtered correctly in ArchiveView when constellation is active
+Ctrl+N creates new constellation prompt
+Performance
+App opens in under 2 seconds on standard laptop (after Service Worker cache warm)
+Mode switch animation completes in under 700ms
+60Hz and 120Hz devices show same physics behaviour (fixed timestep working)
+DevTools Performance: no long tasks (>50ms) during a mode transition
+Close browser tab for 10 minutes. Reopen. Notes do NOT launch to extreme coordinates.
+Security Final Gate — Must Pass Before Launch
+npm audit: 0 CRITICAL and 0 HIGH vulnerabilities in production dependencies
+git grep "apiKey|secret|password|token": 0 results in all committed files
+CSP violations: 0 in browser console during a complete standard user session
+"Delete all my data" in Settings: clears notes, links, feedback, and constellations from IndexedDB (verified in DevTools)
+Test with browser DevTools → Application → IndexedDB → clear storage → reload: app recovers gracefully with welcome note
+HTTPS served in production (Service Worker requires secure context)
+
+Part IX — Definition of Done & Future Vision
+9.1  Definition of Done — Production Ready
+Stardust is production-ready when a new user can complete this flow without error or confusion:
+Open Stardust for the first time. Void mode loads with the welcome note. The canvas is gently alive — notes drift with subtle physics.
+Double-click the canvas in two places. Two notes appear at click positions with spawn animations. Audio tones confirm creation.
+Open one note. Type content in the RichTextEditor. Close the editor.
+Press 2. Notes animate to Eisenhower matrix quadrant positions over ~600ms. Mode guide appears (first visit). Quadrant colors are immediately legible.
+Drag one note from Do First to Eliminate. Note re-assigns with color change. Count badges update.
+Press 1. Notes animate back to their Void positions (exactly where they were before Matrix).
+Reload the browser. All notes are present with their correct content. Matrix positions are preserved.
+30 seconds after creating the first note: the feedback modal appears. User completes or skips. Modal never reappears.
+After 3 days of no interaction: notes are visibly faded. The canvas communicates urgency without words.
+When this flow completes without a single error, console warning, or user confusion — Stardust is ready to ship.
+9.2  Phase 5 & Beyond — The Long Vision
+
+9.3  The Monetisation Gate
+No monetisation prompt should appear until the free tier delivers real value. Free tier: Void mode + 50 notes + 3 constellations (fully functional). All 5 modes available in free tier for the first 14 days.
+Pro tier ($12/mo): unlimited notes, unlimited constellations, AI synthesis, export engine, voice intake, weekly pulse. The free tier is a permanent mode demonstration, not a crippled trial.
+The upgrade prompt appears on gated feature access — not on timer, not on login, not on every visit. Users who hit the note limit see: "You've filled your first constellation. Upgrade to create unlimited notes and constellations." One sentence. No pressure. A clear value exchange.
+9.4  Closing Statement
+Stardust is a technically ambitious product with a sound architecture, a clear market gap, and a distinctive user experience unlike any existing note-taking tool. The engineering work required to make it shippable is finite, well-defined, and concentrated in wiring — not rebuilding.
+The 25 prompts in this report, executed in phase order, will produce a product where notes persist, modes transform the canvas, physics makes the experience feel alive, and decay creates daily urgency. The security foundations in Part VI ensure that user data is protected throughout.
+The competitive analysis in Part III confirms that the market is ready for a tool that does more than bolt AI onto an existing paradigm. The user intelligence systems in Part IV ensure that the product learns from its earliest users before losing them. The feature roadmap in Part V gives Phase 5 and beyond a clear direction.

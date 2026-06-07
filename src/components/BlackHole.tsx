@@ -4,9 +4,10 @@ import { useStore } from '../store/useStore';
 
 interface BlackHoleProps {
     isActive: boolean;
+    isDragging: boolean;
 }
 
-export const BlackHole: React.FC<BlackHoleProps> = ({ isActive }) => {
+export const BlackHole: React.FC<BlackHoleProps> = ({ isActive, isDragging }) => {
     const [showGraveyard, setShowGraveyard] = useState(false);
     const graveyard = useStore((s) => s.graveyard);
     const recoverNote = useStore((s) => s.recoverNote);
@@ -14,7 +15,15 @@ export const BlackHole: React.FC<BlackHoleProps> = ({ isActive }) => {
 
     return (
         <>
-            <div className="fixed bottom-8 right-8 w-48 h-48 pointer-events-none z-40 flex items-center justify-center">
+            <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{
+                    opacity: isDragging ? 1 : 0,
+                    scale: isDragging ? 1 : 0.8,
+                }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+                className="fixed bottom-8 right-8 w-48 h-48 pointer-events-none z-40 flex items-center justify-center"
+            >
                 {/* Gravity Well / Distortion Field */}
                 <motion.div
                     className="absolute inset-0 rounded-full"
@@ -63,7 +72,7 @@ export const BlackHole: React.FC<BlackHoleProps> = ({ isActive }) => {
                 <div className={`absolute -bottom-12 text-[10px] font-mono text-orange-300/60 transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-0'}`}>
                     RELEASE TO CONSUME
                 </div>
-            </div>
+            </motion.div>
 
             {/* Graveyard Button — always visible when graveyard has items */}
             {graveyard.length > 0 && !isActive && (

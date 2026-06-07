@@ -1,4 +1,5 @@
 import type { StateCreator } from 'zustand';
+import { dirtyNoteIds, triggerSave } from './noteSlice';
 
 // ─── UI State Slice ─────────────────────────────────────────────
 // Extracted from the monolithic store: all UI toggles, feature flags,
@@ -11,6 +12,13 @@ export interface UISlice {
     isCosmosOpen: boolean;
     isSettingsOpen: boolean;
     focusModeId?: string;
+
+    activeConstellation: string;
+    constellations: string[];
+    setActiveConstellation: (name: string) => void;
+    addConstellation: (name: string) => void;
+    removeConstellation: (name: string) => void;
+    renameConstellation: (oldName: string, newName: string) => void;
 
     setViewport: (viewport: { x: number; y: number; zoom: number }) => void;
     setSelectedId: (id: string | undefined) => void;
@@ -59,6 +67,52 @@ export const createUISlice: StateCreator<UISlice, [], [], UISlice> = (set) => ({
     isCosmosOpen: false,
     isSettingsOpen: false,
     focusModeId: undefined,
+
+    activeConstellation: initialSettings.activeConstellation ?? 'General',
+    constellations: initialSettings.constellations ?? ['General'],
+    setActiveConstellation: (activeConstellation) => set({ activeConstellation }),
+    addConstellation: (name) => set((state) => {
+        if (state.constellations.includes(name)) return {};
+        return {
+            constellations: [...state.constellations, name],
+            activeConstellation: name
+        };
+    }),
+    removeConstellation: (name) => set((state: any) => {
+        if (name === 'General') return {};
+        const newConstellations = state.constellations.filter((c: string) => c !== name);
+        const newNotes = state.notes.map((n: any) => {
+            if (n.constellation === name) {
+                dirtyNoteIds.add(n.id);
+                return { ...n, constellation: 'General', updatedAt: Date.now() };
+            }
+            return n;
+        });
+        triggerSave();
+        return {
+            constellations: newConstellations,
+            activeConstellation: state.activeConstellation === name ? 'General' : state.activeConstellation,
+            notes: newNotes
+        };
+    }),
+    renameConstellation: (oldName, newName) => set((state: any) => {
+        if (oldName === 'General') return {};
+        if (state.constellations.includes(newName)) return {};
+        const newConstellations = state.constellations.map((c: string) => c === oldName ? newName : c);
+        const newNotes = state.notes.map((n: any) => {
+            if (n.constellation === oldName) {
+                dirtyNoteIds.add(n.id);
+                return { ...n, constellation: newName, updatedAt: Date.now() };
+            }
+            return n;
+        });
+        triggerSave();
+        return {
+            constellations: newConstellations,
+            activeConstellation: state.activeConstellation === oldName ? newName : state.activeConstellation,
+            notes: newNotes
+        };
+    }),
 
     setViewport: (viewport) => set({ viewport }),
     setSelectedId: (id) => set({

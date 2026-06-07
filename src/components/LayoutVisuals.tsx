@@ -34,6 +34,7 @@ export const LayoutVisuals: React.FC<LayoutVisualsProps> = ({ viewMode, layoutOr
                     <text y={-radii.critical - 10} textAnchor="middle" fill="rgba(59, 130, 246, 0.8)" fontSize="12" fontFamily="monospace" fontWeight="bold">CRITICAL</text>
                     <text y={-radii.high - 10} textAnchor="middle" fill="rgba(59, 130, 246, 0.6)" fontSize="12" fontFamily="monospace" fontWeight="bold">HIGH</text>
                     <text y={-radii.medium - 10} textAnchor="middle" fill="rgba(59, 130, 246, 0.5)" fontSize="12" fontFamily="monospace" fontWeight="bold">MEDIUM</text>
+                    <text y={-radii.low - 10} textAnchor="middle" fill="rgba(59, 130, 246, 0.4)" fontSize="12" fontFamily="monospace" fontWeight="bold">LOW</text>
                 </g>
             </svg>
         );
@@ -84,7 +85,25 @@ export const LayoutVisuals: React.FC<LayoutVisualsProps> = ({ viewMode, layoutOr
 
     if (viewMode === 'prism') {
         const { COL_WIDTH, GAP } = PRISM_CONFIG;
-        const labels = ['URGENT', 'WORK', 'LIFE', 'IDEAS'];
+        const labels = ['TO DO', 'IN PROGRESS', 'QA REVIEW', 'DONE'];
+        const colColors = [
+            'rgba(148, 163, 184, 0.01)', // To Do
+            'rgba(96, 165, 250, 0.01)',  // In Progress
+            'rgba(251, 191, 36, 0.01)',  // QA Review
+            'rgba(52, 211, 153, 0.01)'   // Done
+        ];
+        const borderColors = [
+            'rgba(148, 163, 184, 0.15)',
+            'rgba(96, 165, 250, 0.15)',
+            'rgba(251, 191, 36, 0.15)',
+            'rgba(52, 211, 153, 0.15)'
+        ];
+        const glowColors = [
+            'rgba(148, 163, 184, 0.3)',
+            'rgba(96, 165, 250, 0.3)',
+            'rgba(251, 191, 36, 0.3)',
+            'rgba(52, 211, 153, 0.3)'
+        ];
 
         // Re-calculate total width same as LayoutEngine
         const total = labels.length;
@@ -104,22 +123,34 @@ export const LayoutVisuals: React.FC<LayoutVisualsProps> = ({ viewMode, layoutOr
                                     y={-2000}
                                     width={COL_WIDTH}
                                     height={4000}
-                                    fill="rgba(255,255,255,0.02)"
-                                    stroke="rgba(255,255,255,0.05)"
-                                    strokeWidth="1"
+                                    fill={colColors[i]}
+                                    stroke={borderColors[i]}
+                                    strokeWidth="1.5"
+                                    rx="24"
                                 />
-                                {/* ADDED: Center Line for Alignment (User Link Points idea) */}
-                                <line x1={x} y1={-2000} x2={x} y2={4000} stroke="rgba(255, 255, 255, 0.1)" strokeWidth="1" strokeDasharray="4 4" />
+
+                                {/* Glow circle at center of column */}
+                                <circle
+                                    cx={x}
+                                    cy={0}
+                                    r="220"
+                                    fill={`radial-gradient(circle, ${glowColors[i]} 0%, transparent 70%)` as any}
+                                    opacity="0.08"
+                                />
+                                
+                                {/* Center Line for Alignment */}
+                                <line x1={x} y1={-2000} x2={x} y2={4000} stroke={borderColors[i]} strokeWidth="1" strokeDasharray="5 5" opacity="0.3" />
 
                                 {/* Header */}
                                 <text
                                     x={x}
-                                    y={-400}
+                                    y={-420}
                                     textAnchor="middle"
-                                    fill="rgba(255,255,255,0.4)"
-                                    fontSize="24"
-                                    fontWeight="bold"
-                                    letterSpacing="0.2em"
+                                    fill={borderColors[i]}
+                                    fontSize="14"
+                                    fontWeight="900"
+                                    letterSpacing="0.25em"
+                                    fontFamily="monospace"
                                 >
                                     {label}
                                 </text>

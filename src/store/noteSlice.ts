@@ -1,6 +1,8 @@
 import type { StateCreator } from 'zustand';
 import type { ViewMode } from '../constants';
 import { NoteType } from '../constants';
+import { sanitizeNoteContent } from '../utils/sanitize';
+import { clampCoord } from '../utils/clampCoord';
 
 // ─── Note & Connection Types ────────────────────────────────────
 export type Note = {
@@ -47,6 +49,16 @@ export type Note = {
     dueDate?: number;
     startDate?: number;
     visibleInModes?: ViewMode[]; // strictly allow visibility in these modes
+    constellation?: string;
+
+    // Mode Position Snapshots
+    voidPos?: { x: number; y: number };
+    matrixPos?: { x: number; y: number };
+    orbitalPos?: { x: number; y: number };
+    prismPos?: { x: number; y: number };
+    timelinePos?: { x: number; y: number };
+    freePos?: { x: number; y: number };
+    archivePos?: { x: number; y: number };
 
     // Decay System
     luminance?: number;        // 0.0 – 1.0, decays over time
@@ -63,8 +75,13 @@ export type Connection = {
 };
 
 // ─── Visibility & Mode Defaults ─────────────────────────────────
-export function noteVisibleInMode(note: Note, mode: ViewMode | string): boolean {
+export function noteVisibleInMode(note: Note, mode: ViewMode | string, activeConstellation?: string): boolean {
     const m = mode as ViewMode;
+
+    // Constellation filtering
+    const noteConstellation = note.constellation || 'General';
+    const currentConstellation = activeConstellation || 'General';
+    if (noteConstellation !== currentConstellation) return false;
 
     // Archive is a special case — only show archived/dying notes
     if (m === 'archive') return note.status === 'archived' || note.isDying === true;
@@ -123,6 +140,9 @@ export interface NoteSlice {
     redo: () => void;
     addNote: (n: Note) => void;
     updateNote: (id: string, patch: Partial<Note>) => void;
+    updateNotePositions: (positions: { id: string; x: number; y: number }[]) => void;
+    saveModePositions: (mode: string) => void;
+    restoreModePositions: (mode: string) => boolean;
     deleteNote: (id: string) => void;
     softDeleteNote: (id: string) => void; // BlackHole: archive to graveyard
     recoverNote: (id: string) => void;    // Recover from graveyard
@@ -145,7 +165,7 @@ export const deletedConnectionIds = new Set<string>();
 // Debounced save will be set up by the persistence slice
 let _debouncedSave: () => void = () => {};
 export const setDebouncedSave = (fn: () => void) => { _debouncedSave = fn; };
-const triggerSave = () => _debouncedSave();
+export const triggerSave = () => _debouncedSave();
 
 let _fullSave: () => void = () => {};
 export const setFullSave = (fn: () => void) => { _fullSave = fn; };
@@ -221,8 +241,13 @@ export const createNoteSlice: StateCreator<NoteSlice, [], [], NoteSlice> = (set,
 
     addNote: (n) => {
         _get().takeSnapshot();
+        const activeConstellation = (_get() as any).activeConstellation || 'General';
         const noteWithMeta = {
             ...n,
+            constellation: n.constellation || activeConstellation,
+            x: clampCoord(n.x),
+            y: clampCoord(n.y),
+            content: n.content ? sanitizeNoteContent(n.content) : n.content,
             createdAt: Date.now(),
             updatedAt: Date.now(),
             luminance: 1.0,
@@ -240,11 +265,72 @@ export const createNoteSlice: StateCreator<NoteSlice, [], [], NoteSlice> = (set,
         if (isDiscreteUpdate) {
             _get().takeSnapshot();
         }
+        // Sanitize content and clamp coordinates at write time
+        const safePatch = { ...patch };
+        if (safePatch.content !== undefined) {
+            safePatch.content = sanitizeNoteContent(safePatch.content);
+        }
+        if (safePatch.x !== undefined) safePatch.x = clampCoord(safePatch.x);
+        if (safePatch.y !== undefined) safePatch.y = clampCoord(safePatch.y);
         set((s) => ({
-            notes: s.notes.map((n) => (n.id === id ? { ...n, ...patch, updatedAt: Date.now() } : n))
+            notes: s.notes.map((n) => (n.id === id ? { ...n, ...safePatch, updatedAt: Date.now() } : n))
         }));
         dirtyNoteIds.add(id);
         triggerSave();
+    },
+
+    updateNotePositions: (positions) => {
+        set((s) => {
+            let changed = false;
+            const newNotes = s.notes.map((n) => {
+                const pos = positions.find((p) => p.id === n.id);
+                if (pos) {
+                    const dx = Math.abs(n.x - pos.x);
+                    const dy = Math.abs(n.y - pos.y);
+                    if (dx > 0.01 || dy > 0.01) {
+                        changed = true;
+                        return { ...n, x: clampCoord(pos.x), y: clampCoord(pos.y) };
+                    }
+                }
+                return n;
+            });
+            if (!changed) return {};
+            return { notes: newNotes };
+        });
+        positions.forEach(pos => dirtyNoteIds.add(pos.id));
+        triggerSave();
+    },
+
+    saveModePositions: (mode) => {
+        const key = `${mode}Pos` as 'voidPos' | 'matrixPos' | 'orbitalPos' | 'prismPos' | 'timelinePos' | 'freePos' | 'archivePos';
+        set((s) => {
+            const updated = s.notes.map(n => ({
+                ...n,
+                [key]: { x: n.x, y: n.y }
+            }));
+            updated.forEach(n => dirtyNoteIds.add(n.id));
+            return { notes: updated };
+        });
+        triggerSave();
+    },
+
+    restoreModePositions: (mode) => {
+        const key = `${mode}Pos` as 'voidPos' | 'matrixPos' | 'orbitalPos' | 'prismPos' | 'timelinePos' | 'freePos' | 'archivePos';
+        let hasPositions = false;
+        set((s) => {
+            hasPositions = s.notes.some(n => n[key] != null);
+            if (!hasPositions) return {};
+            const restored = s.notes.map(n => {
+                const saved = n[key];
+                return saved ? { ...n, x: saved.x, y: saved.y, vx: 0, vy: 0, fixed: false } : n;
+            });
+            restored.forEach(n => dirtyNoteIds.add(n.id));
+            return { notes: restored };
+        });
+        if (hasPositions) {
+            triggerSave();
+        }
+        return hasPositions;
     },
 
     deleteNote: (id) => {
