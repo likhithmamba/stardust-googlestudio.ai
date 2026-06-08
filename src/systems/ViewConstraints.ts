@@ -118,7 +118,7 @@ export class ViewConstraints {
         x: number,
         y: number,
         origin: { x: number; y: number },
-        _viewport: { width: number; height: number }
+        viewport: { width: number; height: number }
     ): DragConstraintResult {
         const relX = x - origin.x;
         const relY = y - origin.y;
@@ -157,9 +157,29 @@ export class ViewConstraints {
             importance = 'not-important';
         }
 
+        // Snap to grid relative to quadrant center
+        const quadrantWidth = Math.max(300, viewport.width * 0.175);
+        const quadrantHeight = Math.max(200, viewport.height * 0.175);
+
+        const qx = isLeft ? -quadrantWidth : quadrantWidth;
+        const qy = isTop ? -quadrantHeight : quadrantHeight;
+
+        const quadCenterX = origin.x + qx;
+        const quadCenterY = origin.y + qy;
+
+        const localX = x - quadCenterX;
+        const localY = y - quadCenterY;
+        
+        // Snap to 100px grid cells inside the quadrant
+        const snappedLocalX = Math.round(localX / 100) * 100;
+        const snappedLocalY = Math.round(localY / 100) * 100;
+
+        const snappedX = quadCenterX + snappedLocalX;
+        const snappedY = quadCenterY + snappedLocalY;
+
         return {
-            x: x,
-            y: y,
+            x: snappedX,
+            y: snappedY,
             dataUpdates: {
                 tags,
                 priority,
@@ -171,7 +191,7 @@ export class ViewConstraints {
     }
 
     /**
-     * TIMELINE LOGIC: Y-Axis Lock
+     * TIMELINE LOGIC: Y-Axis Lock & X Date Snap
      */
     private static getTimelineConstraint(
         x: number,
@@ -194,10 +214,11 @@ export class ViewConstraints {
         if (laneIndex > 3) laneIndex = 3;
 
         const snappedY = startY + (laneIndex * 150) + 75;
+        const snappedX = origin.x + daysOffset * (PIXELS_PER_DAY || 100);
         const statuses: Array<'in-progress' | 'todo' | 'review' | 'done'> = ['in-progress', 'todo', 'review', 'done'];
 
         return {
-            x: x,
+            x: snappedX,
             y: snappedY,
             dataUpdates: {
                 originMode: 'timeline',
@@ -223,11 +244,12 @@ export class ViewConstraints {
         if (colIndex > 3) colIndex = 3;
 
         const finalX = origin.x + (colIndex - 1.5) * totalWidth;
+        const snappedY = origin.y + Math.round((y - origin.y) / 120) * 120;
         const statuses: Array<'todo' | 'in-progress' | 'review' | 'done'> = ['todo', 'in-progress', 'review', 'done'];
 
         return {
             x: finalX,
-            y: y, // Y might be constrained by stacking logic elsewhere
+            y: snappedY,
             dataUpdates: {
                 status: statuses[colIndex],
                 originMode: 'prism'
@@ -236,19 +258,28 @@ export class ViewConstraints {
     }
 
     /**
-     * ARCHIVE LOGIC: Strict Grid Snapping
+     * ARCHIVE LOGIC: Ring Snapping
      */
     private static getArchiveConstraint(
         x: number,
         y: number,
         origin: { x: number; y: number }
     ): DragConstraintResult {
-        // Grid spacing for the graveyard
-        const GRID_SIZE = 150;
+        const dx = x - origin.x;
+        const dy = y - origin.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
 
-        // Snap to nearest grid multiple relative to origin
-        const snappedX = origin.x + Math.round((x - origin.x) / GRID_SIZE) * GRID_SIZE;
-        const snappedY = origin.y + Math.round((y - origin.y) / GRID_SIZE) * GRID_SIZE;
+        // Define Rings matching ArchiveLayout
+        const radius1 = 400;
+        const radius2 = 500;
+
+        // Find closest ring radius
+        const closestR = Math.abs(radius1 - dist) < Math.abs(radius2 - dist) ? radius1 : radius2;
+
+        // Snap position
+        const snappedX = origin.x + closestR * Math.cos(angle);
+        const snappedY = origin.y + closestR * Math.sin(angle);
 
         return {
             x: snappedX,

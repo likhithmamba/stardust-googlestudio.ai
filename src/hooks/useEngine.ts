@@ -6,6 +6,7 @@ import type { LayoutMode } from '../engine/types/EngineTypes';
 
 export const useEngine = () => {
     const notes = useStore((state) => state.notes);
+    const graveyard = useStore((state) => state.graveyard || []);
     const connections = useStore((state) => state.connections);
     const viewport = useStore((state) => state.viewport);
     const viewMode = useSettingsStore((state) => state.viewMode);
@@ -20,8 +21,12 @@ export const useEngine = () => {
 
     // Sync World Data
     useEffect(() => {
-        engine.getWorld().syncNotes(notes);
-    }, [notes]); // Caution: this might be frequent. Improve diffing inside World.ts?
+        if (viewMode === 'archive') {
+            engine.getWorld().syncNotes(graveyard);
+        } else {
+            engine.getWorld().syncNotes(notes);
+        }
+    }, [notes, graveyard, viewMode]);
 
     useEffect(() => {
         engine.getWorld().syncConnections(connections);
@@ -71,7 +76,9 @@ export const useEngine = () => {
 
         const tick = () => {
             const world = engine.getWorld();
-            const currentNotes = useStore.getState().notes;
+            const currentMode = useSettingsStore.getState().viewMode;
+            const isArchive = currentMode === 'archive';
+            const currentNotes = isArchive ? useStore.getState().graveyard : useStore.getState().notes;
             const updates: { id: string; x: number; y: number }[] = [];
 
             world.notes.forEach((wnote, id) => {

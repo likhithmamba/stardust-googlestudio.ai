@@ -2,7 +2,6 @@ import React, { useRef } from 'react';
 import { useGesture } from '@use-gesture/react';
 import { useStore, type Note } from '../store/useStore';
 import { NOTE_STYLES, NoteType, REAL_SIZES } from '../constants';
-import { ORBITAL_CONFIG } from '../engine/layout/LayoutConstants';
 import { ViewConstraints } from '../systems/ViewConstraints';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -58,6 +57,23 @@ const getDecayLevel = (note: Note): number => {
     if (lum >= 0.4) return 3;
     if (lum >= 0.2) return 4;
     return 5;
+};
+
+const getNoteTextStyle = (note: any, _isSolar: boolean, baseStyle?: React.CSSProperties): React.CSSProperties => {
+    const fontMapping: Record<string, string> = {
+        sans: 'Inter, system-ui, -apple-system, sans-serif',
+        serif: 'Lora, Georgia, serif',
+        mono: 'Fira Code, monospace',
+        'Space Grotesk': '"Space Grotesk", sans-serif',
+        Cinzel: 'Cinzel, serif',
+        Manrope: 'Manrope, sans-serif',
+    };
+    const fontFamily = note.fontFamily ? (fontMapping[note.fontFamily] || `'${note.fontFamily}', sans-serif`) : undefined;
+    return {
+        ...baseStyle,
+        color: note.textColor || undefined,
+        fontFamily,
+    };
 };
 
 const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
@@ -139,10 +155,10 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
             el.style.webkitLineClamp = 'unset';
             el.style.display = 'block';
             el.style.overflow = 'visible';
-            el.style.fontSize = '24px';
+            
+            let currentSize = note.fontSize || 24;
+            el.style.fontSize = `${currentSize}px`;
             el.style.lineHeight = '1.1';
-
-            let currentSize = 24;
 
             while ((el.scrollHeight > containerSize || el.scrollWidth > containerSize) && currentSize > 8) {
                 currentSize -= 1;
@@ -158,7 +174,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                 el.style.overflow = 'hidden';
             }
         }
-    }, [size, showText]);
+    }, [size, showText, note.fontSize]);
 
     React.useLayoutEffect(() => {
         autoFitText();
@@ -171,6 +187,41 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
         }
     }, [isSelected]);
 
+    // Focus-zoom camera movement
+    const handleTitleFocus = React.useCallback(() => {
+        const store = useStore.getState();
+        const currentViewport = store.viewport;
+
+        // Cache current viewport
+        store.setSavedViewport(currentViewport);
+
+        // Center on note and zoom to 1.1
+        const zoom = 1.1;
+        const targetX = -note.x * zoom + window.innerWidth / 2 - (size * zoom) / 2;
+        const targetY = -note.y * zoom + window.innerHeight / 2 - (size * zoom) / 2;
+
+        useStore.setState({ isViewportAnimating: true });
+        store.setViewport({ x: targetX, y: targetY, zoom });
+        setTimeout(() => {
+            useStore.setState({ isViewportAnimating: false });
+        }, 400);
+    }, [note.x, note.y, size]);
+
+    const handleTitleBlur = React.useCallback(() => {
+        const store = useStore.getState();
+        const savedViewport = store.savedViewport;
+
+        if (savedViewport) {
+            useStore.setState({ isViewportAnimating: true });
+            store.setViewport(savedViewport);
+            setTimeout(() => {
+                useStore.setState({ isViewportAnimating: false });
+            }, 400);
+            store.setSavedViewport(undefined);
+        }
+        autoFitText();
+    }, [autoFitText]);
+
     const bind = useGesture({
         onDragStart: ({ event }) => {
             if (isReadOnly) return;
@@ -182,74 +233,56 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
             useStore.getState().takeSnapshot();
             updateNote(note.id, { fixed: true });
         },
-        onDrag: ({ delta: [dx, dy], event, memo = { x: dragPositionRef.current.x, y: dragPositionRef.current.y } }) => {
+        onDrag: ({ delta: [dx, dy], event, memo }) => {
             if (isReadOnly) return memo;
             if ((event.target as HTMLElement).classList.contains('handle-base')) return memo;
             event.stopPropagation();
 
-            let newX = memo.x + dx / zoom;
-            let newY = memo.y + dy / zoom;
+            const ux = (memo && memo.ux !== undefined) ? memo.ux : dragPositionRef.current.x;
+            const uy = (memo && memo.uy !== undefined) ? memo.uy : dragPositionRef.current.y;
 
-            visualRegistry.updatePosition(note.id, newX, newY);
-            dragPositionRef.current = { x: newX, y: newY };
-            onDrag?.(note.id, newX, newY);
+            const newX = ux + dx / zoom;
+            const newY = uy + dy / zoom;
 
-            // Dynamic snapping updates while dragging
-            if (layoutOrigin && viewMode) {
-                if (viewMode === 'matrix') {
-                    const relX = newX - layoutOrigin.x;
-                    const relY = newY - layoutOrigin.y;
-                    const isLeft = relX < 0;
-                    const isTop = relY < 0;
-                    const newUrgency = isLeft ? 'urgent' : 'not-urgent';
-                    const newImportance = isTop ? 'important' : 'not-important';
-                    if (note.urgency !== newUrgency || note.importance !== newImportance) {
-                        updateNoteStore(note.id, { urgency: newUrgency, importance: newImportance });
-                    }
-                } else if (viewMode === 'orbital') {
-                    const dx = newX - layoutOrigin.x;
-                    const dy = newY - layoutOrigin.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    const baseSize = Math.min(window.innerWidth, window.innerHeight) / 2;
-                    const { RADII_PCT, MIN_RADII } = ORBITAL_CONFIG;
-                    const rings = [
-                        { r: Math.max(MIN_RADII.critical, baseSize * RADII_PCT.critical), p: 'critical' },
-                        { r: Math.max(MIN_RADII.high, baseSize * RADII_PCT.high), p: 'high' },
-                        { r: Math.max(MIN_RADII.medium, baseSize * RADII_PCT.medium), p: 'medium' },
-                        { r: Math.max(MIN_RADII.low, baseSize * RADII_PCT.low), p: 'low' }
-                    ] as const;
-                    const closest = rings.reduce((prev, curr) =>
-                        Math.abs(curr.r - dist) < Math.abs(prev.r - dist) ? curr : prev
-                    );
-                    if (note.priority !== closest.p) {
-                        updateNoteStore(note.id, { priority: closest.p as any });
-                    }
-                } else if (viewMode === 'prism') {
-                    const totalWidth = 300 + 40; // PRISM_CONFIG.COL_WIDTH + PRISM_CONFIG.GAP
-                    const relX = newX - layoutOrigin.x;
-                    let colIndex = Math.round((relX / totalWidth) + 1.5);
-                    if (colIndex < 0) colIndex = 0;
-                    if (colIndex > 3) colIndex = 3;
-                    const statuses = ['todo', 'in-progress', 'review', 'done'];
-                    const newStatus = statuses[colIndex];
-                    if (note.status !== newStatus) {
-                        updateNoteStore(note.id, { status: newStatus as any });
-                    }
-                } else if (viewMode === 'timeline') {
-                    const totalHeight = 150 * 4;
-                    const startY = layoutOrigin.y - totalHeight / 2;
-                    let laneIndex = Math.floor((newY - startY) / 150);
-                    if (laneIndex < 0) laneIndex = 0;
-                    if (laneIndex > 3) laneIndex = 3;
-                    const statuses = ['in-progress', 'todo', 'review', 'done'];
-                    const newStatus = statuses[laneIndex];
-                    if (note.status !== newStatus) {
-                        updateNoteStore(note.id, { status: newStatus as any });
+            let displayX = newX;
+            let displayY = newY;
+
+            if (layoutOrigin && viewMode && viewMode !== 'free' && viewMode !== 'void') {
+                const constraint = ViewConstraints.applyConstraints(
+                    viewMode as any,
+                    newX,
+                    newY,
+                    layoutOrigin,
+                    { width: window.innerWidth, height: window.innerHeight }
+                );
+
+                const diffX = newX - constraint.x;
+                const diffY = newY - constraint.y;
+                const dist = Math.sqrt(diffX * diffX + diffY * diffY);
+
+                if (dist < 150) {
+                    displayX = constraint.x;
+                    displayY = constraint.y;
+                }
+
+                if (constraint.dataUpdates) {
+                    let needsStoreUpdate = false;
+                    Object.entries(constraint.dataUpdates).forEach(([key, val]) => {
+                        if ((note as any)[key] !== val) {
+                            needsStoreUpdate = true;
+                        }
+                    });
+                    if (needsStoreUpdate) {
+                        updateNoteStore(note.id, constraint.dataUpdates);
                     }
                 }
             }
 
-            return { x: newX, y: newY };
+            visualRegistry.updatePosition(note.id, displayX, displayY);
+            dragPositionRef.current = { x: displayX, y: displayY };
+            onDrag?.(note.id, displayX, displayY);
+
+            return { ux: newX, uy: newY };
         },
         onDragEnd: () => {
             isDragging.current = false;
@@ -423,7 +456,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                 onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
                                 onPointerDown={(e) => e.stopPropagation()}
                                 className="text-[12px] font-medium leading-tight text-white/90 outline-none overflow-hidden"
-                                style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
+                                style={getNoteTextStyle(note, isSolar, { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' })}
                             >
                                 {note.title || ''}
                             </div>
@@ -434,13 +467,17 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                     contentEditable={!isReadOnly}
                                     suppressContentEditableWarning
                                     onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                                    onFocus={handleTitleFocus}
+                                    onBlur={handleTitleBlur}
                                     onPointerDown={(e) => e.stopPropagation()}
                                     className="text-[13px] font-semibold leading-tight text-white/90 outline-none"
+                                    style={getNoteTextStyle(note, isSolar)}
                                 >
                                     {note.title || ''}
                                 </div>
                                 {note.content && (
-                                    <div className="text-[10px] text-white/60 leading-normal line-clamp-2 overflow-hidden">
+                                    <div className="text-[10px] text-white/60 leading-normal line-clamp-2 overflow-hidden"
+                                         style={{ fontFamily: note.fontFamily ? getNoteTextStyle(note, isSolar).fontFamily : undefined }}>
                                         {extractPlainText(note.content)}
                                     </div>
                                 )}
@@ -466,9 +503,11 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                     contentEditable={!isReadOnly}
                                     suppressContentEditableWarning
                                     onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                                    onFocus={handleTitleFocus}
+                                    onBlur={handleTitleBlur}
                                     onPointerDown={(e) => e.stopPropagation()}
                                     className="flex-1 text-[13px] font-medium leading-tight text-white/90 outline-none overflow-hidden"
-                                    style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
+                                    style={getNoteTextStyle(note, isSolar, { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' })}
                                 >
                                     {note.title || ''}
                                 </div>
@@ -577,7 +616,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                 onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
                                 onPointerDown={(e) => e.stopPropagation()}
                                 className="text-[12px] font-medium leading-tight text-white/90 outline-none overflow-hidden"
-                                style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
+                                style={getNoteTextStyle(note, isSolar, { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' })}
                             >
                                 {note.title || ''}
                             </div>
@@ -588,13 +627,17 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                     contentEditable={!isReadOnly}
                                     suppressContentEditableWarning
                                     onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                                    onFocus={handleTitleFocus}
+                                    onBlur={handleTitleBlur}
                                     onPointerDown={(e) => e.stopPropagation()}
                                     className="text-[13px] font-semibold leading-tight text-white/90 outline-none"
+                                    style={getNoteTextStyle(note, isSolar)}
                                 >
                                     {note.title || ''}
                                 </div>
                                 {note.content && (
-                                    <div className="text-[10px] text-white/60 leading-normal line-clamp-2 overflow-hidden">
+                                    <div className="text-[10px] text-white/60 leading-normal line-clamp-2 overflow-hidden"
+                                         style={{ fontFamily: note.fontFamily ? getNoteTextStyle(note, isSolar).fontFamily : undefined }}>
                                         {extractPlainText(note.content)}
                                     </div>
                                 )}
@@ -612,9 +655,11 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                     contentEditable={!isReadOnly}
                                     suppressContentEditableWarning
                                     onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                                    onFocus={handleTitleFocus}
+                                    onBlur={handleTitleBlur}
                                     onPointerDown={(e) => e.stopPropagation()}
                                     className="flex-1 text-[13px] font-medium leading-tight text-white/90 outline-none overflow-hidden"
-                                    style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
+                                    style={getNoteTextStyle(note, isSolar, { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' })}
                                 >
                                     {note.title || ''}
                                 </div>
@@ -708,7 +753,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                 onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
                                 onPointerDown={(e) => e.stopPropagation()}
                                 className="text-[11px] font-medium leading-tight text-white/90 outline-none overflow-hidden"
-                                style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
+                                style={getNoteTextStyle(note, isSolar, { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' })}
                             >
                                 {note.title || ''}
                             </div>
@@ -719,13 +764,17 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                     contentEditable={!isReadOnly}
                                     suppressContentEditableWarning
                                     onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                                    onFocus={handleTitleFocus}
+                                    onBlur={handleTitleBlur}
                                     onPointerDown={(e) => e.stopPropagation()}
                                     className="text-[12px] font-semibold leading-tight text-white/90 outline-none"
+                                    style={getNoteTextStyle(note, isSolar)}
                                 >
                                     {note.title || ''}
                                 </div>
                                 {note.content && (
-                                    <div className="text-[9px] text-white/60 leading-normal line-clamp-2 overflow-hidden">
+                                    <div className="text-[9px] text-white/60 leading-normal line-clamp-2 overflow-hidden"
+                                         style={{ fontFamily: note.fontFamily ? getNoteTextStyle(note, isSolar).fontFamily : undefined }}>
                                         {extractPlainText(note.content)}
                                     </div>
                                 )}
@@ -742,8 +791,11 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                     contentEditable={!isReadOnly}
                                     suppressContentEditableWarning
                                     onInput={(e) => updateNoteStore(note.id, { title: e.currentTarget.innerText })}
+                                    onFocus={handleTitleFocus}
+                                    onBlur={handleTitleBlur}
                                     onPointerDown={(e) => e.stopPropagation()}
                                     className="text-[12px] font-medium leading-tight text-white/90 outline-none"
+                                    style={getNoteTextStyle(note, isSolar)}
                                 >
                                     {note.title || ''}
                                 </div>
@@ -894,9 +946,9 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                 style={{
                     '--planet-size': `${size}px`,
                     zIndex: isDragging.current ? 100 : 1,
-                    // Force strict astronomical colors via className, suppressing custom overrides
-                    borderColor: 'var(--mode-accent, rgba(255,255,255,0.2))',
-                    boxShadow: '0 0 20px -5px var(--mode-accent, transparent)',
+                    // Dynamic type-specific boundary and glowing shadows
+                    borderColor: note.color || baseStyle.color || 'var(--mode-accent, rgba(255,255,255,0.2))',
+                    boxShadow: `0 0 20px -5px ${note.color || baseStyle.color || 'var(--mode-accent, transparent)'}`,
                     filter: (viewMode === 'orbital' && (note.priority === 'low' || !note.priority) && getDecayLevel(note) >= 3)
                         ? 'grayscale(100%) brightness(0.6)'
                         : getDecayLevel(note) >= 2
@@ -915,6 +967,20 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                     opacity: { duration: 0.3 }
                 }}
             >
+                {/* Glowing Core */}
+                <div
+                    className="planet-core"
+                    style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: '50%',
+                        background: `radial-gradient(circle, ${note.color || baseStyle.color || '#6366f1'} 0%, transparent 70%)`,
+                        opacity: 0.6,
+                        pointerEvents: 'none',
+                        zIndex: 0
+                    }}
+                />
+
                 {/* Archive me? badge */}
                 {getDecayLevel(note) === 5 && (
                     <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-red-500/90 text-white font-mono text-[8.5px] uppercase tracking-wider px-2 py-0.5 rounded shadow-[0_0_10px_rgba(239,68,68,0.5)] whitespace-nowrap pointer-events-none z-50">
@@ -994,17 +1060,16 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                         updateNoteStore(note.id, { title: newTitle });
                                         autoFitText();
                                     }}
-                                    onBlur={() => {
-                                        autoFitText();
-                                    }}
+                                    onFocus={handleTitleFocus}
+                                    onBlur={handleTitleBlur}
                                     onPointerDown={(e) => e.stopPropagation()} // Allow clicking inside to focus
                                     className={clsx(
                                         "max-w-full w-full text-center font-bold tracking-tight leading-tight outline-none pointer-events-auto break-words whitespace-pre-wrap",
                                         isSolar ? "text-slate-900" : "text-white"
                                     )}
-                                    style={{
+                                    style={getNoteTextStyle(note, isSolar, {
                                         textShadow: isSolar ? 'none' : '0 2px 4px rgba(0,0,0,0.5)',
-                                    }}
+                                    })}
                                 >
                                     {note.title || (note.content ? '' : 'Unnamed Note')}
                                 </div>
@@ -1014,7 +1079,9 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                             "w-full text-center mt-1.5 text-[0.45em] font-medium leading-[1.4] opacity-70 line-clamp-3 break-words whitespace-pre-wrap pointer-events-auto",
                                             isSolar ? "text-slate-700" : "text-indigo-100"
                                         )}
-                                        style={{ textShadow: isSolar ? 'none' : '0 1px 2px rgba(0,0,0,0.8)' }}
+                                        style={getNoteTextStyle(note, isSolar, {
+                                            textShadow: isSolar ? 'none' : '0 1px 2px rgba(0,0,0,0.8)',
+                                        })}
                                     >
                                         {extractPlainText(note.content)}
                                     </div>
@@ -1042,17 +1109,16 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                         updateNoteStore(note.id, { title: newTitle });
                                         autoFitText();
                                     }}
-                                    onBlur={() => {
-                                        autoFitText();
-                                    }}
+                                    onFocus={handleTitleFocus}
+                                    onBlur={handleTitleBlur}
                                     onPointerDown={(e) => e.stopPropagation()} // Allow clicking inside to focus
                                     className={clsx(
                                         "max-w-full w-full text-center font-bold tracking-tight leading-tight outline-none pointer-events-auto break-words whitespace-pre-wrap",
                                         isSolar ? "text-slate-900" : "text-white"
                                     )}
-                                    style={{
+                                    style={getNoteTextStyle(note, isSolar, {
                                         textShadow: isSolar ? 'none' : '0 2px 4px rgba(0,0,0,0.5)',
-                                    }}
+                                    })}
                                 >
                                     {note.title || (note.content ? '' : 'Unnamed Note')}
                                 </div>

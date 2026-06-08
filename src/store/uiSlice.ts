@@ -26,6 +26,10 @@ export interface UISlice {
     toggleSelectedId: (id: string) => void;
     setCosmosOpen: (isOpen: boolean) => void;
     setSettingsOpen: (isOpen: boolean) => void;
+    savedViewport?: { x: number; y: number; zoom: number };
+    setSavedViewport: (viewport: { x: number; y: number; zoom: number } | undefined) => void;
+    isViewportAnimating: boolean;
+    setViewportAnimating: (animating: boolean) => void;
     setFocusModeId: (id: string | undefined) => void;
 
     // Display toggles
@@ -134,6 +138,10 @@ export const createUISlice: StateCreator<UISlice, [], [], UISlice> = (set) => ({
     }),
     setCosmosOpen: (isOpen) => set({ isCosmosOpen: isOpen }),
     setSettingsOpen: (isOpen) => set({ isSettingsOpen: isOpen }),
+    savedViewport: undefined,
+    setSavedViewport: (savedViewport) => set({ savedViewport }),
+    isViewportAnimating: false,
+    setViewportAnimating: (isViewportAnimating) => set({ isViewportAnimating }),
     setFocusModeId: (id) => set({ focusModeId: id }),
 
     // Display toggles

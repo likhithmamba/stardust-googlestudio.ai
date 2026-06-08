@@ -27,7 +27,7 @@ export type Note = {
     textColor?: string; // Specific Font Color
     // Styling configurations
     fontSize?: number;
-    fontFamily?: 'sans' | 'serif' | 'mono';
+    fontFamily?: 'sans' | 'serif' | 'mono' | 'Space Grotesk' | 'Cinzel' | 'Manrope';
 
     // Ultra Mode Metadata
     questType?: 'main' | 'side';
@@ -272,9 +272,18 @@ export const createNoteSlice: StateCreator<NoteSlice, [], [], NoteSlice> = (set,
         }
         if (safePatch.x !== undefined) safePatch.x = clampCoord(safePatch.x);
         if (safePatch.y !== undefined) safePatch.y = clampCoord(safePatch.y);
-        set((s) => ({
-            notes: s.notes.map((n) => (n.id === id ? { ...n, ...safePatch, updatedAt: Date.now() } : n))
-        }));
+        set((s) => {
+            const inNotes = s.notes.some(n => n.id === id);
+            if (inNotes) {
+                return {
+                    notes: s.notes.map((n) => (n.id === id ? { ...n, ...safePatch, updatedAt: Date.now() } : n))
+                };
+            } else {
+                return {
+                    graveyard: s.graveyard.map((n) => (n.id === id ? { ...n, ...safePatch, updatedAt: Date.now() } : n))
+                };
+            }
+        });
         dirtyNoteIds.add(id);
         triggerSave();
     },
@@ -282,20 +291,38 @@ export const createNoteSlice: StateCreator<NoteSlice, [], [], NoteSlice> = (set,
     updateNotePositions: (positions) => {
         set((s) => {
             let changed = false;
-            const newNotes = s.notes.map((n) => {
-                const pos = positions.find((p) => p.id === n.id);
-                if (pos) {
-                    const dx = Math.abs(n.x - pos.x);
-                    const dy = Math.abs(n.y - pos.y);
-                    if (dx > 0.01 || dy > 0.01) {
-                        changed = true;
-                        return { ...n, x: clampCoord(pos.x), y: clampCoord(pos.y) };
+            const hasActive = s.notes.some(n => positions.some(p => p.id === n.id));
+            if (hasActive) {
+                const newNotes = s.notes.map((n) => {
+                    const pos = positions.find((p) => p.id === n.id);
+                    if (pos) {
+                        const dx = Math.abs(n.x - pos.x);
+                        const dy = Math.abs(n.y - pos.y);
+                        if (dx > 0.01 || dy > 0.01) {
+                            changed = true;
+                            return { ...n, x: clampCoord(pos.x), y: clampCoord(pos.y) };
+                        }
                     }
-                }
-                return n;
-            });
-            if (!changed) return {};
-            return { notes: newNotes };
+                    return n;
+                });
+                if (!changed) return {};
+                return { notes: newNotes };
+            } else {
+                const newGraveyard = s.graveyard.map((n) => {
+                    const pos = positions.find((p) => p.id === n.id);
+                    if (pos) {
+                        const dx = Math.abs(n.x - pos.x);
+                        const dy = Math.abs(n.y - pos.y);
+                        if (dx > 0.01 || dy > 0.01) {
+                            changed = true;
+                            return { ...n, x: clampCoord(pos.x), y: clampCoord(pos.y) };
+                        }
+                    }
+                    return n;
+                });
+                if (!changed) return {};
+                return { graveyard: newGraveyard };
+            }
         });
         positions.forEach(pos => dirtyNoteIds.add(pos.id));
         triggerSave();

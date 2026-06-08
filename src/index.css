@@ -1,10 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Fira+Code:wght@300;400;500;600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Manrope:wght@200;300;400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Noto+Sans:wght@400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Noto+Sans:wght@400;500;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap');
 
 @import "tailwindcss";
 
@@ -575,4 +570,165 @@ body.landing-active {
 
 .animate-spin-slow {
   animation: spin 120s linear infinite;
+}
+
+/* --- LEXICAL RICH TEXT EDITOR STYLES --- */
+.editor-input {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.9);
+  min-height: 300px;
+  caret-color: #818cf8;
+}
+
+.editor-placeholder {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 14px;
+  pointer-events: none;
+  font-style: italic;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.editor-paragraph {
+  margin-bottom: 14px;
+}
+
+.editor-heading-h1 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  margin-top: 24px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 6px;
+}
+
+.editor-heading-h2 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.95);
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+.editor-heading-h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.editor-quote {
+  border-left: 4px solid #6366f1;
+  background: rgba(99, 102, 241, 0.08);
+  padding: 10px 16px;
+  margin: 16px 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-style: italic;
+  border-radius: 4px;
+}
+
+.editor-list-ul {
+  list-style-type: disc;
+  padding-left: 24px;
+  margin-bottom: 14px;
+}
+
+.editor-list-ol {
+  list-style-type: decimal;
+  padding-left: 24px;
+  margin-bottom: 14px;
+}
+
+.editor-listitem {
+  margin-bottom: 6px;
+  line-height: 1.6;
+}
+
+.editor-nested-listitem {
+  list-style-type: circle;
+}
+
+.editor-link {
+  color: #818cf8;
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.editor-link:hover {
+  color: #a5b4fc;
+}
+
+.editor-code {
+  font-family: 'Fira Code', 'Courier New', monospace;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 14px 18px;
+  border-radius: 12px;
+  display: block;
+  font-size: 12.5px;
+  line-height: 1.6;
+  margin: 18px 0;
+  overflow-x: auto;
+  color: #a78bfa;
+}
+
+/* Inline typography weights/formats */
+.editor-text-bold {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.editor-text-italic {
+  font-style: italic;
+}
+
+.editor-text-underline {
+  text-decoration: underline;
+}
+
+.editor-text-strikethrough {
+  text-decoration: line-through;
+}
+
+.editor-text-code {
+  font-family: 'Fira Code', 'Courier New', monospace;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 85%;
+  color: #fca5a5;
+}
+
+/* --- ACCESSIBILITY --- */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Respect reduced motion preference (WCAG 2.3) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

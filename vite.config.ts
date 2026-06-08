@@ -12,6 +12,12 @@ export default defineConfig({
             output: {
                 manualChunks: (id) => {
                     if (id.includes('node_modules')) {
+                        if (id.includes('react-dom') || id.includes('react/')) {
+                            return 'framework';
+                        }
+                        if (id.includes('framer-motion')) {
+                            return 'animation';
+                        }
                         return 'vendor';
                     }
                 }

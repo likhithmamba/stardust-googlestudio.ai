@@ -70,6 +70,8 @@ export const CanvasViewport: React.FC = () => {
     const selectedIds = useStore((state) => state.selectedIds);
     const setSelectedIds = useStore((state) => state.setSelectedIds);
     const takeSnapshot = useStore((state) => state.takeSnapshot);
+    const graveyard = useStore((state) => state.graveyard || []);
+    const isViewportAnimating = useStore((state) => state.isViewportAnimating);
 
     // Migrated: UI Toggles & Modes from SettingsStore
     const mode = useSettingsStore((state) => state.mode);
@@ -222,6 +224,22 @@ export const CanvasViewport: React.FC = () => {
                 }
             }
 
+            const genesisColorMap: Record<string, string> = {
+                [NoteType.Sun]: '#fbbf24',
+                [NoteType.Galaxy]: '#6366f1',
+                [NoteType.Nebula]: '#a78bfa',
+                [NoteType.Earth]: '#3b82f6',
+                [NoteType.Mars]: '#ef4444',
+                [NoteType.Jupiter]: '#f59e0b',
+                [NoteType.Saturn]: '#eab308',
+                [NoteType.Moon]: '#d1d5db',
+                [NoteType.Asteroid]: '#6b7280',
+                [NoteType.Comet]: '#22d3ee',
+                [NoteType.BlackHole]: '#a855f7',
+                [NoteType.Mercury]: '#9ca3af',
+                [NoteType.Pluto]: '#4b5563',
+            };
+
             addNote({
                 id: Math.random().toString(36).substr(2, 9),
                 x: spawnX,
@@ -233,6 +251,7 @@ export const CanvasViewport: React.FC = () => {
                 tags: initialTags,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
+                color: genesisColorMap[type] || undefined,
                 ...modeDefaults
             });
             soundManager.playClick();
@@ -644,9 +663,25 @@ export const CanvasViewport: React.FC = () => {
         return () => window.removeEventListener('click', handleClick);
     }, []);
 
+    const isUIEvent = (target: HTMLElement | null): boolean => {
+        if (!target) return false;
+        return !!(
+            target.closest('.editor-overlay-wrapper') ||
+            target.closest('.editor-overlay-container') ||
+            target.closest('.settings-panel') ||
+            target.closest('.stardust-toolbar') ||
+            target.closest('.ui-interactive-area') ||
+            target.closest('.app-shell-container') ||
+            target.closest('.feedback-modal') ||
+            target.closest('.help-overlay') ||
+            target.closest('.mini-map')
+        );
+    };
+
     useGesture({
         onDrag: ({ delta: [dx, dy], initial: [ix, iy], xy: [cx, cy], last, event }) => {
             const target = event.target as HTMLElement;
+            if (isUIEvent(target)) return;
 
             if (connectionStart) {
                 const rect = containerRef.current?.getBoundingClientRect();
@@ -694,6 +729,8 @@ export const CanvasViewport: React.FC = () => {
             setViewport({ ...viewport, x: viewport.x + dx, y: viewport.y + dy });
         },
         onWheel: ({ delta: [dx, dy], ctrlKey, event }) => {
+            if (event && isUIEvent(event.target as HTMLElement)) return;
+
             // Plain scroll = zoom (natural, like Figma/Miro)
             // Ctrl+scroll = pan
             if (!ctrlKey) {
@@ -720,6 +757,7 @@ export const CanvasViewport: React.FC = () => {
         },
         onPointerDown: ({ event }) => {
             const target = event.target as HTMLElement;
+            if (isUIEvent(target)) return;
             if (target.closest('[data-note-id]')) return;
             // Prevent deselect if this is part of a double-click (which should open the ring)
             if (event.detail > 1) return;
@@ -837,8 +875,11 @@ export const CanvasViewport: React.FC = () => {
 
     // Show notes filtered by mode visibility rules
     const visibleNotes = useMemo(() => {
+        if (viewMode === 'archive') {
+            return graveyard;
+        }
         return notes.filter(note => noteVisibleInMode(note, viewMode, activeConstellation));
-    }, [notes, viewMode, activeConstellation]);
+    }, [notes, graveyard, viewMode, activeConstellation]);
 
     // Prism strict vertical stacking
     useEffect(() => {
@@ -978,7 +1019,7 @@ export const CanvasViewport: React.FC = () => {
                         y: viewport.y,
                         scale: viewport.zoom
                     }}
-                    transition={{ duration: transitionPhase === 'stable' ? 0 : 0.2, ease: 'easeOut' }}
+                    transition={{ duration: isViewportAnimating ? 0.4 : (transitionPhase === 'stable' ? 0 : 0.2), ease: 'easeOut' }}
                 >
 
 

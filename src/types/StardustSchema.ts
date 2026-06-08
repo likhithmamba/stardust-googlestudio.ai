@@ -50,7 +50,7 @@ export interface Note {
     clientName?: string;
     value?: number;
     questType?: 'main' | 'side';
-    fontFamily?: 'sans' | 'serif' | 'mono';
+    fontFamily?: 'sans' | 'serif' | 'mono' | 'Space Grotesk' | 'Cinzel' | 'Manrope';
 }
 
 export interface Link {

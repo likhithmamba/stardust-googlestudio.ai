@@ -4,6 +4,7 @@ import { OrbitalLayout } from './strategies/OrbitalLayout';
 import { MatrixLayout } from './strategies/MatrixLayout';
 import { TimelineLayout } from './strategies/TimelineLayout';
 import { PrismLayout } from './strategies/PrismLayout';
+import { ArchiveLayout } from './strategies/ArchiveLayout';
 import type { Vector2 } from './LayoutConstants';
 
 export class LayoutManager {
@@ -16,6 +17,7 @@ export class LayoutManager {
         this.strategies.set('matrix', new MatrixLayout());
         this.strategies.set('timeline', new TimelineLayout());
         this.strategies.set('prism', new PrismLayout());
+        this.strategies.set('archive', new ArchiveLayout());
     }
 
     public getTargets(): Map<string, Vector2> {

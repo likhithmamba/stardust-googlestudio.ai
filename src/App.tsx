@@ -11,6 +11,16 @@ function App() {
     const [hasEnteredApp, setHasEnteredApp] = useState(false);
     useKeyboardShortcuts();
 
+    // Toggle body scroll: landing page needs scroll, workspace needs overflow:hidden
+    useEffect(() => {
+        if (!hasEnteredApp) {
+            document.body.classList.add('landing-active');
+        } else {
+            document.body.classList.remove('landing-active');
+        }
+        return () => document.body.classList.remove('landing-active');
+    }, [hasEnteredApp]);
+
     // Start/stop the decay engine when the app canvas is active
     useEffect(() => {
         if (hasEnteredApp) {

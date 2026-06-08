@@ -127,83 +127,131 @@ export const Toolbar: React.FC = () => {
                                 initial={{ opacity: 0, x: -10, scale: 0.95 }}
                                 animate={{ opacity: 1, x: 0, scale: 1 }}
                                 exit={{ opacity: 0, x: -10, scale: 0.95 }}
-                                className="absolute left-full ml-4 top-0 p-5 rounded-[28px] bg-[#0A0B10]/80 border border-white/10 w-72 backdrop-blur-3xl shadow-[0_32px_80px_rgba(0,0,0,0.8)] origin-left"
+                                className="absolute left-full ml-4 top-0 p-6 rounded-[32px] bg-[#0A0B16]/90 border border-white/10 w-80 backdrop-blur-3xl shadow-[0_32px_80px_rgba(0,0,0,0.8),0_8px_24px_rgba(99,102,241,0.08)] origin-left z-[950] space-y-6"
                             >
-                                <h3 className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] mb-4 text-center">Appearance Control</h3>
+                                <h3 className="text-[10px] font-black text-white/50 uppercase tracking-[0.3em] text-center flex items-center justify-center gap-2">
+                                    <Palette size={12} className="text-indigo-400" /> Appearance Control
+                                </h3>
 
                                 {/* Global Theme */}
-                                <div className="mb-4 pb-4 border-b border-white/10">
-                                    <label className="text-[10px] text-white/40 mb-2 block text-center">Global Theme</label>
-                                    <div className="flex bg-white/5 rounded-lg p-1 gap-1">
+                                <div className="pb-4 border-b border-white/5">
+                                    <label className="text-[9px] font-black tracking-widest text-white/30 uppercase mb-2 block text-center">Global Theme</label>
+                                    <div className="flex bg-white/5 rounded-xl p-1 gap-1">
                                         {['default', 'cyberpunk', 'zen'].map(t => (
                                             <button
                                                 key={t}
                                                 onClick={() => useStore.getState().setTheme(t as any)}
                                                 className={clsx(
-                                                    "flex-1 py-1.5 text-[10px] uppercase tracking-wide font-medium rounded-md transition-all",
+                                                    "flex-1 py-1.5 text-[9px] uppercase tracking-wider font-black rounded-lg transition-all",
                                                     useStore.getState().theme === t ? "bg-indigo-500 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]" : "text-white/40 hover:text-white"
                                                 )}
                                             >
-                                                {t.charAt(0).toUpperCase() + t.slice(1)}
+                                                {t}
                                             </button>
                                         ))}
                                     </div>
                                 </div>
 
                                 {selectedNote ? (
-                                    <div className="space-y-4">
-                                        {/* Object Controls */}
+                                    <div className="space-y-5">
+                                        {/* Atmosphere Glow Picker */}
                                         <div>
-                                            <div className="flex bg-white/5 rounded-lg p-1">
-                                                {['sans', 'serif', 'mono'].map(fam => (
+                                            <label className="text-[9px] font-black tracking-widest text-white/30 uppercase mb-2 block text-center">Atmospheric Glow</label>
+                                            <div className="grid grid-cols-5 gap-2">
+                                                {[
+                                                    { name: 'Solar', code: '#fbbf24', bg: 'bg-[#fbbf24]' },
+                                                    { name: 'Indigo', code: '#6366f1', bg: 'bg-[#6366f1]' },
+                                                    { name: 'Purple', code: '#a78bfa', bg: 'bg-[#a78bfa]' },
+                                                    { name: 'Blue', code: '#3b82f6', bg: 'bg-[#3b82f6]' },
+                                                    { name: 'Red', code: '#ef4444', bg: 'bg-[#ef4444]' },
+                                                    { name: 'Saturn', code: '#eab308', bg: 'bg-[#eab308]' },
+                                                    { name: 'Moon', code: '#d1d5db', bg: 'bg-[#d1d5db]' },
+                                                    { name: 'Comet', code: '#22d3ee', bg: 'bg-[#22d3ee]' },
+                                                    { name: 'Deep', code: '#a855f7', bg: 'bg-[#a855f7]' },
+                                                    { name: 'Void', code: '#ffffff', bg: 'bg-[#ffffff]' }
+                                                ].map(c => (
                                                     <button
-                                                        key={fam}
-                                                        onClick={() => updateNote(selectedNote.id, { fontFamily: fam as any })}
+                                                        key={c.name}
+                                                        onClick={() => updateNote(selectedNote.id, { color: c.code, textColor: c.code })}
+                                                        title={c.name}
                                                         className={clsx(
-                                                            "flex-1 py-1.5 text-[10px] uppercase tracking-wide font-medium rounded-md transition-all",
-                                                            selectedNote.fontFamily === fam ? "bg-indigo-500 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3)]" : "text-white/40 hover:text-white"
+                                                            "w-7 h-7 rounded-full border-2 transition-all hover:scale-110 flex items-center justify-center relative",
+                                                            selectedNote.color === c.code ? "border-white scale-110 shadow-[0_0_12px_rgba(255,255,255,0.6)]" : "border-transparent opacity-60 hover:opacity-100"
                                                         )}
+                                                        style={{ background: c.code }}
                                                     >
-                                                        {fam}
+                                                        {selectedNote.color === c.code && (
+                                                            <div className="w-1.5 h-1.5 bg-black rounded-full" style={{ background: c.code === '#ffffff' ? '#000000' : '#ffffff' }} />
+                                                        )}
                                                     </button>
                                                 ))}
                                             </div>
                                         </div>
 
+                                        {/* Font Family */}
                                         <div>
-                                            <label className="text-[10px] text-white/40 mb-2 block text-center">Size</label>
-                                            <input
-                                                type="range"
-                                                min="12"
-                                                max="64"
-                                                value={selectedNote.fontSize || 16}
-                                                onChange={(e) => updateNote(selectedNote.id, { fontSize: parseInt(e.target.value) })}
-                                                className="w-full accent-indigo-500 h-1 bg-white/10 rounded-full appearance-none"
-                                            />
+                                            <label className="text-[9px] font-black tracking-widest text-white/30 uppercase mb-2 block text-center">Typography Font</label>
+                                            <select
+                                                value={selectedNote.fontFamily || 'sans'}
+                                                onChange={(e) => updateNote(selectedNote.id, { fontFamily: e.target.value as any })}
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[11px] text-white/80 focus:outline-none focus:border-indigo-500/50 cursor-pointer transition-all duration-300 font-medium"
+                                                style={{ colorScheme: 'dark' }}
+                                            >
+                                                <option value="sans" className="bg-[#0A0B16] text-white">Inter (Sans)</option>
+                                                <option value="serif" className="bg-[#0A0B16] text-white">Lora (Serif)</option>
+                                                <option value="mono" className="bg-[#0A0B16] text-white">Fira Code (Mono)</option>
+                                                <option value="Space Grotesk" className="bg-[#0A0B16] text-white">Space Grotesk</option>
+                                                <option value="Cinzel" className="bg-[#0A0B16] text-white">Cinzel</option>
+                                                <option value="Manrope" className="bg-[#0A0B16] text-white">Manrope</option>
+                                            </select>
                                         </div>
 
-                                        <div className="flex justify-center gap-2">
-                                            {[
-                                                { name: 'White', code: '#ffffff', bg: 'bg-white' },
-                                                { name: 'Red', code: '#fca5a5', bg: 'bg-red-300' },
-                                                { name: 'Amber', code: '#fcd34d', bg: 'bg-amber-300' },
-                                                { name: 'Blue', code: '#93c5fd', bg: 'bg-blue-300' },
-                                                { name: 'Indigo', code: '#a5b4fc', bg: 'bg-indigo-300' }
-                                            ].map(c => (
-                                                <button
-                                                    key={c.name}
-                                                    onClick={() => updateNote(selectedNote.id, { textColor: c.code })}
-                                                    className={clsx(
-                                                        "w-6 h-6 rounded-full border-2 transition-all hover:scale-110",
-                                                        c.bg,
-                                                        selectedNote.textColor === c.code ? "border-indigo-400 scale-110 shadow-[0_0_12px_rgba(129,140,248,0.5)]" : "border-transparent opacity-60 hover:opacity-100"
-                                                    )}
+                                        {/* Size & Mass Slider */}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-[9px] font-black tracking-widest text-white/30 uppercase mb-1.5 block text-center">Star Size</label>
+                                                <input
+                                                    type="range"
+                                                    min="12"
+                                                    max="64"
+                                                    value={selectedNote.fontSize || 16}
+                                                    onChange={(e) => updateNote(selectedNote.id, { fontSize: parseInt(e.target.value) })}
+                                                    className="w-full accent-indigo-500 h-1 bg-white/10 rounded-full appearance-none cursor-pointer"
                                                 />
-                                            ))}
+                                                <div className="text-[9px] text-white/50 text-center mt-1 font-mono">{selectedNote.fontSize || 16}px</div>
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] font-black tracking-widest text-white/30 uppercase mb-1.5 block text-center">Gravity Mass</label>
+                                                <input
+                                                    type="range"
+                                                    min="1"
+                                                    max="20"
+                                                    value={selectedNote.mass || 5}
+                                                    onChange={(e) => updateNote(selectedNote.id, { mass: parseInt(e.target.value) })}
+                                                    className="w-full accent-indigo-500 h-1 bg-white/10 rounded-full appearance-none cursor-pointer"
+                                                />
+                                                <div className="text-[9px] text-white/50 text-center mt-1 font-mono">{selectedNote.mass || 5} G</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Lock Switch */}
+                                        <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
+                                            <span className="text-[9px] font-black uppercase tracking-wider text-white/50">Lock Position</span>
+                                            <button
+                                                onClick={() => updateNote(selectedNote.id, { fixed: !selectedNote.fixed })}
+                                                className={clsx(
+                                                    "px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-wider transition-all",
+                                                    selectedNote.fixed
+                                                        ? "bg-amber-500/20 border-amber-500/30 text-amber-300 shadow-[0_0_8px_rgba(245,158,11,0.2)]"
+                                                        : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10"
+                                                )}
+                                            >
+                                                {selectedNote.fixed ? 'Pinned' : 'Anchor'}
+                                            </button>
                                         </div>
                                     </div>
                                 ) : (
-                                    <p className="text-xs text-slate-500 text-center py-2 italic font-serif">Select an object to customize.</p>
+                                    <p className="text-[9.5px] text-white/30 text-center py-4 italic font-serif leading-relaxed">Select a planet on the canvas<br />to reveal styling cores.</p>
                                 )}
                             </motion.div>
                         )}
@@ -214,7 +262,7 @@ export const Toolbar: React.FC = () => {
                 <motion.div
                     layout
                     className={clsx(
-                        "ui-interactive-area flex flex-col items-center gap-1 px-2 py-2 rounded-full bg-[#050505]/60 backdrop-blur-2xl border border-white/10 shadow-[0_12px_48px_rgba(0,0,0,0.5)] transition-all hover:border-white/20 hover:bg-[#050505]/80 hover:shadow-[0_16px_48px_rgba(0,0,0,0.6)]",
+                        "ui-interactive-area flex flex-col items-center gap-1.5 px-2 py-2.5 rounded-[24px] bg-[#05050C]/75 backdrop-blur-3xl border border-white/10 shadow-[0_16px_48px_rgba(0,0,0,0.6)] hover:border-indigo-500/20 transition-all duration-300 relative",
                         isCollapsed && "px-2 py-2"
                     )}
                 >

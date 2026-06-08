@@ -10,7 +10,7 @@ import { FLAGS } from '../engine/flags/FeatureFlags';
 import { initDB } from '../db/idb';
 import { exportCanvasToJSON, exportCanvasToPNG, exportToMarkdownZip } from '../utils/export';
 
-type SettingsTab = 'canvas' | 'intelligence' | 'physics' | 'decay' | 'sound' | 'data' | 'shortcuts' | 'about';
+type SettingsTab = 'canvas' | 'intelligence' | 'physics' | 'decay' | 'sound' | 'feedback' | 'data' | 'shortcuts' | 'about';
 
 export const SettingsPanel: React.FC = () => {
     const isSettingsOpen = useStore((state: any) => state.isSettingsOpen);
@@ -26,6 +26,11 @@ export const SettingsPanel: React.FC = () => {
     const setViewMode = useSettingsStore((state) => state.setViewMode);
     const designSystem = useSettingsStore((state) => state.designSystem);
     const setDesignSystem = useSettingsStore((state) => state.setDesignSystem);
+
+    const feedbackEmail = useSettingsStore((state) => state.feedbackEmail);
+    const setFeedbackEmail = useSettingsStore((state) => state.setFeedbackEmail);
+    const feedbackQuestions = useSettingsStore((state) => state.feedbackQuestions);
+    const setFeedbackQuestions = useSettingsStore((state) => state.setFeedbackQuestions);
 
     const showMinimap = useStore((state: any) => state.showMinimap);
     const setShowMinimap = useStore((state: any) => state.setShowMinimap);
@@ -289,6 +294,7 @@ export const SettingsPanel: React.FC = () => {
                         <SideTab label="Physics" icon="motion_photos_on" isActive={activeTab === 'physics'} onClick={() => setActiveTab('physics')} />
                         <SideTab label="Decay" icon="hourglass_empty" isActive={activeTab === 'decay'} onClick={() => setActiveTab('decay')} />
                         <SideTab label="Sound" icon="volume_up" isActive={activeTab === 'sound'} onClick={() => setActiveTab('sound')} />
+                        <SideTab label="Feedback Config" icon="rate_review" isActive={activeTab === 'feedback'} onClick={() => setActiveTab('feedback')} />
                         <SideTab label="Data Management" icon="database" isActive={activeTab === 'data'} onClick={() => setActiveTab('data')} />
                         <SideTab label="Shortcuts" icon="keyboard" isActive={activeTab === 'shortcuts'} onClick={() => setActiveTab('shortcuts')} />
                         <SideTab label="About Stardust" icon="info" isActive={activeTab === 'about'} onClick={() => setActiveTab('about')} />
@@ -599,6 +605,147 @@ export const SettingsPanel: React.FC = () => {
                                                 onChange={(e) => handleVolumeChange(Number(e.target.value))}
                                                 className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                                             />
+                                        </div>
+                                    </section>
+                                </div>
+                            )}
+
+                            {/* FEEDBACK TAB */}
+                            {activeTab === 'feedback' && (
+                                <div className="space-y-8">
+                                    <TabHeader title="Feedback Customization" subtitle="Configure the destination email and edit survey questions for user reviews." />
+                                    
+                                    <section className="bg-white/3 border border-white/5 rounded-3xl p-8 space-y-6">
+                                        <SectionTitle title="Destination Target" />
+                                        <p className="text-[11px] leading-relaxed text-white/50">
+                                            Configure where user feedback forms are routed when submitted via email.
+                                        </p>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] uppercase tracking-[0.2em] text-white/40 block">Target Email Address</label>
+                                            <input
+                                                type="email"
+                                                value={feedbackEmail}
+                                                onChange={(e) => setFeedbackEmail(e.target.value)}
+                                                placeholder="feedback@stardust.space"
+                                                className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-xs text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                                            />
+                                        </div>
+                                    </section>
+
+                                    <section className="bg-white/3 border border-white/5 rounded-3xl p-8 space-y-6">
+                                        <div className="flex items-center justify-between">
+                                            <SectionTitle title="Survey Questions Editor" />
+                                            <button
+                                                onClick={() => {
+                                                    if (confirm("Reset all survey questions to system defaults?")) {
+                                                        setFeedbackQuestions([
+                                                            {
+                                                                key: 'q1_source',
+                                                                title: 'How did you find Stardust?',
+                                                                subtitle: 'Help us understand where our cosmic travellers come from.',
+                                                                options: ['Search engine', 'Social media', 'Friend / colleague', 'Blog / article', 'App store'],
+                                                                allowFreeText: true,
+                                                            },
+                                                            {
+                                                                key: 'q2_usecase',
+                                                                title: 'What do you hope to use Stardust for?',
+                                                                subtitle: 'There are no wrong answers — we want to build for you.',
+                                                                options: ['Personal notes & journaling', 'Project management', 'Research & knowledge base', 'Creative brainstorming', 'Team collaboration'],
+                                                                allowFreeText: true,
+                                                            },
+                                                            {
+                                                                key: 'q3_frustration',
+                                                                title: 'What frustrated you about other note tools?',
+                                                                subtitle: 'Your pain is our compass.',
+                                                                options: ['Too many features', 'Too few features', 'Notes pile up and go stale', 'Hard to find things', 'Ugly or boring design'],
+                                                                allowFreeText: true,
+                                                            },
+                                                            {
+                                                                key: 'q4_aspiration',
+                                                                title: 'What would make Stardust feel truly yours?',
+                                                                subtitle: 'Dream big — we\'re listening.',
+                                                                options: ['AI that organizes for me', 'Beautiful visual design', 'Works offline perfectly', 'Connects ideas automatically', 'Stays out of my way'],
+                                                                allowFreeText: true,
+                                                            },
+                                                        ]);
+                                                        window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'Reset to default questions', type: 'info' } }));
+                                                    }
+                                                }}
+                                                className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-wider text-white/60 hover:text-white transition-colors"
+                                            >
+                                                Reset Defaults
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-6 divide-y divide-white/5">
+                                            {feedbackQuestions.map((q, idx) => (
+                                                <div key={q.key} className={clsx("space-y-4", idx > 0 && "pt-6")}>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-[10px] font-bold text-indigo-400">QUESTION {idx + 1} ({q.key})</span>
+                                                        <label className="flex items-center gap-2 cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={q.allowFreeText}
+                                                                onChange={(e) => {
+                                                                    const updated = feedbackQuestions.map(item => 
+                                                                        item.key === q.key ? { ...item, allowFreeText: e.target.checked } : item
+                                                                    );
+                                                                    setFeedbackQuestions(updated);
+                                                                }}
+                                                                className="rounded border-white/10 bg-black/40 text-indigo-500 focus:ring-0 focus:ring-offset-0"
+                                                            />
+                                                            <span className="text-[9px] uppercase tracking-wider text-white/50 select-none">Allow custom text</span>
+                                                        </label>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div className="space-y-1.5">
+                                                            <label className="text-[9px] uppercase tracking-wider text-white/30">Title</label>
+                                                            <input
+                                                                type="text"
+                                                                value={q.title}
+                                                                onChange={(e) => {
+                                                                    const updated = feedbackQuestions.map(item => 
+                                                                        item.key === q.key ? { ...item, title: e.target.value } : item
+                                                                    );
+                                                                    setFeedbackQuestions(updated);
+                                                                }}
+                                                                className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500/50"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1.5">
+                                                            <label className="text-[9px] uppercase tracking-wider text-white/30">Subtitle</label>
+                                                            <input
+                                                                type="text"
+                                                                value={q.subtitle}
+                                                                onChange={(e) => {
+                                                                    const updated = feedbackQuestions.map(item => 
+                                                                        item.key === q.key ? { ...item, subtitle: e.target.value } : item
+                                                                    );
+                                                                    setFeedbackQuestions(updated);
+                                                                }}
+                                                                className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500/50"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-[9px] uppercase tracking-wider text-white/30">Options (comma-separated)</label>
+                                                        <input
+                                                            type="text"
+                                                            value={q.options.join(', ')}
+                                                            onChange={(e) => {
+                                                                const opts = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                                                                const updated = feedbackQuestions.map(item => 
+                                                                    item.key === q.key ? { ...item, options: opts } : item
+                                                                );
+                                                                setFeedbackQuestions(updated);
+                                                            }}
+                                                            className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500/50"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     </section>
                                 </div>

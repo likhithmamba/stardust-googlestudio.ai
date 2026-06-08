@@ -32,7 +32,11 @@ export const CanvasInputHandler: React.FC = () => {
                 target.closest('[data-note-id]') ||
                 target.closest('.handle-base') ||
                 target.closest('button') ||
-                target.closest('input')
+                target.closest('input') ||
+                target.closest('.editor-overlay-container') ||
+                target.closest('.editor-overlay-wrapper') ||
+                target.closest('.settings-panel') ||
+                target.closest('.app-shell-container')
             ) return;
 
             // Check mode for special behaviors

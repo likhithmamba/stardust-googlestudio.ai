@@ -36,6 +36,17 @@ export interface SettingsState {
     // Toolbar Settings
     toolbarMode: 'fixed' | 'auto-hide' | 'collapsed';
 
+    feedbackEmail: string;
+    feedbackQuestions: {
+        key: string;
+        title: string;
+        subtitle: string;
+        options: string[];
+        allowFreeText: boolean;
+    }[];
+    setFeedbackEmail: (email: string) => void;
+    setFeedbackQuestions: (questions: any[]) => void;
+
     setToggle: (key: string, val: boolean | string) => void;
 }
 
@@ -45,7 +56,9 @@ async function autoLayoutForMode(targetMode: ViewMode) {
     const viewStore = useStore.getState();
     const allNotes = viewStore.notes;
     const activeConstellation = viewStore.activeConstellation;
-    const modeNotes = allNotes.filter(n => noteVisibleInMode(n, targetMode, activeConstellation));
+    const modeNotes = targetMode === 'archive'
+        ? viewStore.graveyard
+        : allNotes.filter(n => noteVisibleInMode(n, targetMode, activeConstellation));
     if (modeNotes.length === 0) return;
 
     const W = window.innerWidth;
@@ -196,6 +209,40 @@ export const useSettingsStore = create<SettingsState>()(
             transitionPhase: 'stable',
             freePositions: new Map(),
             layoutVersion: 1,
+
+            feedbackEmail: 'feedback@stardust.space',
+            feedbackQuestions: [
+                {
+                    key: 'q1_source',
+                    title: 'How did you find Stardust?',
+                    subtitle: 'Help us understand where our cosmic travellers come from.',
+                    options: ['Search engine', 'Social media', 'Friend / colleague', 'Blog / article', 'App store'],
+                    allowFreeText: true,
+                },
+                {
+                    key: 'q2_usecase',
+                    title: 'What do you hope to use Stardust for?',
+                    subtitle: 'There are no wrong answers — we want to build for you.',
+                    options: ['Personal notes & journaling', 'Project management', 'Research & knowledge base', 'Creative brainstorming', 'Team collaboration'],
+                    allowFreeText: true,
+                },
+                {
+                    key: 'q3_frustration',
+                    title: 'What frustrated you about other note tools?',
+                    subtitle: 'Your pain is our compass.',
+                    options: ['Too many features', 'Too few features', 'Notes pile up and go stale', 'Hard to find things', 'Ugly or boring design'],
+                    allowFreeText: true,
+                },
+                {
+                    key: 'q4_aspiration',
+                    title: 'What would make Stardust feel truly yours?',
+                    subtitle: 'Dream big — we\'re listening.',
+                    options: ['AI that organizes for me', 'Beautiful visual design', 'Works offline perfectly', 'Connects ideas automatically', 'Stays out of my way'],
+                    allowFreeText: true,
+                },
+            ],
+            setFeedbackEmail: (email) => set({ feedbackEmail: email }),
+            setFeedbackQuestions: (qs) => set({ feedbackQuestions: qs }),
             setViewMode: (v) => {
                 const state = get()
                 const currentMode = state.viewMode;

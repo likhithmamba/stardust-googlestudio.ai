@@ -6,7 +6,8 @@ import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const MiniMap: React.FC = () => {
-    const notes = useStore((state) => state.notes);
+    const storeNotes = useStore((state) => state.notes);
+    const graveyard = useStore((state) => state.graveyard || []);
     const viewport = useStore((state) => state.viewport);
     const setViewport = useStore((state) => state.setViewport);
     const showMinimap = useStore((state) => state.showMinimap);
@@ -15,6 +16,9 @@ export const MiniMap: React.FC = () => {
     // Theme Integration
     const designSystem = useSettingsStore((state) => state.designSystem);
     const isSolar = designSystem === 'solar';
+    const viewMode = useSettingsStore((state) => state.viewMode);
+
+    const notes = viewMode === 'archive' ? graveyard : storeNotes;
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isHovered, setIsHovered] = useState(false);

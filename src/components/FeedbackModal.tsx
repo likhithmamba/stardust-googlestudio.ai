@@ -1,13 +1,8 @@
-/**
- * STARDUST — First-Launch Feedback Modal
- * One-time, aesthetically-integrated feedback capture.
- * 4 questions, dark overlay, orbital progress dots.
- * All data stored in IndexedDB. No PII. No transmission without consent.
- */
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { sanitizePlainText } from '../utils/sanitize';
 import { initDB } from '../db/idb';
+import { useSettingsStore } from '../ui/settings/settingsStore';
 
 interface FeedbackEntry {
     id: string;
@@ -19,37 +14,6 @@ interface FeedbackEntry {
     q4_aspiration: string;
     appVersion: string;
 }
-
-const QUESTIONS = [
-    {
-        key: 'q1_source',
-        title: 'How did you find Stardust?',
-        subtitle: 'Help us understand where our cosmic travellers come from.',
-        options: ['Search engine', 'Social media', 'Friend / colleague', 'Blog / article', 'App store'],
-        allowFreeText: true,
-    },
-    {
-        key: 'q2_usecase',
-        title: 'What do you hope to use Stardust for?',
-        subtitle: 'There are no wrong answers — we want to build for you.',
-        options: ['Personal notes & journaling', 'Project management', 'Research & knowledge base', 'Creative brainstorming', 'Team collaboration'],
-        allowFreeText: true,
-    },
-    {
-        key: 'q3_frustration',
-        title: 'What frustrated you about other note tools?',
-        subtitle: 'Your pain is our compass.',
-        options: ['Too many features', 'Too few features', 'Notes pile up and go stale', 'Hard to find things', 'Ugly or boring design'],
-        allowFreeText: true,
-    },
-    {
-        key: 'q4_aspiration',
-        title: 'What would make Stardust feel truly yours?',
-        subtitle: 'Dream big — we\'re listening.',
-        options: ['AI that organizes for me', 'Beautiful visual design', 'Works offline perfectly', 'Connects ideas automatically', 'Stays out of my way'],
-        allowFreeText: true,
-    },
-];
 
 async function saveFeedback(entry: Partial<FeedbackEntry>): Promise<void> {
     try {
@@ -80,12 +44,15 @@ interface FeedbackModalProps {
 }
 
 export const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
+    const feedbackQuestions = useSettingsStore((state) => state.feedbackQuestions);
+    const feedbackEmail = useSettingsStore((state) => state.feedbackEmail);
+
     const [step, setStep] = useState(0);
     const [answers, setAnswers] = useState<Record<string, string>>({});
     const [freeText, setFreeText] = useState('');
     const [showFinal, setShowFinal] = useState(false);
 
-    const currentQ = QUESTIONS[step];
+    const currentQ = feedbackQuestions[step];
 
     const handleSelect = useCallback((value: string) => {
         const key = currentQ.key;
@@ -97,7 +64,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
         // Progressive save
         saveFeedback(newAnswers);
 
-        if (step < QUESTIONS.length - 1) {
+        if (step < feedbackQuestions.length - 1) {
             setStep(step + 1);
         } else {
             // All done
@@ -111,9 +78,8 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
             window.dispatchEvent(new CustomEvent('stardust:toast', {
                 detail: { message: 'Thank you for your feedback! It has been securely saved locally.', type: 'success' }
             }));
-            setTimeout(() => onClose(), 2000);
         }
-    }, [currentQ, answers, step, onClose]);
+    }, [currentQ, answers, step, feedbackQuestions, onClose]);
 
     const handleSkip = useCallback(() => {
         saveFeedback({ skipped: true, completedAt: null });
@@ -129,6 +95,29 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
         }
     }, [freeText, handleSelect]);
 
+    const handleSendEmail = () => {
+        const emailBody = feedbackQuestions.map((q, i) => {
+            const answer = answers[q.key] || 'No answer';
+            return `Q${i + 1}: ${q.title}\nAnswer: ${answer}\n`;
+        }).join('\n') + `\nApp Version: 2.5\nPlatform: Local Browser`;
+
+        const mailtoUrl = `mailto:${encodeURIComponent(feedbackEmail)}?subject=${encodeURIComponent('Stardust Application Feedback')}&body=${encodeURIComponent(emailBody)}`;
+        window.open(mailtoUrl, '_blank');
+    };
+
+    const handleCopyToClipboard = () => {
+        const emailBody = feedbackQuestions.map((q, i) => {
+            const answer = answers[q.key] || 'No answer';
+            return `Q${i + 1}: ${q.title}\nAnswer: ${answer}`;
+        }).join('\n\n') + `\n\nApp Version: 2.5\nPlatform: Local Browser`;
+
+        navigator.clipboard.writeText(emailBody).then(() => {
+            window.dispatchEvent(new CustomEvent('stardust:toast', {
+                detail: { message: 'Feedback copied to clipboard!', type: 'success' }
+            }));
+        });
+    };
+
     if (showFinal) {
         return (
             <motion.div
@@ -139,14 +128,47 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
                 exit={{ opacity: 0 }}
             >
                 <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="text-center"
+                    initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    className="w-full max-w-lg mx-4 rounded-3xl border border-white/10 p-8 text-center flex flex-col gap-6"
+                    style={{ backgroundColor: 'rgba(15,15,25,0.95)' }}
                 >
-                    <div className="text-3xl mb-4">✨</div>
-                    <p className="text-white/80 text-lg font-light tracking-wide">
-                        Your constellation is forming.
-                    </p>
+                    <div>
+                        <div className="text-3xl mb-3">✨</div>
+                        <h2 className="text-white text-xl font-bold tracking-tight">Your Feedback is Formed</h2>
+                        <p className="text-white/40 text-xs mt-1">Send these details directly to your development lead or copy them locally.</p>
+                    </div>
+
+                    <div className="text-left bg-black/40 border border-white/5 p-5 rounded-2xl max-h-56 overflow-y-auto text-xs space-y-3 custom-scrollbar">
+                        {feedbackQuestions.map((q, i) => (
+                            <div key={q.key} className="space-y-1">
+                                <span className="block font-bold text-white/50 uppercase tracking-widest text-[9px]">Q{i + 1}: {q.title}</span>
+                                <span className="block text-indigo-200">{answers[q.key] || 'No answer provided'}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <button
+                            onClick={handleSendEmail}
+                            className="flex-1 py-3 px-4 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-xs uppercase tracking-wider transition-colors shadow-[0_0_20px_rgba(99,102,241,0.3)]"
+                        >
+                            📧 Send via Email Client
+                        </button>
+                        <button
+                            onClick={handleCopyToClipboard}
+                            className="flex-1 py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold uppercase tracking-wider transition-colors"
+                        >
+                            📋 Copy to Clipboard
+                        </button>
+                    </div>
+
+                    <button
+                        onClick={onClose}
+                        className="py-3 w-full rounded-xl bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider transition-colors"
+                    >
+                        Return to Cosmos
+                    </button>
                 </motion.div>
             </motion.div>
         );
@@ -169,7 +191,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
             >
                 {/* Progress dots */}
                 <div className="flex justify-center gap-3 mb-8">
-                    {QUESTIONS.map((_, i) => (
+                    {feedbackQuestions.map((_, i) => (
                         <div
                             key={i}
                             className={`w-2.5 h-2.5 rounded-full transition-all duration-500 ${

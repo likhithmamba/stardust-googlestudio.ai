@@ -69,7 +69,11 @@ export const SearchTeleport: React.FC = () => {
         const targetX = -note.x * zoom + window.innerWidth / 2 - (noteSize * zoom) / 2;
         const targetY = -note.y * zoom + window.innerHeight / 2 - (noteSize * zoom) / 2;
         // Animate viewport smoothly
+        useStore.setState({ isViewportAnimating: true });
         setViewport({ x: targetX, y: targetY, zoom });
+        setTimeout(() => {
+            useStore.setState({ isViewportAnimating: false });
+        }, 400);
         setSelectedId(note.id);
         setSearchOpen(false);
     };
