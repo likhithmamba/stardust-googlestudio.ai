@@ -17,7 +17,7 @@ export const HelpOverlay: React.FC<HelpOverlayProps> = ({ isOpen, onClose }) => 
         <AnimatePresence>
             {isOpen && (
                 <motion.div
-                    className="fixed inset-0 z-[9999] flex items-center justify-center"
+                    className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-auto"
                     style={{ backgroundColor: 'rgba(7,7,13,0.88)', backdropFilter: 'blur(12px)' }}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -114,10 +114,35 @@ export const HelpOverlay: React.FC<HelpOverlayProps> = ({ isOpen, onClose }) => 
                             <h2 className="text-white/60 text-xs font-bold tracking-[0.2em] uppercase mb-3 mt-8">
                                 Decay & Archive
                             </h2>
-                            <div className="rounded-xl border border-white/8 p-4 text-xs text-white/50 leading-relaxed" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                            <div className="rounded-xl border border-white/8 p-4 text-xs text-white/50 leading-relaxed animate-fade-in" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
                                 <p className="mb-2">Notes naturally fade over time if you don't interact with them. This is intentional — it surfaces what matters and lets the rest drift away.</p>
                                 <p className="mb-2"><strong className="text-white/70">Fresh (0–1 day):</strong> Full brightness. <strong className="text-white/70">Fading (3–7 days):</strong> Slightly dim. <strong className="text-white/70">Ghost (14–30 days):</strong> Very faint, "Archive me?" badge appears.</p>
                                 <p><strong className="text-white/70">To revive:</strong> Just open or edit the note. <strong className="text-white/70">To archive:</strong> Drag to the BlackHole or right-click → Archive. Archived notes are recoverable from the Archive panel (press <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">A</kbd>).</p>
+                            </div>
+
+                            {/* Settings & Configurations */}
+                            <h2 className="text-white/60 text-xs font-bold tracking-[0.2em] uppercase mb-3 mt-8">
+                                Settings & Database Options
+                            </h2>
+                            <div className="rounded-xl border border-white/8 p-4 text-xs text-white/50 leading-relaxed space-y-3" style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                                <p>Open the settings panel using <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono">Ctrl+,</kbd> to customize your experience:</p>
+                                <div>
+                                    <strong className="text-white/70">🎨 Design System:</strong> Toggle between <span className="text-indigo-300 font-semibold">Solar Theme</span> (sleek light mode) and <span className="text-indigo-300 font-semibold">Zero-Point Theme</span> (high-contrast space dark mode).
+                                </div>
+                                <div>
+                                    <strong className="text-white/70">🚀 Control Modes:</strong> Shift from <span className="text-indigo-300 font-semibold">Standard</span> to <span className="text-indigo-300 font-semibold">Pro</span> or <span className="text-indigo-300 font-semibold">Ultra</span> modes to unlock advanced canvas velocity, particle counts, and rendering alignments.
+                                </div>
+                                <div>
+                                    <strong className="text-white/70">⏳ Fading (Decay):</strong> Toggle decay on/off, adjust grace period in hours, or use <strong className="text-indigo-300 font-semibold">⚡ Simulate Fading Step</strong> to force-decay notes by 15% luminance instantly for testing.
+                                </div>
+                                <div>
+                                    <strong className="text-white/70">💾 Database Operations:</strong>
+                                    <ul className="list-disc pl-5 mt-1 space-y-1">
+                                        <li><strong className="text-white/70">Export Universe (.stardust):</strong> Complete backup JSON of all notes and connection lines.</li>
+                                        <li><strong className="text-white/70">Export Snapshot (.png):</strong> Save a high-resolution PNG image of the current canvas viewport.</li>
+                                        <li><strong className="text-white/70">Export Markdown (.zip):</strong> Extract all thoughts as clean plain-text markdown files zipped for Obsidian/Notion.</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </motion.div>

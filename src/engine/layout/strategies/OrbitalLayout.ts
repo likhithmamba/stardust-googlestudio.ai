@@ -35,11 +35,12 @@ export class OrbitalLayout implements LayoutStrategy {
         // Calculate gravity scores for all notes
         this.updateGravityScores(notes);
 
-        // Group notes by gravity zone
-        const zones: Record<string, EngineNote[]> = {
-            core: [],
-            active: [],
-            periphery: []
+        // Group notes by priority rings
+        const zones: Record<'critical' | 'high' | 'medium' | 'low', EngineNote[]> = {
+            critical: [],
+            high: [],
+            medium: [],
+            low: []
         };
 
         notes.forEach(n => {
@@ -49,16 +50,26 @@ export class OrbitalLayout implements LayoutStrategy {
                 return;
             }
 
-            const score = this.gravityScores.get(n.id);
-            const zone = score?.zone || 'periphery';
-            zones[zone].push(n);
+            let p = n.priority;
+            if (!p) {
+                // Fallback to computed gravity score
+                const score = this.gravityScores.get(n.id)?.score || 0;
+                if (score >= 10) p = 'critical';
+                else if (score >= 6) p = 'high';
+                else if (score >= 2) p = 'medium';
+                else p = 'low';
+            }
+
+            if (!zones[p]) p = 'medium';
+            zones[p].push(n);
         });
 
         // Define radii for each zone based on screen size
         const radii = {
-            core: Math.max(baseSize * RADII_PCT.critical, MIN_RADII.critical),
-            active: Math.max(baseSize * RADII_PCT.medium, MIN_RADII.medium),
-            periphery: Math.max(baseSize * RADII_PCT.low, MIN_RADII.low)
+            critical: Math.max(baseSize * RADII_PCT.critical, MIN_RADII.critical),
+            high: Math.max(baseSize * RADII_PCT.high, MIN_RADII.high),
+            medium: Math.max(baseSize * RADII_PCT.medium, MIN_RADII.medium),
+            low: Math.max(baseSize * RADII_PCT.low, MIN_RADII.low)
         };
 
         // Place notes in concentric rings with rotation
@@ -70,9 +81,15 @@ export class OrbitalLayout implements LayoutStrategy {
 
             const angleStep = (2 * Math.PI) / count;
             // Offset each ring slightly for visual separation
-            const ringOffset = zone === 'core' ? 0 : zone === 'active' ? Math.PI / 6 : Math.PI / 3;
+            const ringOffset = zone === 'critical' ? 0 
+                             : zone === 'high' ? Math.PI / 6 
+                             : zone === 'medium' ? Math.PI / 3 
+                             : Math.PI / 2;
 
-            const speedMultiplier = zone === 'core' ? 1.5 : zone === 'active' ? 0.8 : 0.3;
+            const speedMultiplier = zone === 'critical' ? 1.5 
+                                  : zone === 'high' ? 1.0 
+                                  : zone === 'medium' ? 0.6 
+                                  : 0.25;
 
             zoneNotes.forEach((note, i) => {
                 const angle = i * angleStep + (this.rotationOffset * speedMultiplier) + ringOffset;

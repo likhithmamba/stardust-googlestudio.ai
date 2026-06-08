@@ -401,6 +401,15 @@ export const AppShell: React.FC = () => {
                         <span className="material-symbols-outlined text-[18px]">help</span>
                     </button>
 
+                    {/* Feedback */}
+                    <button
+                        onClick={() => setFeedbackOpen(true)}
+                        className={clsx('w-8 h-8 rounded-full flex items-center justify-center transition-all', p.textMute, p.hover)}
+                        title="Share Feedback"
+                    >
+                        <span className="material-symbols-outlined text-[18px]">rate_review</span>
+                    </button>
+
                     {/* Settings */}
                     <button
                         onClick={() => setSettingsOpen(!isSettingsOpen)}

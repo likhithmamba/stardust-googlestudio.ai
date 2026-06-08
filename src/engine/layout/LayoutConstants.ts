@@ -3,17 +3,17 @@ export type Vector2 = { x: number; y: number };
 export const ORBITAL_CONFIG = {
     // Percentage of screen half-size (minDimension / 2)
     RADII_PCT: {
-        critical: 0.4,
-        high: 0.65,
-        medium: 0.9,
-        low: 1.15
+        critical: 0.5,
+        high: 0.8,
+        medium: 1.1,
+        low: 1.4
     },
     // Minimum absolute pixels to avoid cramping
     MIN_RADII: {
-        critical: 200,
-        high: 350,
-        medium: 500,
-        low: 650
+        critical: 280,
+        high: 480,
+        medium: 680,
+        low: 880
     },
     DEFAULT_PRIORITY: 'default'
 } as const;

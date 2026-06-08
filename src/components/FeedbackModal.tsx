@@ -108,12 +108,18 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
                 appVersion: '2.5',
             });
             setShowFinal(true);
+            window.dispatchEvent(new CustomEvent('stardust:toast', {
+                detail: { message: 'Thank you for your feedback! It has been securely saved locally.', type: 'success' }
+            }));
             setTimeout(() => onClose(), 2000);
         }
     }, [currentQ, answers, step, onClose]);
 
     const handleSkip = useCallback(() => {
         saveFeedback({ skipped: true, completedAt: null });
+        window.dispatchEvent(new CustomEvent('stardust:toast', {
+            detail: { message: 'Feedback skipped. You can reopen it anytime from settings.', type: 'info' }
+        }));
         onClose();
     }, [onClose]);
 
@@ -126,7 +132,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
     if (showFinal) {
         return (
             <motion.div
-                className="fixed inset-0 z-[10000] flex items-center justify-center"
+                className="fixed inset-0 z-[10000] flex items-center justify-center pointer-events-auto"
                 style={{ backgroundColor: 'rgba(7,7,13,0.92)', backdropFilter: 'blur(8px)' }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -148,7 +154,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
 
     return (
         <motion.div
-            className="fixed inset-0 z-[10000] flex items-center justify-center"
+            className="fixed inset-0 z-[10000] flex items-center justify-center pointer-events-auto"
             style={{ backgroundColor: 'rgba(7,7,13,0.92)', backdropFilter: 'blur(8px)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

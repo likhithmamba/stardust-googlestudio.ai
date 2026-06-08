@@ -12,6 +12,7 @@ import { PlanetNote } from './PlanetNote';
 import { ConnectionLayer } from './ConnectionLayer';
 import { BlackHole } from './BlackHole';
 import { NOTE_STYLES, NoteType, REAL_SIZES, ALLOWED_TYPES_PER_MODE } from '../constants';
+import { ORBITAL_CONFIG, PRISM_CONFIG } from '../engine/layout/LayoutConstants';
 import { HierarchyOverlay } from '../features/hierarchy/HierarchyOverlay';
 import { LinksOverlay } from '../features/links/LinksOverlay';
 import { SearchTeleport } from './SearchTeleport';
@@ -143,8 +144,68 @@ export const CanvasViewport: React.FC = () => {
             let spawnX = overrideX !== undefined ? overrideX : menu?.worldX || 0;
             let spawnY = overrideY !== undefined ? overrideY : menu?.worldY || 0;
             let initialTags: string[] = [];
+            const modeDefaults = defaultNotePropsForMode(viewMode);
 
-            if (viewMode !== 'free' && viewMode !== 'void') {
+            if (viewMode === 'matrix') {
+                const quadrantWidth = window.innerWidth * 0.35;
+                const quadrantHeight = window.innerHeight * 0.35;
+                let urgency: 'urgent' | 'not-urgent' = 'not-urgent';
+                let importance: 'important' | 'not-important' = 'important';
+                let px = 0, py = 0;
+
+                if (type === NoteType.Sun || type === NoteType.BlackHole) {
+                    urgency = 'urgent';
+                    importance = 'important';
+                    px = -quadrantWidth / 2;
+                    py = -quadrantHeight / 2;
+                } else if (type === NoteType.Galaxy || type === NoteType.Nebula) {
+                    urgency = 'not-urgent';
+                    importance = 'important';
+                    px = quadrantWidth / 2;
+                    py = -quadrantHeight / 2;
+                } else if (type === NoteType.Earth || type === NoteType.Moon || type === NoteType.Jupiter || type === NoteType.Saturn) {
+                    urgency = 'urgent';
+                    importance = 'not-important';
+                    px = -quadrantWidth / 2;
+                    py = quadrantHeight / 2;
+                } else {
+                    urgency = 'not-urgent';
+                    importance = 'not-important';
+                    px = quadrantWidth / 2;
+                    py = quadrantHeight / 2;
+                }
+                spawnX = layoutOrigin.x + px;
+                spawnY = layoutOrigin.y + py;
+                modeDefaults.urgency = urgency;
+                modeDefaults.importance = importance;
+                modeDefaults.priority = (urgency === 'urgent' && importance === 'important') ? 'critical' : (importance === 'important' ? 'high' : 'low');
+                initialTags = (urgency === 'urgent' && importance === 'important') ? ['crisis', 'solar-core'] 
+                            : (importance === 'important' ? ['deep-work', 'nebula'] 
+                            : (urgency === 'urgent' ? ['starlight'] : ['void-dump']));
+            } else if (viewMode === 'orbital') {
+                const baseSize = Math.min(window.innerWidth, window.innerHeight) / 2;
+                const { RADII_PCT, MIN_RADII } = ORBITAL_CONFIG;
+                const rCritical = Math.max(MIN_RADII.critical, baseSize * RADII_PCT.critical);
+                
+                const dx = spawnX - layoutOrigin.x;
+                const dy = spawnY - layoutOrigin.y;
+                const angle = Math.atan2(dy, dx);
+                
+                spawnX = layoutOrigin.x + rCritical * Math.cos(angle);
+                spawnY = layoutOrigin.y + rCritical * Math.sin(angle);
+                modeDefaults.priority = 'critical';
+            } else if (viewMode === 'prism') {
+                const { COL_WIDTH, GAP } = PRISM_CONFIG;
+                const totalWidth = (4 * COL_WIDTH) + (3 * GAP);
+                const startX = layoutOrigin.x - (totalWidth / 2) + (COL_WIDTH / 2);
+                
+                const isRightHalf = spawnX > layoutOrigin.x;
+                const status = isRightHalf ? 'done' : 'todo';
+                const colIndex = isRightHalf ? 3 : 0;
+                
+                spawnX = startX + colIndex * (COL_WIDTH + GAP);
+                modeDefaults.status = status;
+            } else if (viewMode !== 'free' && viewMode !== 'void') {
                 const constraint = ViewConstraints.applyConstraints(
                     viewMode || 'free',
                     spawnX,
@@ -161,7 +222,6 @@ export const CanvasViewport: React.FC = () => {
                 }
             }
 
-            const modeDefaults = defaultNotePropsForMode(viewMode);
             addNote({
                 id: Math.random().toString(36).substr(2, 9),
                 x: spawnX,

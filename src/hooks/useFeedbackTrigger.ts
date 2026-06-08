@@ -22,13 +22,14 @@ export function useFeedbackTrigger(onOpen: () => void) {
             timerRef.current = setTimeout(async () => {
                 const status = await getFeedbackStatus();
                 if (status === 'pending') {
-                    // Check if editor is not open (no contenteditable focused)
+                    // Check if editor is not open (no contenteditable focused, and isCosmosOpen is false)
                     const editorOpen = document.querySelector('[contenteditable="true"]:focus');
-                    if (!editorOpen) {
+                    const isCosmosOpen = useStore.getState().isCosmosOpen;
+                    if (!editorOpen && !isCosmosOpen) {
                         onOpen();
                     }
                 }
-            }, 30_000);
+            }, 60_000);
         }
         prevCountRef.current = noteCount;
 

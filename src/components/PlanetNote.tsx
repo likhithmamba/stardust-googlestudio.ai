@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { useGesture } from '@use-gesture/react';
 import { useStore, type Note } from '../store/useStore';
 import { NOTE_STYLES, NoteType, REAL_SIZES } from '../constants';
+import { ORBITAL_CONFIG } from '../engine/layout/LayoutConstants';
 import { ViewConstraints } from '../systems/ViewConstraints';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -210,12 +211,13 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                     const dy = newY - layoutOrigin.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
                     const baseSize = Math.min(window.innerWidth, window.innerHeight) / 2;
+                    const { RADII_PCT, MIN_RADII } = ORBITAL_CONFIG;
                     const rings = [
-                        { r: Math.max(80, baseSize * 0.15), p: 'critical' },
-                        { r: Math.max(200, baseSize * 0.40), p: 'high' },
-                        { r: Math.max(300, baseSize * 0.65), p: 'medium' },
-                        { r: Math.max(400, baseSize * 0.85), p: 'low' }
-                    ];
+                        { r: Math.max(MIN_RADII.critical, baseSize * RADII_PCT.critical), p: 'critical' },
+                        { r: Math.max(MIN_RADII.high, baseSize * RADII_PCT.high), p: 'high' },
+                        { r: Math.max(MIN_RADII.medium, baseSize * RADII_PCT.medium), p: 'medium' },
+                        { r: Math.max(MIN_RADII.low, baseSize * RADII_PCT.low), p: 'low' }
+                    ] as const;
                     const closest = rings.reduce((prev, curr) =>
                         Math.abs(curr.r - dist) < Math.abs(prev.r - dist) ? curr : prev
                     );
@@ -917,6 +919,12 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                 {getDecayLevel(note) === 5 && (
                     <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-red-500/90 text-white font-mono text-[8.5px] uppercase tracking-wider px-2 py-0.5 rounded shadow-[0_0_10px_rgba(239,68,68,0.5)] whitespace-nowrap pointer-events-none z-50">
                         Archive me?
+                    </div>
+                )}
+                {/* Luminance status badge on hover */}
+                {isHovered && !['sun', 'galaxy', 'nebula', 'black-hole'].includes(note.type) && (
+                    <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 bg-black/80 border border-white/10 px-2 py-0.5 rounded text-[8.5px] font-mono text-indigo-300 pointer-events-none whitespace-nowrap z-50 shadow-md">
+                        LUMINANCE: {Math.round((note.luminance ?? 1) * 100)}%
                     </div>
                 )}
                 {lod !== 'surface' && !isMajor && (
