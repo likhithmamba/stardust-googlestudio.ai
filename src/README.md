@@ -31,19 +31,23 @@
   - **Green (Resource)**: Data, links, references
   - **Violet (Counter-Perspective)**: Adversarial challenge generation
 
-### Architecture
+### Architecture & Premium UI
 
-- **Local-First**: IndexedDB via Dexie.js for offline-capable persistence
-- **Multi-threaded**: Web Workers for physics calculations and heavy processing
-- **Reactive**: Zustand-based state management optimized for 60fps canvases
-- **Modular**: Clean separation of concerns with TypeScript interfaces
+- **Local-First**: IndexedDB via Dexie.js for offline-capable persistence.
+- **Multi-threaded**: Web Workers for physics calculations and heavy processing.
+- **Reactive**: Zustand-based state management optimized for 120fps canvases.
+- **Modular**: Clean separation of concerns with TypeScript interfaces.
+- **Premium macOS-style Dock**: Glassmorphic sidebar navigation with responsive spring-animated haptics.
+- **Spring Tooltips**: Detailed shortcuts popup (`⌘ K`, `P`, `L`, `S`) on button hover via Framer Motion.
+- **Legibility Boost**: Global contrast enhancements for low-light environments.
 
 ### Technical Highlights
 
-- Zero external dependencies for core functionality
-- Handles 5,000+ nodes with smooth performance
-- Sophisticated computational geometry algorithms
-- Graduate-level engineering rigor in implementation
+- Zero external dependencies for core functionality.
+- Handles 5,000+ nodes with smooth physics calculations.
+- Code-split asset bundle for fast initial page load (Framework, Animation, Vendor).
+- Sophisticated computational geometry algorithms.
+- Graduate-level engineering rigor in implementation.
 
 ### Getting Started
 

@@ -1,16 +1,16 @@
-# Graph Report - stardust files  (2026-05-31)
+# Graph Report - stardust files  (2026-06-09)
 
 ## Corpus Check
-- 143 files · ~404,971 words
+- 136 files · ~418,513 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 778 nodes · 1335 edges · 80 communities (57 shown, 23 thin omitted)
+- 841 nodes · 1476 edges · 81 communities (58 shown, 23 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `de1b53e4`
+- Built from commit: `4537adad`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -48,7 +48,8 @@
 - [[_COMMUNITY_Community 30|Community 30]]
 - [[_COMMUNITY_Community 31|Community 31]]
 - [[_COMMUNITY_Community 32|Community 32]]
-- [[_COMMUNITY_Community 33|Community 33]]
+- [[_COMMUNITY_Community 34|Community 34]]
+- [[_COMMUNITY_Community 35|Community 35]]
 - [[_COMMUNITY_Community 36|Community 36]]
 - [[_COMMUNITY_Community 37|Community 37]]
 - [[_COMMUNITY_Community 38|Community 38]]
@@ -56,18 +57,18 @@
 - [[_COMMUNITY_Community 40|Community 40]]
 - [[_COMMUNITY_Community 41|Community 41]]
 - [[_COMMUNITY_Community 42|Community 42]]
-- [[_COMMUNITY_Community 43|Community 43]]
 - [[_COMMUNITY_Community 44|Community 44]]
 - [[_COMMUNITY_Community 45|Community 45]]
 - [[_COMMUNITY_Community 46|Community 46]]
 - [[_COMMUNITY_Community 47|Community 47]]
 - [[_COMMUNITY_Community 48|Community 48]]
+- [[_COMMUNITY_Community 49|Community 49]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `useSettingsStore` - 52 edges
-2. `useStore` - 45 edges
-3. `WorkerBridge` - 22 edges
-4. `NoteType` - 16 edges
+1. `useSettingsStore` - 56 edges
+2. `useStore` - 52 edges
+3. `WorkerBridge` - 24 edges
+4. `NoteType` - 17 edges
 5. `SoundManager` - 16 edges
 6. `World` - 12 edges
 7. `VisualRegistry` - 12 edges
@@ -80,14 +81,14 @@
   src/ui/spherical-chooser/SphericalChooser.tsx → src/ui/settings/settingsStore.ts
 - `DashboardOverlay()` --calls--> `useSettingsStore`  [EXTRACTED]
   src/components/DashboardOverlay.tsx → src/ui/settings/settingsStore.ts
+- `saveFeedback()` --calls--> `initDB()`  [EXTRACTED]
+  src/components/FeedbackModal.tsx → src/db/idb.ts
+- `FeedbackModal()` --calls--> `useSettingsStore`  [EXTRACTED]
+  src/components/FeedbackModal.tsx → src/ui/settings/settingsStore.ts
 - `PlanetNoteComponent()` --calls--> `useStore`  [EXTRACTED]
   src/components/PlanetNote.tsx → src/store/useStore.ts
-- `PlanetNoteComponent()` --calls--> `useSettingsStore`  [EXTRACTED]
-  src/components/PlanetNote.tsx → src/ui/settings/settingsStore.ts
-- `StardustOverlay()` --calls--> `useSettingsStore`  [EXTRACTED]
-  src/components/StardustOverlay.tsx → src/ui/settings/settingsStore.ts
 
-## Communities (80 total, 23 thin omitted)
+## Communities (81 total, 23 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.05
@@ -95,63 +96,67 @@ Nodes (80): applyGhostLayer(), classifyEisenhower(), classifyMoSCoW(), classifyS
 
 ### Community 1 - "Community 1"
 Cohesion: 0.06
-Nodes (49): CanvasInputHandler(), ArchiveChrome(), MatrixChrome(), OrbitalChrome(), PrismChrome(), TIMELINE_LANES, TimelineChrome(), VoidChrome() (+41 more)
+Nodes (51): CanvasInputHandler(), ArchiveChrome(), MatrixChrome(), OrbitalChrome(), PrismChrome(), TIMELINE_LANES, TimelineChrome(), VoidChrome() (+43 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.05
-Nodes (30): SettingsTab, computeDecay(), DECAY_CONFIG, decayTick(), isDecayEngineRunning(), startDecayEngine(), stopDecayEngine(), touchNote() (+22 more)
+Nodes (40): MODE_DOCK_COLORS, MODES, PALETTE, FeedbackEntry, FeedbackModal(), FeedbackModalProps, getFeedbackStatus(), saveFeedback() (+32 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.07
-Nodes (20): AISection(), CompareSection(), CTASection(), FooterSection(), PricingSection(), WorkflowSection(), DualModeSection(), FloatingDebris() (+12 more)
+Cohesion: 0.06
+Nodes (24): AISection(), CompareSection(), CTASection(), FooterSection(), PricingSection(), WorkflowSection(), DualModeSection(), FloatingDebris() (+16 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.07
 Nodes (11): bulkUpsertLinks(), bulkUpsertNotes(), db, exportAllData(), getAllLinks(), getAllNotes(), getAllSettings(), importData() (+3 more)
 
 ### Community 5 - "Community 5"
+Cohesion: 0.09
+Nodes (11): ClusterSchema, GravityScoreSchema, LayoutResultSchema, MatrixCoordinateSchema, PhysicsResultSchema, resultValidators, validateWorkerResponse(), Vector2Schema (+3 more)
+
+### Community 6 - "Community 6"
+Cohesion: 0.1
+Nodes (23): extractPlainText(), getDecayLevel(), getNoteTextStyle(), PlanetNote, PlanetNoteComponent(), PlanetNoteProps, computeDecay(), DECAY_CONFIG (+15 more)
+
+### Community 7 - "Community 7"
+Cohesion: 0.13
+Nodes (20): LayoutVisuals(), LayoutVisualsProps, MATRIX_CONFIG, ORBITAL_CONFIG, PRISM_CONFIG, TIMELINE_CONFIG, MATRIX_CONFIG, ORBITAL_CONFIG (+12 more)
+
+### Community 8 - "Community 8"
+Cohesion: 0.1
+Nodes (8): GlobalErrorBoundary, Props, State, useKeyboardShortcuts(), ModeManager(), LandingUltimate(), App(), SoundManager
+
+### Community 9 - "Community 9"
 Cohesion: 0.07
 Nodes (27): 1. Solar Strategy (The "Day" Mode), 1. 🌀 Void Mode (Freeform), 2. 🔢 Matrix Mode (Structured Grid), 2. Zero-Point (The "Night" Mode), 3. 🌈 Prism Mode (Knowledge Graph), 4. 🪐 Orbital Mode (Priority Rings), 5. ⏳ Timeline Mode (Chronological), 🧠 AI Spark (Gemini 1.5) (+19 more)
 
-### Community 6 - "Community 6"
-Cohesion: 0.17
-Nodes (19): LayoutVisuals(), LayoutVisualsProps, MATRIX_CONFIG, ORBITAL_CONFIG, PRISM_CONFIG, TIMELINE_CONFIG, MATRIX_CONFIG, ORBITAL_CONFIG (+11 more)
-
-### Community 7 - "Community 7"
-Cohesion: 0.11
-Nodes (16): initDB(), createUISlice(), initialSettings, UISlice, defaultNotePropsForMode(), deletedConnectionIds, deletedNoteIds, DEMO_NOTES_FALLBACK (+8 more)
-
-### Community 8 - "Community 8"
+### Community 10 - "Community 10"
 Cohesion: 0.14
 Nodes (10): CreationMenuProps, HierarchyOverlayProps, LinksOverlayProps, PLANET_TYPES, SphericalChooser(), SphericalChooserProps, LOGICAL_SLOT_RADIUS, NOTE_STYLES (+2 more)
 
-### Community 10 - "Community 10"
-Cohesion: 0.11
-Nodes (17): Connection, createNoteSlice(), _debouncedSave(), deletedConnectionIds, deletedNoteIds, dirtyConnectionIds, dirtyNoteIds, _fullSave() (+9 more)
-
 ### Community 11 - "Community 11"
+Cohesion: 0.12
+Nodes (15): dirtyNoteIds, createUISlice(), initialSettings, UISlice, defaultNotePropsForMode(), deletedConnectionIds, deletedNoteIds, DEMO_NOTES_FALLBACK (+7 more)
+
+### Community 12 - "Community 12"
 Cohesion: 0.16
 Nodes (8): SmartLinkProps, connIdsToDelete, targets, LayoutManager, SingularitySystem, EngineConnection, LayoutMode, Vector2
 
-### Community 12 - "Community 12"
+### Community 13 - "Community 13"
 Cohesion: 0.14
 Nodes (15): applyAttractionForces(), applyBarnesHutForces(), applyCenterGravity(), applyRepulsionForces(), config, ctx, links, node (+7 more)
 
-### Community 13 - "Community 13"
-Cohesion: 0.17
-Nodes (6): ConnectionLayerProps, REAL_SIZES, SmartLink, Connection, Note, SpatialIndex
-
 ### Community 14 - "Community 14"
-Cohesion: 0.17
-Nodes (3): World, PHYSICS_CONFIG, PhysicsSystem
+Cohesion: 0.15
+Nodes (13): createNoteSlice(), _debouncedSave(), deletedConnectionIds, deletedNoteIds, dirtyConnectionIds, _fullSave(), NoteSlice, setDebouncedSave() (+5 more)
 
 ### Community 15 - "Community 15"
-Cohesion: 0.29
-Nodes (9): extractPlainText(), PlanetNote, PlanetNoteComponent(), PlanetNoteProps, getDecayOpacity(), getZoomLOD(), useZoomLOD(), ZoomLOD (+1 more)
+Cohesion: 0.53
+Nodes (5): Vector2, LayoutStrategy, ArchiveLayout, EngineNote, WorldConfig
 
 ### Community 16 - "Community 16"
-Cohesion: 0.69
-Nodes (4): Vector2, LayoutStrategy, EngineNote, WorldConfig
+Cohesion: 0.17
+Nodes (3): World, PHYSICS_CONFIG, PhysicsSystem
 
 ### Community 17 - "Community 17"
 Cohesion: 0.18
@@ -169,38 +174,38 @@ Nodes (9): 1. System Overview, 2. Core Architectural Components ("God Nodes"), 3
 Cohesion: 0.22
 Nodes (8): Common Components, Overview, Stardust System Heartbeat - Galactic Note Ring Overview, Structure, Usage, Variant 1: Notes Choice, Variant 2: Linking Notes, Variants
 
-### Community 25 - "Community 25"
-Cohesion: 0.29
-Nodes (3): GlobalErrorBoundary, Props, State
-
-### Community 26 - "Community 26"
+### Community 27 - "Community 27"
 Cohesion: 0.25
 Nodes (4): id, InputController, note, targetEl
 
+### Community 28 - "Community 28"
+Cohesion: 0.25
+Nodes (6): localClipboard, Connection, Note, createPersistenceSlice(), FullState, PersistenceSlice
+
 ### Community 31 - "Community 31"
 Cohesion: 0.33
-Nodes (4): NotesChoiceRingProps, ORBITS, TIER_SIZE, ALLOWED_TYPES_PER_MODE
+Nodes (5): exampleTheme, editorConfig, isLexicalJson(), RichTextEditor(), RichTextEditorProps
 
-### Community 32 - "Community 32"
-Cohesion: 0.33
-Nodes (4): exampleTheme, editorConfig, RichTextEditor(), RichTextEditorProps
+### Community 35 - "Community 35"
+Cohesion: 0.4
+Nodes (4): ConnectionLayerProps, REAL_SIZES, SmartLink, Connection
 
 ## Knowledge Gaps
-- **153 isolated node(s):** `LOGICAL_SLOT_RADIUS`, `MODES`, `MODE_DOCK_COLORS`, `PALETTE`, `BlackHoleProps` (+148 more)
+- **176 isolated node(s):** `responseToCache`, `LOGICAL_SLOT_RADIUS`, `MODES`, `MODE_DOCK_COLORS`, `PALETTE` (+171 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **23 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `NoteType` connect `Community 8` to `Community 0`, `Community 1`, `Community 35`, `Community 7`, `Community 10`, `Community 13`, `Community 15`, `Community 19`, `Community 31`?**
-  _High betweenness centrality (0.051) - this node is a cross-community bridge._
-- **Why does `ViewMode` connect `Community 8` to `Community 0`, `Community 1`, `Community 6`, `Community 7`, `Community 10`?**
-  _High betweenness centrality (0.051) - this node is a cross-community bridge._
-- **Why does `WorkerBridge` connect `Community 9` to `Community 0`?**
-  _High betweenness centrality (0.039) - this node is a cross-community bridge._
-- **What connects `LOGICAL_SLOT_RADIUS`, `MODES`, `MODE_DOCK_COLORS` to the rest of the system?**
-  _153 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Why does `WorkerBridge` connect `Community 5` to `Community 0`, `Community 1`?**
+  _High betweenness centrality (0.036) - this node is a cross-community bridge._
+- **Why does `SoundManager` connect `Community 8` to `Community 1`, `Community 2`?**
+  _High betweenness centrality (0.034) - this node is a cross-community bridge._
+- **Why does `NoteType` connect `Community 10` to `Community 0`, `Community 1`, `Community 35`, `Community 6`, `Community 11`, `Community 14`, `Community 19`, `Community 22`?**
+  _High betweenness centrality (0.032) - this node is a cross-community bridge._
+- **What connects `responseToCache`, `LOGICAL_SLOT_RADIUS`, `MODES` to the rest of the system?**
+  _176 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.05 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**

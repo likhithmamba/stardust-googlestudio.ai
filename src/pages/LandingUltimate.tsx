@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { Sparkles, Shield, Cpu, Zap, HelpCircle, ChevronDown, ChevronUp, ArrowRight, Github, Code2, PenTool, FlaskConical } from 'lucide-react';
+import { Sparkles, Shield, Cpu, Zap, HelpCircle, ChevronDown, ChevronUp, ArrowRight, Github, Code2, PenTool, FlaskConical, Check, Star } from 'lucide-react';
 
 interface LandingUltimateProps {
   onEnterApp: () => void;
@@ -480,9 +480,12 @@ export const LandingUltimate: React.FC<LandingUltimateProps> = ({ onEnterApp }) 
       {/* Grid Pattern Overlay */}
       <div className="fixed inset-0 bg-[radial-gradient(#ffffff04_1px,transparent_1px)] [background-size:32px_32px] pointer-events-none z-10" />
 
-      {/* Radiant Glow Spots */}
+      {/* Radiant Glow Spots & Drifting Space Blurs */}
       <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.06)_0%,transparent_70%)] pointer-events-none z-10" />
       <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.04)_0%,transparent_70%)] pointer-events-none z-10" />
+      <div className="fixed top-1/4 left-1/4 w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.08)_0%,transparent_70%)] blur-[90px] pointer-events-none z-10 animate-slow-blur-1" />
+      <div className="fixed top-1/2 right-1/4 w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.06)_0%,transparent_70%)] blur-[100px] pointer-events-none z-10 animate-slow-blur-2" />
+      <div className="fixed bottom-10 left-1/3 w-[350px] h-[350px] rounded-full bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.05)_0%,transparent_70%)] blur-[85px] pointer-events-none z-10 animate-slow-blur-3" />
 
       {/* Header (Top Navigation) */}
       <header className="relative z-20 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between pointer-events-none">
@@ -686,6 +689,74 @@ export const LandingUltimate: React.FC<LandingUltimateProps> = ({ onEnterApp }) 
         </div>
       </section>
 
+      {/* Section 2.5: Comparison Table */}
+      <section role="region" aria-label="Feature comparison" className="relative z-20 w-full max-w-7xl mx-auto px-6 py-20 border-t border-white/5">
+        <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[9px] font-black tracking-[0.2em] text-indigo-300 uppercase">
+            // Architecture Battlecard
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">How Stardust Outclasses Legacy Tools</h2>
+          <p className="text-sm text-white/55 font-light">
+            Compare our canvas-native orbital engine against linear text editors and static document sync layouts.
+          </p>
+        </div>
+
+        <div className="w-full overflow-x-auto rounded-3xl border border-white/10 bg-[#05050C]/60 backdrop-blur-3xl shadow-2xl">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-white/10 bg-white/[0.02] text-[10px] font-mono text-white/40 tracking-wider uppercase">
+                <th className="p-6">Capabilities</th>
+                <th className="p-6 text-indigo-300 font-bold">Stardust Ultra</th>
+                <th className="p-6">Obsidian</th>
+                <th className="p-6">Notion</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5 text-xs text-white/70 font-light">
+              <tr className="hover:bg-white/[0.01] transition-colors">
+                <td className="p-6 font-semibold text-white">Spatial Layout Engines</td>
+                <td className="p-6 text-indigo-300 font-medium flex items-center gap-2">
+                  <Check size={14} className="text-indigo-400" /> 5 Modes (Orbital/Matrix/Void/etc.)
+                </td>
+                <td className="p-6 text-white/40">Plugin Canvas Only</td>
+                <td className="p-6 text-white/40">No (Linear pages only)</td>
+              </tr>
+              <tr className="hover:bg-white/[0.01] transition-colors">
+                <td className="p-6 font-semibold text-white">N-Body Gravitational Physics</td>
+                <td className="p-6 text-indigo-300 font-medium flex items-center gap-2">
+                  <Check size={14} className="text-indigo-400" /> Active Orbits & Forces
+                </td>
+                <td className="p-6 text-white/40">No (Static Nodes)</td>
+                <td className="p-6 text-white/40">No</td>
+              </tr>
+              <tr className="hover:bg-white/[0.01] transition-colors">
+                <td className="p-6 font-semibold text-white">Note Cognitive Decay</td>
+                <td className="p-6 text-indigo-300 font-medium flex items-center gap-2">
+                  <Check size={14} className="text-indigo-400" /> Passive cleanups of stale ideas
+                </td>
+                <td className="p-6 text-white/40">No</td>
+                <td className="p-6 text-white/40">No</td>
+              </tr>
+              <tr className="hover:bg-white/[0.01] transition-colors">
+                <td className="p-6 font-semibold text-white">Data Privacy & Sovereignty</td>
+                <td className="p-6 text-indigo-300 font-medium flex items-center gap-2">
+                  <Check size={14} className="text-indigo-400" /> 100% Sandbox Local SQLite
+                </td>
+                <td className="p-6 text-white/60">Yes (Local Markdown)</td>
+                <td className="p-6 text-white/40">No (Hosted Cloud)</td>
+              </tr>
+              <tr className="hover:bg-white/[0.01] transition-colors">
+                <td className="p-6 font-semibold text-white">Rendering Speed</td>
+                <td className="p-6 text-indigo-300 font-medium flex items-center gap-2">
+                  <Check size={14} className="text-indigo-400" /> Zero Sync Latency (120 FPS)
+                </td>
+                <td className="p-6 text-white/60">High (Local Disk)</td>
+                <td className="p-6 text-white/40">Slow (Cloud Sync latency)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       {/* Section 3: Privacy & Security Trust Grid */}
       <section role="region" aria-label="Privacy and security" className="relative z-20 w-full max-w-7xl mx-auto px-6 py-20 border-t border-white/5">
         <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
@@ -737,6 +808,155 @@ export const LandingUltimate: React.FC<LandingUltimateProps> = ({ onEnterApp }) 
             <p className="text-xs text-white/40 leading-relaxed font-light">
               Import and export the entire note universe. Download standard JSON backups anytime with a single click.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 3.5: Premium Pricing Tiers */}
+      <section role="region" aria-label="Pricing tiers" className="relative z-20 w-full max-w-7xl mx-auto px-6 py-20 border-t border-white/5">
+        <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[9px] font-black tracking-[0.2em] text-indigo-300 uppercase">
+            // Value Model
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Flexible Spaces for Minds of All Sizes</h2>
+          <p className="text-sm text-white/55 font-light">
+            Start completely free offline, or upgrade for advanced spatial intelligence features.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {/* Free Tier */}
+          <div className="premium-glass-card rounded-[32px] p-8 flex flex-col justify-between min-h-[420px]">
+            <div>
+              <div className="text-[9px] font-mono tracking-widest text-white/30 uppercase mb-2">Sovereign Space</div>
+              <h3 className="text-xl font-bold tracking-tight text-white mb-4">Starter Pack</h3>
+              <div className="text-3xl font-black mb-6">$0<span className="text-xs text-white/40 font-normal"> / forever</span></div>
+              <ul className="space-y-3.5 text-xs text-white/50 font-light">
+                <li className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Unlimited Local Nodes</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> 5 Core Cognitive Modes</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> SQLite Local Persistence</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> JSON Import/Export backups</li>
+              </ul>
+            </div>
+            <button onClick={handleEnter} className="w-full mt-8 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-wider text-white transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 cursor-pointer">
+              Launch Free Sandbox
+            </button>
+          </div>
+
+          {/* Premium Tier */}
+          <div className="premium-glass-card rounded-[32px] p-8 flex flex-col justify-between min-h-[420px] relative overflow-hidden border-indigo-500/35 shadow-[0_0_40px_rgba(99,102,241,0.15)]">
+            <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[8px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-2xl">
+              Popular Choice
+            </div>
+            <div>
+              <div className="text-[9px] font-mono tracking-widest text-indigo-400 uppercase mb-2">Cosmic Mind</div>
+              <h3 className="text-xl font-bold tracking-tight text-white mb-4">Explorer Pro</h3>
+              <div className="text-3xl font-black mb-6">$8<span className="text-xs text-white/40 font-normal"> / month</span></div>
+              <ul className="space-y-3.5 text-xs text-white/70 font-light">
+                <li className="flex items-center gap-2"><Check size={14} className="text-indigo-400" /> Everything in Starter</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-indigo-400" /> Advanced Link Cohesion Graph</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-indigo-400" /> Customizable Planet Types</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-indigo-400" /> Ambient spatial soundscapes</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-indigo-400" /> Smart Note Decay custom configs</li>
+              </ul>
+            </div>
+            <button onClick={handleEnter} className="w-full mt-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 text-[10px] font-black uppercase tracking-wider text-white shadow-lg shadow-indigo-500/20 transition-all hover:scale-102 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 cursor-pointer">
+              Get Explorer Pro
+            </button>
+          </div>
+
+          {/* Enterprise Tier */}
+          <div className="premium-glass-card rounded-[32px] p-8 flex flex-col justify-between min-h-[420px]">
+            <div>
+              <div className="text-[9px] font-mono tracking-widest text-white/30 uppercase mb-2">Omnipresence</div>
+              <h3 className="text-xl font-bold tracking-tight text-white mb-4">Enterprise Singularity</h3>
+              <div className="text-3xl font-black mb-6">$19<span className="text-xs text-white/40 font-normal"> / month / user</span></div>
+              <ul className="space-y-3.5 text-xs text-white/50 font-light">
+                <li className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Peer-to-peer workspace bridging</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Local encrypted collaboration</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Custom hotkey configuration mapping</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Multi-vault offline federation</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> 24/7 Priority engineering support</li>
+              </ul>
+            </div>
+            <button onClick={handleEnter} className="w-full mt-8 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-wider text-white transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 cursor-pointer">
+              Contact Sales
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 3.7: Customer Testimonials */}
+      <section role="region" aria-label="Customer testimonials" className="relative z-20 w-full max-w-7xl mx-auto px-6 py-20 border-t border-white/5">
+        <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[9px] font-black tracking-[0.2em] text-indigo-300 uppercase">
+            // Testimonials
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-sans">Voices from the Spatial Web</h2>
+          <p className="text-sm text-white/55 font-light">
+            Discover how thinkers, developers, and researchers structure their ideas inside Stardust.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          <div className="premium-glass-card rounded-[24px] p-6 flex flex-col justify-between">
+            <div className="flex gap-1 mb-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star key={i} size={14} className="fill-amber-400 text-amber-400" aria-hidden="true" />
+              ))}
+            </div>
+            <p className="text-xs text-white/70 leading-relaxed font-light mb-6">
+              "Stardust redefined how I structure my research papers. Watching unrelated nodes drift away and decay keeps my focus razor sharp."
+            </p>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-[10px] font-bold text-indigo-300" aria-hidden="true">
+                EV
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white">Dr. Evelyn V.</h4>
+                <p className="text-[9px] text-white/40">Cognitive Researcher</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="premium-glass-card rounded-[24px] p-6 flex flex-col justify-between">
+            <div className="flex gap-1 mb-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star key={i} size={14} className="fill-amber-400 text-amber-400" aria-hidden="true" />
+              ))}
+            </div>
+            <p className="text-xs text-white/70 leading-relaxed font-light mb-6">
+              "The macOS-style taskbar and fluid layout animations make the workspace feel alive. Panning and scaling notes are smooth as silk at 120FPS."
+            </p>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-[10px] font-bold text-violet-300" aria-hidden="true">
+                LK
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white">Liam K.</h4>
+                <p className="text-[9px] text-white/40">Creative Director</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="premium-glass-card rounded-[24px] p-6 flex flex-col justify-between">
+            <div className="flex gap-1 mb-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star key={i} size={14} className="fill-amber-400 text-amber-400" aria-hidden="true" />
+              ))}
+            </div>
+            <p className="text-xs text-white/70 leading-relaxed font-light mb-6">
+              "Obsidian was too text-heavy. Stardust gives me a gravitational map of my tasks. Dragging ideas together to merge links feels incredibly tactile."
+            </p>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-[10px] font-bold text-blue-300" aria-hidden="true">
+                AS
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white">Aria S.</h4>
+                <p className="text-[9px] text-white/40">Principal Software Architect</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>

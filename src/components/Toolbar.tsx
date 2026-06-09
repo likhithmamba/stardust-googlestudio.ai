@@ -262,7 +262,7 @@ export const Toolbar: React.FC = () => {
                 <motion.div
                     layout
                     className={clsx(
-                        "ui-interactive-area flex flex-col items-center gap-1.5 px-2 py-2.5 rounded-[24px] bg-[#05050C]/75 backdrop-blur-3xl border border-white/10 shadow-[0_16px_48px_rgba(0,0,0,0.6)] hover:border-indigo-500/20 transition-all duration-300 relative",
+                        "ui-interactive-area flex flex-col items-center gap-1.5 px-2 py-2.5 rounded-[24px] bg-gradient-to-b from-[#0a0a16]/90 to-[#05050c]/95 backdrop-blur-3xl border border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8),0_0_30px_rgba(99,102,241,0.06),inset_0_1px_rgba(255,255,255,0.05)] hover:border-indigo-500/30 transition-all duration-300 relative",
                         isCollapsed && "px-2 py-2"
                     )}
                 >
@@ -278,7 +278,8 @@ export const Toolbar: React.FC = () => {
                             <Button
                                 onClick={() => setSearchOpen(true)}
                                 icon={Search}
-                                title="Search"
+                                title="Search Notes"
+                                shortcut="⌘ K"
                                 active={isSearchOpen}
                             />
 
@@ -287,18 +288,25 @@ export const Toolbar: React.FC = () => {
                             <Button
                                 onClick={() => setShowThemeMenu(!showThemeMenu)}
                                 icon={Palette}
-                                title="Appearance"
+                                title="Appearance Config"
+                                shortcut="P"
                                 active={showThemeMenu}
                             />
 
                             <Button
                                 onClick={handleAddSun}
                                 icon={Plus}
-                                title="Add Sun"
+                                title="Create Gravity Sun"
+                                shortcut="+"
                                 highlight
                             />
 
-                            <Button onClick={handleClear} icon={Trash2} title="Clear" />
+                            <Button 
+                                onClick={handleClear} 
+                                icon={Trash2} 
+                                title="Clear Canvas" 
+                                shortcut="Delete"
+                            />
 
                             <div className="w-6 h-px bg-white/5 my-1" />
 
@@ -306,7 +314,8 @@ export const Toolbar: React.FC = () => {
                                 onClick={() => setScaleMode(scaleMode === 'real' ? 'compact' : 'real')}
                                 icon={Layout}
                                 active={scaleMode === 'real'}
-                                title="Layout Mode"
+                                title={scaleMode === 'real' ? "Switch to Compact Mode" : "Switch to Real Orbits"}
+                                shortcut="L"
                             />
                         </motion.div>
                     )}
@@ -314,7 +323,8 @@ export const Toolbar: React.FC = () => {
                     <Button
                         onClick={() => useStore.getState().setSettingsOpen(true)}
                         icon={Settings}
-                        title="Settings"
+                        title="System Settings"
+                        shortcut="S"
                         active={isSettingsOpen}
                     />
                 </motion.div>
@@ -323,22 +333,51 @@ export const Toolbar: React.FC = () => {
     );
 };
 
-// Updated Button Component
-const Button = ({ onClick, icon: Icon, title, active, highlight }: any) => (
-    <button
-        onClick={onClick}
-        title={title}
-        className={clsx(
-            "relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 group",
-            active
-                ? "bg-white/15 text-white shadow-[inset_0_1px_rgba(255,255,255,0.2)]"
-                : "text-white/50 hover:text-white hover:bg-white/10",
-            highlight && !active && "text-white bg-indigo-500/80 hover:bg-indigo-500 hover:shadow-[0_0_24px_rgba(99,102,241,0.4)]"
-        )}
-    >
-        <Icon size={18} strokeWidth={highlight ? 2.5 : 2} className="group-hover:scale-105 transition-transform" />
-        {active && (
-            <span className="absolute -bottom-1 w-1 h-1 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
-        )}
-    </button>
-);
+// Custom Premium Button with Framer Motion Tooltip Popovers
+const Button = ({ onClick, icon: Icon, title, active, highlight, shortcut }: any) => {
+    const [isHovered, setIsHovered] = useState(false);
+    return (
+        <div
+            className="relative flex items-center justify-center"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+            <button
+                onClick={onClick}
+                aria-label={title}
+                className={clsx(
+                    "relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 group cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400",
+                    active
+                        ? "bg-white/15 text-indigo-300 shadow-[inset_0_1px_rgba(255,255,255,0.2),0_0_15px_rgba(99,102,241,0.2)] border border-indigo-500/30"
+                        : "text-white/50 hover:text-white hover:bg-white/10 hover:scale-105 active:scale-95",
+                    highlight && !active && "text-white bg-indigo-500/80 hover:bg-indigo-500 hover:shadow-[0_0_24px_rgba(99,102,241,0.4)] hover:scale-105 active:scale-95"
+                )}
+            >
+                <Icon size={18} strokeWidth={highlight ? 2.5 : 2} className="group-hover:rotate-6 transition-transform" />
+                {active && (
+                    <span className="absolute -bottom-1 w-1 h-1 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.8)]" />
+                )}
+            </button>
+
+            <AnimatePresence>
+                {isHovered && (
+                    <motion.div
+                        initial={{ opacity: 0, x: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        exit={{ opacity: 0, x: -10, scale: 0.95 }}
+                        transition={{ duration: 0.15, ease: 'easeOut' }}
+                        className="absolute left-14 py-1.5 px-3 rounded-xl bg-[#090A15]/95 border border-white/10 backdrop-blur-md shadow-xl text-[10px] text-white font-medium whitespace-nowrap z-[1000] flex items-center gap-2 pointer-events-none"
+                    >
+                        <span className="font-sans text-white/90">{title}</span>
+                        {shortcut && (
+                            <span className="px-1.5 py-0.5 rounded bg-white/10 text-[8px] font-mono text-white/50 border border-white/5 uppercase">
+                                {shortcut}
+                            </span>
+                        )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+

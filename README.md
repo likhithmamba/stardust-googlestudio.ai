@@ -78,24 +78,43 @@ Inside every note is an AI core.
 
 ---
 
+## 💎 Premium Design & UX
+
+Stardust is optimized for professional appeal and tactile immersion:
+*   **Tactile Sidebar Dock**: A custom-animated glassmorphic toolbar with soft indigo neon shadows and scale transitions.
+*   **Spring-Animated Tooltips**: Interactive popup cards displaying toolnames and shortcut keys (`⌘ K`, `P`, `L`, `S`) on hover.
+*   **Space Ambient Effects**: Deep space drifting atmospheric blurs that rotate and shift slowly behind the canvas.
+*   **Comparison & Triage Grid**: Detailed comparative feature sets demonstrating advantages over linear document layouts.
+*   **Accessibility Contrast Boost**: High-legibility text overrides and `prefers-reduced-motion` compliance.
+
+---
+
 ## 🛠️ Technological Event Horizon
 
-Stardust is built on the bleeding edge of web technologies to ensure 60FPS performance even with thousands of active physics bodies.
+Stardust is built on the bleeding edge of web technologies to ensure 120FPS performance even with thousands of active physics bodies.
 
 ### Core Stack
 *   **Frontend Framework**: [React 19](https://react.dev/) (Leveraging latest concurrent features)
-*   **Build Tool**: [Vite](https://vitejs.dev/) (Instant HMR)
+*   **Build Tool**: [Vite](https://vitejs.dev/) (Instant HMR, manual chunking for optimization)
 *   **Language**: [TypeScript](https://www.typescriptlang.org/) (Strict type safety)
 
 ### Visuals & Physics
 *   **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) (Utility-first, high performance)
-*   **Animations**: [Framer Motion](https://www.framer.com/motion/) (Complex UI transitions)
+*   **Animations**: [Framer Motion](https://www.framer.com/motion/) (Complex UI transitions, custom animated spring tooltips)
 *   **Physics Loop**: Custom `requestAnimationFrame` engine detached from React render cycle for maximum smoothness.
+*   **Ambient space blurs**: Drifting glowing background spheres that respond dynamically.
 
 ### State & Data
 *   **State Management**: [Zustand](https://zustand-demo.pmnd.rs/) + [Immer](https://immerjs.github.io/immer/) (Transient updates for high-frequency physics)
-*   **Persistence**: [Dexie.js](https://dexie.org/) (IndexedDB wrapper for offline-first, local-only storage)
-*   **Rich Text**: [Lexical](https://lexical.dev/) (Facebook's extensible text editor framework)
+*   **Persistence**: [Dexie.js](https://dexie.org/) (IndexedDB wrapper for offline-first, local-only storage via SQLite sandbox)
+*   **Rich Text**: [Lexical](https://lexical.dev/) (extensible text editor framework)
+
+### Performance & Chunking
+To minimize initial load size, the production bundle is code-split into distinct cacheable chunks:
+- `framework`: React & ReactDOM core runtime
+- `animation`: Framer Motion assets
+- `vendor`: Utility libraries and workspace UI
+
 
 ---
 

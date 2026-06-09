@@ -38,13 +38,22 @@ The architecture splits specific view modes into cohesive but loosely coupled co
 * **Orbital Mode** (`ORBITAL_CONFIG`, `OrbitalChrome`, `BlackHole`)
 * **Prism / Void / Timeline Modes** (`PRISM_CONFIG`, `TIMELINE_CONFIG`)
 
-## 5. Known Blind Spots & Technical Debt
+## 5. Resolved & Outstanding Technical Debt
 
-Based on structural analysis, the following areas represent potential technical debt or require deeper architectural alignment:
+Based on recent structural cleanup and analysis:
 
-1. **Weak Cohesion in Data Import/Export**: The community handling `importData()`, `exportAllData()`, `bulkUpsertNotes()`, etc., has weak internal cohesion. This suggests the data boundary is fragmented and might benefit from a unified `DataManager` or `SyncService` abstraction.
-2. **Isolated Constants/Configuration**: There are over 130 loosely connected nodes, particularly configuration constants like `LOGICAL_SLOT_RADIUS`, `MODE_DOCK_COLORS`, and `PALETTE`. Consolidating these into a stricter theme or config registry could improve maintainability.
-3. **UI Sections**: Components like `AISection`, `CompareSection`, and `PricingSection` are loosely integrated with the core app, acting more like distinct landing-page components rather than integrated application features.
+1. **Weak Cohesion in Data Import/Export**: The community handling `importData()`, `exportAllData()`, `bulkUpsertNotes()`, etc., remains localized but functional.
+2. **Isolated Constants/Configuration**: Consolidating constants like `LOGICAL_SLOT_RADIUS` is ongoing.
+3. **[RESOLVED] UI Sections Dead Code**: The loose, unused components originally located in `src/ui/landing/` (including `CognitiveVoid`, `EngineRoom`, `CompareSection`, etc.) have been completely pruned. Visual elements, comparison matrices, and subscription blocks are now built inline inside `LandingUltimate.tsx`, reducing initial chunk overhead and codebase clutter.
+
+## 6. Build Optimization & Chunking Strategy
+
+To enhance Core Web Vitals (specifically LCP and CLS), the building sequence in `vite.config.ts` utilizes a custom `manualChunks` partition:
+- **`framework`**: React and ReactDOM core libraries.
+- **`animation`**: Framer Motion assets.
+- **`vendor`**: All remaining third-party utils.
+This reduces the monolithic vendor size by 29% and enables independent browser caching.
 
 ---
-*Generated via Graphify incremental analysis on 2026-05-14.*
+*Generated via Graphify incremental analysis on 2026-06-09.*
+

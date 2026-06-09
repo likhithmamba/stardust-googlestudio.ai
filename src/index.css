@@ -732,3 +732,54 @@ body.landing-active {
     scroll-behavior: auto !important;
   }
 }
+
+/* --- PREMIUM UI EFFECTS --- */
+.premium-glass-card {
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+.premium-glass-card:hover {
+  background: rgba(255, 255, 255, 0.025);
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.65), 0 0 25px rgba(99, 102, 241, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  transform: translateY(-3px);
+}
+
+@keyframes floatBlur {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.95);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-slow-blur-1 {
+  animation: floatBlur 20s ease-in-out infinite;
+}
+
+.animate-slow-blur-2 {
+  animation: floatBlur 25s ease-in-out infinite;
+  animation-delay: -5s;
+}
+
+.animate-slow-blur-3 {
+  animation: floatBlur 18s ease-in-out infinite;
+  animation-delay: -10s;
+}
+
+/* Accessibility contrast boost for premium legibility (overriding muted white/30 utilities) */
+.text-white\/30 {
+  color: rgba(255, 255, 255, 0.48) !important;
+}
+
