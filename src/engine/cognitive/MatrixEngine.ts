@@ -291,20 +291,20 @@ export function getMatrixLayoutTargets(
         let baseX: number, baseY: number;
 
         switch (coord.quadrant) {
-            case 'do':       // Top-right: High Impact, Low Effort
-                baseX = center.x + halfW * 0.25;
-                baseY = center.y - halfH * 0.5;
-                break;
-            case 'plan':     // Top-left: High Impact, High Effort
+            case 'do':       // Top-left: High Impact, Low Effort
                 baseX = center.x - halfW * 0.75;
                 baseY = center.y - halfH * 0.5;
                 break;
-            case 'delegate': // Bottom-right: Low Impact, Low Effort
+            case 'plan':     // Top-right: High Impact, High Effort
                 baseX = center.x + halfW * 0.25;
+                baseY = center.y - halfH * 0.5;
+                break;
+            case 'delegate': // Bottom-left: Low Impact, Low Effort
+                baseX = center.x - halfW * 0.75;
                 baseY = center.y + halfH * 0.25;
                 break;
-            case 'eliminate': // Bottom-left: Low Impact, High Effort
-                baseX = center.x - halfW * 0.75;
+            case 'eliminate': // Bottom-right: Low Impact, High Effort
+                baseX = center.x + halfW * 0.25;
                 baseY = center.y + halfH * 0.25;
                 break;
         }

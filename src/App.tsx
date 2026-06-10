@@ -6,10 +6,17 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { startDecayEngine, stopDecayEngine } from './engine/decayEngine';
 
 import { LandingUltimate } from './pages/LandingUltimate';
+import { loadFromDB } from './store/useStore';
+import { UpdateNotifier } from './pwa/updateNotifier';
 
 function App() {
     const [hasEnteredApp, setHasEnteredApp] = useState(false);
     useKeyboardShortcuts();
+
+    // Hydrate store from DB on mount
+    useEffect(() => {
+        loadFromDB();
+    }, []);
 
     // Toggle body scroll: landing page needs scroll, workspace needs overflow:hidden
     useEffect(() => {
@@ -54,6 +61,7 @@ function App() {
                     className="w-full h-full"
                 >
                     <ModeManager />
+                    <UpdateNotifier />
                 </motion.div>
             )}
         </AnimatePresence>

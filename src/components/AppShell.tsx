@@ -10,6 +10,7 @@ import { FeedbackModal } from './FeedbackModal';
 import { useFeedbackTrigger } from '../hooks/useFeedbackTrigger';
 import { HelpOverlay } from './HelpOverlay';
 import { ModeGuide } from './ModeGuide';
+import { ExportPanel } from './ExportPanel';
 
 // ─── Stitch-Inspired Unified UI Shell ────────────────────────────────
 
@@ -87,6 +88,7 @@ export const AppShell: React.FC = () => {
     // Help & Feedback State Toggles
     const [helpOpen, setHelpOpen] = useState(false);
     const [feedbackOpen, setFeedbackOpen] = useState(false);
+    const [exportOpen, setExportOpen] = useState(false);
 
     // Feedback Trigger timer (30s after first note)
     useFeedbackTrigger(useCallback(() => setFeedbackOpen(true), []));
@@ -410,6 +412,15 @@ export const AppShell: React.FC = () => {
                         <span className="material-symbols-outlined text-[18px]">rate_review</span>
                     </button>
 
+                    {/* Export Workspace */}
+                    <button
+                        onClick={() => setExportOpen(true)}
+                        className={clsx('w-8 h-8 rounded-full flex items-center justify-center transition-all', p.textMute, p.hover)}
+                        title="Export Workspace"
+                    >
+                        <span className="material-symbols-outlined text-[18px]">download</span>
+                    </button>
+
                     {/* Settings */}
                     <button
                         onClick={() => setSettingsOpen(!isSettingsOpen)}
@@ -559,6 +570,9 @@ export const AppShell: React.FC = () => {
                     <FeedbackModal onClose={() => setFeedbackOpen(false)} />
                 )}
             </AnimatePresence>
+
+            {/* Export Panel Overlay */}
+            <ExportPanel isOpen={exportOpen} onClose={() => setExportOpen(false)} />
         </div>
     );
 };

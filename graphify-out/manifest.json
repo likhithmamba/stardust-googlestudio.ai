@@ -8,16 +8,16 @@
     "hash": "df09d17d426a2429f0b0fe8c9f649415"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\vite.config.ts": {
-    "mtime": 1780939983.434918,
-    "hash": "db428480e2e9fc92dbe431193dda1656"
+    "mtime": 1781113277.8416736,
+    "hash": "501bd592ed31bd2825cc5f94d41518f2"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\public\\sw.js": {
     "mtime": 1780842262.9374356,
     "hash": "572630a550452a5d2ba92b20d825a74e"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\App.tsx": {
-    "mtime": 1780939640.1780896,
-    "hash": "385cbd69693541f8174703473a1bd068"
+    "mtime": 1781113133.822118,
+    "hash": "71ce1a6f3a6e73877a95d1d6bdd03d4d"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\constants.ts": {
     "mtime": 1780163032.6171615,
@@ -28,20 +28,40 @@
     "hash": "461f8e2eae8bb935e43da11c8891409d"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\main.tsx": {
-    "mtime": 1780842267.2440343,
-    "hash": "056cce4e8d8cc48ffda0429585ee6790"
+    "mtime": 1781113128.709831,
+    "hash": "fffe6b6ea8edae0223962eb3d1168b56"
+  },
+  "D:\\Downloads\\antigravityfiles\\stardust files\\src\\ai\\AIGateway.ts": {
+    "mtime": 1781112704.0162327,
+    "hash": "7554fdbbf7c3427248143ebbd3cb39c3"
+  },
+  "D:\\Downloads\\antigravityfiles\\stardust files\\src\\ai\\CognitivePipeline.ts": {
+    "mtime": 1781112714.249673,
+    "hash": "23fd5d301fa7f75b51b035e3db04c35e"
+  },
+  "D:\\Downloads\\antigravityfiles\\stardust files\\src\\ai\\KeyValidator.ts": {
+    "mtime": 1781112688.5161424,
+    "hash": "8879c43594c0ac6b0ebfe46097faf83e"
+  },
+  "D:\\Downloads\\antigravityfiles\\stardust files\\src\\ai\\ModelRouter.ts": {
+    "mtime": 1781112697.603649,
+    "hash": "c61739b3d7809674677bfa9848ca9d1b"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\AppShell.tsx": {
-    "mtime": 1780938503.5001302,
-    "hash": "a65ba147693bbc25713e6ecb920ec03b"
+    "mtime": 1781112612.3521402,
+    "hash": "80e7c42d099246a2da4d7789f10917cf"
+  },
+  "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\ArchiveView.tsx": {
+    "mtime": 1781112383.3594754,
+    "hash": "ee749a8af8cc6a62b112f64b708b8cbe"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\BlackHole.tsx": {
-    "mtime": 1780844319.9660141,
-    "hash": "6b8ff17ba9888a4552d6c00c335d0ae8"
+    "mtime": 1781112398.176242,
+    "hash": "64322fea658aae3e91ce3b3a19cfd4a5"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\CanvasViewport.tsx": {
-    "mtime": 1780938490.9214654,
-    "hash": "b0b35fd7d0e7ad625cdcb87a3e8cc600"
+    "mtime": 1781112148.1234548,
+    "hash": "95fa95a33d2eca9d1442559b1ed10dba"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\ConnectionLayer.tsx": {
     "mtime": 1771915192.8544235,
@@ -59,9 +79,13 @@
     "mtime": 1780938546.9164023,
     "hash": "3fd131c659e0b4a1b4f03f9f0339a39a"
   },
+  "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\ExportPanel.tsx": {
+    "mtime": 1781112588.1829858,
+    "hash": "aa42e729eaedafcd55cd0ef3650449ef"
+  },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\FeedbackModal.tsx": {
-    "mtime": 1780936685.5824924,
-    "hash": "6ce47da3a1992bd97bb0eb8aa998287b"
+    "mtime": 1781111538.6246843,
+    "hash": "f17f3974b2d2a977065eec1f141d552e"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\GlobalErrorBoundary.tsx": {
     "mtime": 1770294255.989695,
@@ -72,8 +96,8 @@
     "hash": "e17743440ff12116fbe25f6b545a3aad"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\LayoutVisuals.tsx": {
-    "mtime": 1780844301.263523,
-    "hash": "5c088c3642c7712f951583777c22778e"
+    "mtime": 1781112244.6890378,
+    "hash": "e93775706f34cd9619c18f47d644a7bc"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\MiniMap.tsx": {
     "mtime": 1780936641.7809439,
@@ -92,8 +116,8 @@
     "hash": "5d6e6c6dc16fa66879fb1bcc1846dab5"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\PlanetNote.tsx": {
-    "mtime": 1780938729.8385344,
-    "hash": "7df399bfc2f40776f3a79fc258ad89c3"
+    "mtime": 1781112371.9490726,
+    "hash": "4a66815baca57a13723942a4d58c4a41"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\SearchTeleport.tsx": {
     "mtime": 1780936795.5932457,
@@ -104,8 +128,8 @@
     "hash": "055d225bb821f7bf2f8b0a1ff6dd415e"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\SettingsPanel.tsx": {
-    "mtime": 1780936851.2327666,
-    "hash": "467e4c2b240e6893929c5359c65345c3"
+    "mtime": 1781112849.166928,
+    "hash": "d8187d16c28b83bc3c450d59e6161eb5"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\SmartLink.tsx": {
     "mtime": 1780163739.7511497,
@@ -128,8 +152,8 @@
     "hash": "4963b0290ac5fb1316a8d425c4650383"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\Toolbar.tsx": {
-    "mtime": 1781020142.5240593,
-    "hash": "08333524d15df3078506aca4814cdbf7"
+    "mtime": 1781113192.7513103,
+    "hash": "f99a13aca0f5fc0448a2390458439abe"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\components\\chrome\\ArchiveChrome.tsx": {
     "mtime": 1780163373.9637053,
@@ -187,25 +211,29 @@
     "mtime": 1780840680.3972547,
     "hash": "8ac43a7ef98c2918d7cbbf3e5fdf6f8d"
   },
+  "D:\\Downloads\\antigravityfiles\\stardust files\\src\\db\\StardustDB.ts": {
+    "mtime": 1781112681.161089,
+    "hash": "e7cc22c5b4c9021ab93b4cf3ab600007"
+  },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\engine\\decayEngine.ts": {
     "mtime": 1780163074.7741158,
     "hash": "c21bd4228f25e193bd1d9ab5736b3d22"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\engine\\Engine.ts": {
-    "mtime": 1780162590.3603501,
-    "hash": "e6b69f2cd99422e909291907750d4087"
+    "mtime": 1781111773.7586024,
+    "hash": "dd239686511cf788c9973e85767e6a12"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\engine\\World.ts": {
-    "mtime": 1771869982.161688,
-    "hash": "cdc4a51c588ac7dea58688e7029c89f8"
+    "mtime": 1781111741.1207345,
+    "hash": "55a8f8d05240b3c8f6c55ef80705c4e6"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\engine\\cognitive\\index.ts": {
     "mtime": 1770294256.013947,
     "hash": "1367731f612f159ef3b76cdd626d7e52"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\engine\\cognitive\\MatrixEngine.ts": {
-    "mtime": 1770294256.009202,
-    "hash": "f977f9aeada6667a9c02386b880bae91"
+    "mtime": 1781112034.5565815,
+    "hash": "e6fd1edd638eaee3e7d9c4daea023758"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\engine\\cognitive\\OrbitalEngine.ts": {
     "mtime": 1770294256.011103,
@@ -232,8 +260,8 @@
     "hash": "10dbb98941d97025573c0421911468f2"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\engine\\layout\\LayoutManager.ts": {
-    "mtime": 1780938694.3421237,
-    "hash": "f3f125b90993545158462dad5f1c4f8f"
+    "mtime": 1781112085.0890613,
+    "hash": "9df5df8a61667ac3b59ca046292ea640"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\engine\\layout\\LayoutStrategy.ts": {
     "mtime": 1770294256.019558,
@@ -260,8 +288,8 @@
     "hash": "58109b3411dc810443559706e1585aa3"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\engine\\physics\\PhysicsSystem.ts": {
-    "mtime": 1780163217.9814036,
-    "hash": "f4f747ce02857ae686fb7606def1939a"
+    "mtime": 1781112544.2689066,
+    "hash": "2f379daa6ba62c5254bbaafab2468aad"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\engine\\physics\\SingularitySystem.ts": {
     "mtime": 1770294256.029946,
@@ -288,20 +316,20 @@
     "hash": "3be4b8cbc1e8fb1968b60917ca55c0b0"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\hooks\\useEngine.ts": {
-    "mtime": 1780936616.2100697,
-    "hash": "a6c48f273c87b25963ff7128415a4489"
+    "mtime": 1781111754.0265806,
+    "hash": "0be63f9ab30e15a6e8f7f1983532431c"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\hooks\\useFeedbackTrigger.ts": {
-    "mtime": 1780933129.1087058,
-    "hash": "35a04048e1b92b1a51f20a92a021008c"
+    "mtime": 1781111473.9995563,
+    "hash": "17453e970e55785511c526bcdbf1e774"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\hooks\\useFirstTime.ts": {
     "mtime": 1780840864.6493847,
     "hash": "b1e193c2c106c6e576aba67d6cbabfca"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\hooks\\useKeyboardShortcuts.ts": {
-    "mtime": 1780842289.8024924,
-    "hash": "7c254477b4c0967b36a603e01c0a6328"
+    "mtime": 1781112451.32369,
+    "hash": "f328950fa0e394c2321b868d483a13f1"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\hooks\\useModePhysics.ts": {
     "mtime": 1780225172.8447237,
@@ -343,9 +371,17 @@
     "mtime": 1771869982.1761017,
     "hash": "905927768d9a34c4f2a6c3d0c0c1ad1d"
   },
+  "D:\\Downloads\\antigravityfiles\\stardust files\\src\\pwa\\registration.ts": {
+    "mtime": 1781113115.283975,
+    "hash": "fafad26454a73f2dcf61521507177d2e"
+  },
+  "D:\\Downloads\\antigravityfiles\\stardust files\\src\\pwa\\updateNotifier.tsx": {
+    "mtime": 1781113120.7602887,
+    "hash": "1298d5f01ab40e6b57699b3ffd362e98"
+  },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\store\\noteSlice.ts": {
-    "mtime": 1780938646.3770308,
-    "hash": "f94b784f8107010effe5f6bc0cd1caff"
+    "mtime": 1781112376.6626196,
+    "hash": "e379303dd80bd3bfcda955cfd323871a"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\store\\persistenceSlice.ts": {
     "mtime": 1778862797.9703734,
@@ -356,20 +392,12 @@
     "hash": "7fc03749822c698c263d3c7b212a508f"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\store\\useStore.ts": {
-    "mtime": 1780841137.804739,
-    "hash": "ddcc37b6a9f33deb11b4651feb2b90ad"
-  },
-  "D:\\Downloads\\antigravityfiles\\stardust files\\src\\systems\\LayoutEngine.ts": {
-    "mtime": 1780162927.7688034,
-    "hash": "a329b44f5001022da0437ed4f20e18a1"
+    "mtime": 1781111589.1157598,
+    "hash": "1154afe47a428fd459aa4bf8635ea6dc"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\systems\\ViewConstraints.ts": {
     "mtime": 1780938724.241456,
     "hash": "fcda2aab9fbe8fda3670e55d15a8d972"
-  },
-  "D:\\Downloads\\antigravityfiles\\stardust files\\src\\systems\\VisualRegistry.ts": {
-    "mtime": 1770294256.0481665,
-    "hash": "de9810818c3b8c30310173dbde0a15e4"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\types\\StardustSchema.ts": {
     "mtime": 1780938642.5916,
@@ -384,24 +412,24 @@
     "hash": "4963b0290ac5fb1316a8d425c4650383"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\ui\\modes\\MatrixMode.tsx": {
-    "mtime": 1771869982.1976793,
-    "hash": "e2f6e619f5c2384bbd3a15066c818a1f"
+    "mtime": 1781112052.1135967,
+    "hash": "d655a867ff814de51076705a65b5fbb6"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\ui\\modes\\ModeManager.tsx": {
     "mtime": 1771869982.1976793,
     "hash": "adf76fc4859756720e4821aed0dd1fa1"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\ui\\modes\\OrbitalMode.tsx": {
-    "mtime": 1771869982.1986747,
-    "hash": "74aa00ece251726f01a9aacebae4b21c"
+    "mtime": 1781112080.51205,
+    "hash": "609cf5f830f1edf55f167ee6032e2fe8"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\ui\\modes\\PrismMode.tsx": {
-    "mtime": 1771869982.1996748,
-    "hash": "9cbcfbf913cea1625b6d058a8fe71a9e"
+    "mtime": 1781112106.002323,
+    "hash": "7eeef3171671d278a3692aa5b4f05400"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\ui\\modes\\TimelineMode.tsx": {
-    "mtime": 1771869982.2055433,
-    "hash": "2467ba08cc99feccecdf7e7dd473809a"
+    "mtime": 1781112172.2176197,
+    "hash": "bf16696eb508a01f4d88390c537217e1"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\ui\\modes\\VoidMode.tsx": {
     "mtime": 1771869982.207168,
@@ -448,12 +476,12 @@
     "hash": "aeab8762fdf0738e9b21d1ccc1f11932"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\ui\\settings\\settingsStore.ts": {
-    "mtime": 1780936665.8142185,
-    "hash": "b713dcf66a704bcf06a510ed248e5c79"
+    "mtime": 1781112550.3156264,
+    "hash": "1eb91154ada3e419c5f1746bad5c4f86"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\utils\\ai.ts": {
-    "mtime": 1780224904.1588771,
-    "hash": "ab44ab46c9e80001701ba3d98a7d7950"
+    "mtime": 1781113036.778255,
+    "hash": "dc1634b31002ee82bd188bf416ec22f3"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\utils\\animations.ts": {
     "mtime": 1770294256.0733392,
@@ -471,6 +499,10 @@
     "mtime": 1780842187.90685,
     "hash": "de7425925aa5f61cf11cbc406685dd61"
   },
+  "D:\\Downloads\\antigravityfiles\\stardust files\\src\\utils\\exportEngine.ts": {
+    "mtime": 1781112579.73735,
+    "hash": "cd1eb255d2e67819b800ff05c2b2b5c7"
+  },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\utils\\intelligence.ts": {
     "mtime": 1770294256.0754514,
     "hash": "10e8ffc13fffb508bdedad5b1ed1285a"
@@ -482,6 +514,10 @@
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\utils\\localSummarizer.ts": {
     "mtime": 1770294256.0778759,
     "hash": "9eaa6a5f88484601b2ad1c1dba05afe7"
+  },
+  "D:\\Downloads\\antigravityfiles\\stardust files\\src\\utils\\maskKey.ts": {
+    "mtime": 1781112665.6883752,
+    "hash": "d2fa22b4c25d374098bf25c7157e8bbe"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\utils\\noteSize.ts": {
     "mtime": 1771869982.2166622,
@@ -500,8 +536,8 @@
     "hash": "00b8625c6dc42d9546a44319ca65d2ca"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\utils\\spatial.ts": {
-    "mtime": 1770292832.2333474,
-    "hash": "06542678bf5599d57be9f937dd477b2b"
+    "mtime": 1781111795.5953326,
+    "hash": "7e3475d33a2f28c3b5351b66793e3d81"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\workers\\engine.worker.ts": {
     "mtime": 1780225559.7430096,
@@ -528,8 +564,8 @@
     "hash": "6f1c98bc4c3bebb2733ae3dfde648710"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\ARCHITECTURE.md": {
-    "mtime": 1778713699.0483239,
-    "hash": "5a2ef168b77afee7f5d37d787c41419a"
+    "mtime": 1781020746.4710722,
+    "hash": "8915d3fc6dbfb9e8c7da3b313767bd92"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\build_log.txt": {
     "mtime": 1770292831.9382699,
@@ -560,20 +596,20 @@
     "hash": "5e500b5eb2ae4e6743562ccfa2bae53f"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\index.html": {
-    "mtime": 1780840628.1410072,
-    "hash": "768f638eca0a555e213008ec3fbe4641"
+    "mtime": 1781111378.8617897,
+    "hash": "79513d682c68c1f17c91bc28cb5aa830"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\README.md": {
-    "mtime": 1771869982.1238303,
-    "hash": "b7eb0188ea5c62088061e3dcaf1f3b51"
+    "mtime": 1781020739.215794,
+    "hash": "dc778c1ed3e94e79a93476ec5ff9c4e9"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\report_text.txt": {
     "mtime": 1780839811.6503928,
     "hash": "3728ebf8d91811a6a49dab3e743afe82"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\src\\README.md": {
-    "mtime": 1771869982.1328857,
-    "hash": "d5bff47ac474163a42af7b0947891b09"
+    "mtime": 1781020751.9372606,
+    "hash": "c4422d1be7479c6915da184ebefde85c"
   },
   "D:\\Downloads\\antigravityfiles\\stardust files\\stitch_core_stardust_system_heartbeat\\README.md": {
     "mtime": 1771869982.2185433,

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useStore, noteVisibleInMode } from '../../store/useStore';
 import { workerBridge } from '../../workers/WorkerBridge';
+import { soundManager } from '../../utils/sound';
 
 export type Mode = 'core' | 'pro' | 'ultra';
 
@@ -256,6 +257,9 @@ export const useSettingsStore = create<SettingsState>()(
                     viewMode: v as ViewMode,
                     transitionPhase: 'entering'
                 });
+
+                // Play warp sound on mode change
+                soundManager.playWarp();
 
                 // 3. Transition phase cascade: entering → settling → stable
                 setTimeout(() => set({ transitionPhase: 'settling' }), 600);

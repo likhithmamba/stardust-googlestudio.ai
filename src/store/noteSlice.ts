@@ -154,6 +154,7 @@ export interface NoteSlice {
     setNotes: (notes: Note[]) => void;
     setConnections: (connections: Connection[]) => void;
     setContents: (notes: Note[], connections: Connection[]) => void;
+    hydrateFromDB: (payload: { notes: Note[]; connections: Connection[]; graveyard?: Note[] }) => void;
 }
 
 // ─── Dirty Tracking for Incremental DB Saves ────────────────────
@@ -374,25 +375,32 @@ export const createNoteSlice: StateCreator<NoteSlice, [], [], NoteSlice> = (set,
 
     // BlackHole Recovery: Move to graveyard instead of permanent delete
     softDeleteNote: (id) => {
-        _get().takeSnapshot();
         set((s) => {
-            const note = s.notes.find((n) => n.id === id);
-            if (!note) return s;
-            const graveyardEntry: Note = {
-                ...note,
-                isDying: true,
-                status: 'archived',
-                updatedAt: Date.now(),
-            };
-            return {
-                notes: s.notes.filter((n) => n.id !== id),
-                connections: s.connections.filter((c) => c.from !== id && c.to !== id),
-                graveyard: [...s.graveyard, graveyardEntry],
-            };
+            const updated = s.notes.map(n => n.id === id ? { ...n, isDying: true } : n);
+            return { notes: updated };
         });
-        deletedNoteIds.add(id);
-        dirtyNoteIds.delete(id);
-        triggerSave();
+
+        setTimeout(() => {
+            _get().takeSnapshot();
+            set((s) => {
+                const note = s.notes.find((n) => n.id === id);
+                if (!note) return s;
+                const graveyardEntry: Note = {
+                    ...note,
+                    isDying: true,
+                    status: 'archived',
+                    updatedAt: Date.now(),
+                };
+                return {
+                    notes: s.notes.filter((n) => n.id !== id),
+                    connections: s.connections.filter((c) => c.from !== id && c.to !== id),
+                    graveyard: [...s.graveyard, graveyardEntry],
+                };
+            });
+            deletedNoteIds.add(id);
+            dirtyNoteIds.delete(id);
+            triggerSave();
+        }, 500);
     },
 
     recoverNote: (id) => {
@@ -479,5 +487,14 @@ export const createNoteSlice: StateCreator<NoteSlice, [], [], NoteSlice> = (set,
     setContents: (notes, connections) => {
         set({ notes, connections });
         triggerFullSave();
+    },
+    hydrateFromDB: (payload) => {
+        set({
+            notes: payload.notes,
+            connections: payload.connections,
+            graveyard: payload.graveyard || [],
+            past: [],
+            future: []
+        });
     },
 });

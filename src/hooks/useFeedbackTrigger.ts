@@ -29,7 +29,7 @@ export function useFeedbackTrigger(onOpen: () => void) {
                         onOpen();
                     }
                 }
-            }, 60_000);
+            }, 30_000);
         }
         prevCountRef.current = noteCount;
 

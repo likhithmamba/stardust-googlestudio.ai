@@ -50,6 +50,28 @@ export const Toolbar: React.FC = () => {
     const setSearchOpen = useStore((state) => state.setSearchOpen);
     const isSettingsOpen = useStore((state) => state.isSettingsOpen);
 
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+    // Online/Offline tracking
+    React.useEffect(() => {
+        const goOnline = () => {
+            setIsOnline(true);
+            window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'Universe connected. Online modes active.', type: 'success' } }));
+        };
+        const goOffline = () => {
+            setIsOnline(false);
+            window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'Universe disconnected. Running offline fallback heuristics.', type: 'info' } }));
+        };
+
+        window.addEventListener('online', goOnline);
+        window.addEventListener('offline', goOffline);
+
+        return () => {
+            window.removeEventListener('online', goOnline);
+            window.removeEventListener('offline', goOffline);
+        };
+    }, []);
+
     // Keybinds (Ctrl+K)
     React.useEffect(() => {
         const handleDown = (e: KeyboardEvent) => {
@@ -327,6 +349,21 @@ export const Toolbar: React.FC = () => {
                         shortcut="S"
                         active={isSettingsOpen}
                     />
+
+                    <div className="w-6 h-px bg-white/5 my-1" />
+
+                    <div className="w-10 h-8 flex items-center justify-center relative group cursor-default">
+                        <div className={clsx(
+                            "w-2 h-2 rounded-full border border-black/40 transition-all duration-500",
+                            isOnline 
+                                ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" 
+                                : "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)] animate-pulse"
+                        )} />
+                        <div className="absolute left-14 py-1.5 px-3 rounded-xl bg-[#090A15]/95 border border-white/10 backdrop-blur-md shadow-xl text-[10px] text-white font-medium whitespace-nowrap z-[1000] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-current" style={{ color: isOnline ? '#10b981' : '#f43f5e' }} />
+                            <span>{isOnline ? 'Network Online' : 'Network Offline (Fallback Active)'}</span>
+                        </div>
+                    </div>
                 </motion.div>
             </motion.div>
         </>

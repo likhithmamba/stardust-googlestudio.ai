@@ -4,7 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { useSettingsStore } from '../ui/settings/settingsStore';
 import { soundManager } from '../utils/sound';
-import { saveApiKey, getApiKey, clearApiKey, saveModel, getModel, AI_MODELS, type AIModelId } from '../utils/ai';
+import { stardustDB } from '../db/StardustDB';
+import { validateApiKey } from '../ai/KeyValidator';
+import { PROVIDER_MODELS } from '../ai/ModelRouter';
 import { DECAY_CONFIG, updateDecayConfig, isDecayEngineRunning } from '../engine/decayEngine';
 import { FLAGS } from '../engine/flags/FeatureFlags';
 import { initDB } from '../db/idb';
@@ -40,9 +42,13 @@ export const SettingsPanel: React.FC = () => {
     const setScaleMode = useStore((state: any) => state.setScaleMode);
 
     // AI/Intelligence Settings
-    const [apiKey, setApiKey] = useState('');
-    const [selectedModel, setSelectedModel] = useState<AIModelId>('google/gemini-2.0-flash-exp:free');
+    const [aiProvider, setAiProvider] = useState('gemini');
+    const [aiModel, setAiModel] = useState('gemini-2.0-flash-exp');
+    const [aiApiKey, setAiApiKey] = useState('');
+    const [ollamaEndpoint, setOllamaEndpoint] = useState('http://localhost:11434');
+    const [providerKeysStatus, setProviderKeysStatus] = useState<Record<string, string>>({});
     const [isSavingKey, setIsSavingKey] = useState(false);
+    const [testingConnection, setTestingConnection] = useState(false);
 
     // Sound Settings
     const [volume, setVolume] = useState(0.3);
@@ -63,17 +69,31 @@ export const SettingsPanel: React.FC = () => {
         ENABLE_PARTICLES: FLAGS.ENABLE_PARTICLES
     });
 
-
-
     // Load initial settings on mount
     useEffect(() => {
         if (!isSettingsOpen) return;
 
-        // Fetch AI Settings
-        getApiKey().then(key => {
-            if (key) setApiKey(key);
+        // Fetch AI Settings from IndexedDB
+        stardustDB.getSetting('ai_provider', 'gemini').then(prov => {
+            setAiProvider(prov);
+            stardustDB.getApiKey(prov).then(key => {
+                setAiApiKey(key || '');
+            });
         });
-        setSelectedModel(getModel());
+        stardustDB.getSetting('ai_model', 'gemini-2.0-flash-exp').then(setAiModel);
+        stardustDB.getSetting('ai_ollama_endpoint', 'http://localhost:11434').then(setOllamaEndpoint);
+        
+        Promise.all([
+            stardustDB.getApiKey('gemini'),
+            stardustDB.getApiKey('openai'),
+            stardustDB.getApiKey('anthropic')
+        ]).then(([geminiKey, openaiKey, anthropicKey]) => {
+            setProviderKeysStatus({
+                gemini: geminiKey ? 'configured' : 'empty',
+                openai: openaiKey ? 'configured' : 'empty',
+                anthropic: anthropicKey ? 'configured' : 'empty',
+            });
+        });
 
         // Fetch Sound Settings
         setVolume(soundManager.getVolume());
@@ -85,15 +105,47 @@ export const SettingsPanel: React.FC = () => {
         setGracePeriodHours(DECAY_CONFIG.GRACE_PERIOD / (60 * 60 * 1000));
     }, [isSettingsOpen]);
 
-    const handleSaveApiKey = async () => {
+    const handleProviderChange = async (provider: string) => {
+        setAiProvider(provider);
+        await stardustDB.saveSetting('ai_provider', provider);
+        
+        let defaultModel = 'gemini-2.0-flash-exp';
+        if (provider === 'openai') defaultModel = 'gpt-4o-mini';
+        else if (provider === 'anthropic') defaultModel = 'claude-3-5-haiku-latest';
+        else if (provider === 'ollama') defaultModel = 'llama3';
+        
+        setAiModel(defaultModel);
+        await stardustDB.saveSetting('ai_model', defaultModel);
+        
+        if (provider !== 'ollama') {
+            const key = await stardustDB.getApiKey(provider);
+            setAiApiKey(key || '');
+        } else {
+            setAiApiKey('');
+        }
+    };
+
+    const handleModelChange = async (model: string) => {
+        setAiModel(model);
+        await stardustDB.saveSetting('ai_model', model);
+        window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: `Model set to ${model}`, type: 'info' } }));
+    };
+
+    const handleSaveProviderKey = async () => {
         setIsSavingKey(true);
         try {
-            if (apiKey.trim()) {
-                await saveApiKey(apiKey.trim());
-                window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'OpenRouter API Key saved successfully.', type: 'info' } }));
+            if (aiApiKey.trim()) {
+                await stardustDB.saveApiKey(aiProvider, aiApiKey.trim());
+                setProviderKeysStatus(prev => ({ ...prev, [aiProvider]: 'configured' }));
+                window.dispatchEvent(new CustomEvent('stardust:toast', { 
+                    detail: { message: `${aiProvider.toUpperCase()} key saved in origin-secured IndexedDB.`, type: 'success' } 
+                }));
             } else {
-                clearApiKey();
-                window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'API Key cleared.', type: 'info' } }));
+                await stardustDB.clearApiKey(aiProvider);
+                setProviderKeysStatus(prev => ({ ...prev, [aiProvider]: 'empty' }));
+                window.dispatchEvent(new CustomEvent('stardust:toast', { 
+                    detail: { message: `${aiProvider.toUpperCase()} key cleared.`, type: 'info' } 
+                }));
             }
         } catch (e) {
             console.error(e);
@@ -102,34 +154,27 @@ export const SettingsPanel: React.FC = () => {
         }
     };
 
-    const handleModelChange = (modelId: AIModelId) => {
-        setSelectedModel(modelId);
-        saveModel(modelId);
-        let modelName = 'Unknown Model';
-        switch (modelId) {
-            case 'google/gemini-2.0-flash-exp:free':
-                modelName = 'Gemini 2.0 Flash (Free)';
-                break;
-            case 'google/gemini-2.5-pro-preview':
-                modelName = 'Gemini 2.5 Pro';
-                break;
-            case 'anthropic/claude-sonnet-4':
-                modelName = 'Claude Sonnet 4';
-                break;
-            case 'openai/gpt-4o':
-                modelName = 'GPT-4o';
-                break;
-            case 'openai/gpt-4o-mini':
-                modelName = 'GPT-4o Mini';
-                break;
-            case 'meta-llama/llama-3.3-70b-instruct':
-                modelName = 'Llama 3.3 70B';
-                break;
-            case 'deepseek/deepseek-chat-v3-0324:free':
-                modelName = 'DeepSeek V3 (Free)';
-                break;
+    const handleTestConnection = async () => {
+        setTestingConnection(true);
+        try {
+            const isValid = await validateApiKey(aiProvider, aiApiKey, ollamaEndpoint);
+            if (isValid) {
+                window.dispatchEvent(new CustomEvent('stardust:toast', { 
+                    detail: { message: `Connection test passed! ${aiProvider.toUpperCase()} is active.`, type: 'success' } 
+                }));
+            } else {
+                window.dispatchEvent(new CustomEvent('stardust:toast', { 
+                    detail: { message: `Connection test failed. Verify key or local service.`, type: 'error' } 
+                }));
+            }
+        } catch (e) {
+            console.error(e);
+            window.dispatchEvent(new CustomEvent('stardust:toast', { 
+                detail: { message: `Connection test failed: Network error.`, type: 'error' } 
+            }));
+        } finally {
+            setTestingConnection(false);
         }
-        window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: `Model set to ${modelName}`, type: 'info' } }));
     };
 
     const handleVolumeChange = (v: number) => {
@@ -410,44 +455,166 @@ export const SettingsPanel: React.FC = () => {
                                     <TabHeader title="Artificial Intelligence" subtitle="Unlock neural mappings, stellar summaries, and automated synthesis." />
                                     
                                     <section className="bg-white/3 border border-white/5 rounded-3xl p-8 space-y-6">
-                                        <SectionTitle title="API Key Setup" />
+                                        <SectionTitle title="AI Provider Setup" />
                                         <p className="text-[11px] leading-relaxed text-white/50">
-                                            Stardust coordinates with <strong>OpenRouter</strong> to run advanced deep thinking models. Bring your own key (BYOK) to unlock infinite spatial analysis.
+                                            Configure client-side direct access to your preferred model provider. All credentials remain origin-secured in your local IndexedDB.
                                         </p>
-                                        <div className="space-y-3">
-                                            <label className="text-[10px] uppercase tracking-[0.2em] text-white/40 block">OpenRouter API Key</label>
-                                            <div className="flex gap-4">
-                                                <input
-                                                    type="password"
-                                                    value={apiKey}
-                                                    onChange={(e) => setApiKey(e.target.value)}
-                                                    placeholder="sk-or-v1-..."
-                                                    className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-xs text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 transition-colors"
-                                                />
-                                                <button
-                                                    onClick={handleSaveApiKey}
-                                                    disabled={isSavingKey}
-                                                    className="px-8 rounded-2xl bg-indigo-500 text-white text-[10px] font-black uppercase tracking-[0.15em] hover:bg-indigo-600 transition-colors flex items-center justify-center"
+
+                                        <div className="text-[10px] flex items-center gap-4 text-white/40 mb-2">
+                                            <span>Key Statuses:</span>
+                                            <span className={clsx("flex items-center gap-1", providerKeysStatus.gemini === 'configured' ? "text-emerald-400" : "text-white/20")}>
+                                                <span className="w-1.5 h-1.5 rounded-full bg-current" /> Gemini
+                                            </span>
+                                            <span className={clsx("flex items-center gap-1", providerKeysStatus.openai === 'configured' ? "text-emerald-400" : "text-white/20")}>
+                                                <span className="w-1.5 h-1.5 rounded-full bg-current" /> OpenAI
+                                            </span>
+                                            <span className={clsx("flex items-center gap-1", providerKeysStatus.anthropic === 'configured' ? "text-emerald-400" : "text-white/20")}>
+                                                <span className="w-1.5 h-1.5 rounded-full bg-current" /> Anthropic
+                                            </span>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div className="space-y-3">
+                                                <label className="text-[10px] uppercase tracking-[0.2em] text-white/40 block">Select Provider</label>
+                                                <select
+                                                    value={aiProvider}
+                                                    onChange={(e) => handleProviderChange(e.target.value)}
+                                                    className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-xs text-white focus:outline-none focus:border-indigo-500/50 transition-colors"
                                                 >
-                                                    {isSavingKey ? 'Verifying...' : 'Save API Key'}
-                                                </button>
+                                                    <option value="gemini" className="bg-[#0A0B14]">Google Gemini</option>
+                                                    <option value="openai" className="bg-[#0A0B14]">OpenAI</option>
+                                                    <option value="anthropic" className="bg-[#0A0B14]">Anthropic Claude</option>
+                                                    <option value="ollama" className="bg-[#0A0B14]">Ollama (Local LLM)</option>
+                                                </select>
                                             </div>
+
+                                            {aiProvider !== 'ollama' ? (
+                                                <div className="space-y-3">
+                                                    <label className="text-[10px] uppercase tracking-[0.2em] text-white/40 block">
+                                                        {aiProvider.toUpperCase()} API Key
+                                                    </label>
+                                                    <div className="flex gap-4">
+                                                        <input
+                                                            type="password"
+                                                            value={aiApiKey}
+                                                            onChange={(e) => setAiApiKey(e.target.value)}
+                                                            placeholder={
+                                                                aiProvider === 'gemini' 
+                                                                    ? "AIzaSy..." 
+                                                                    : aiProvider === 'openai' 
+                                                                        ? "sk-proj-..." 
+                                                                        : "sk-ant-..."
+                                                            }
+                                                            className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-xs text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                                                        />
+                                                        <button
+                                                            onClick={handleSaveProviderKey}
+                                                            disabled={isSavingKey}
+                                                            className="px-8 rounded-2xl bg-indigo-500 text-white text-[10px] font-black uppercase tracking-[0.15em] hover:bg-indigo-600 transition-colors flex items-center justify-center min-w-[140px]"
+                                                        >
+                                                            {isSavingKey ? 'Saving...' : (providerKeysStatus[aiProvider] === 'configured' && !aiApiKey ? 'Clear Key' : 'Save Key')}
+                                                        </button>
+                                                    </div>
+                                                    {providerKeysStatus[aiProvider] === 'configured' && (
+                                                        <p className="text-[9px] text-emerald-400/80 flex items-center gap-1">
+                                                            <span className="material-symbols-outlined text-[10px]">check_circle</span>
+                                                            API Key is securely configured for this provider.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    <label className="text-[10px] uppercase tracking-[0.2em] text-white/40 block">Ollama Local Endpoint</label>
+                                                    <input
+                                                        type="text"
+                                                        value={ollamaEndpoint}
+                                                        onChange={async (e) => {
+                                                            const val = e.target.value;
+                                                            setOllamaEndpoint(val);
+                                                            await stardustDB.saveSetting('ai_ollama_endpoint', val);
+                                                        }}
+                                                        placeholder="http://localhost:11434"
+                                                        className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-xs text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 transition-colors"
+                                                    />
+                                                    <p className="text-[9px] text-white/30">
+                                                        Ensure Ollama is running locally with cross-origin headers allowed (`OLLAMA_ORIGINS="*" ollama serve`).
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="pt-2 flex justify-end">
+                                            <button
+                                                onClick={handleTestConnection}
+                                                disabled={testingConnection}
+                                                className={clsx(
+                                                    "px-6 py-3 rounded-2xl border transition-all text-[10px] font-black uppercase tracking-[0.15em] flex items-center gap-2",
+                                                    testingConnection
+                                                        ? "bg-white/5 border-white/10 text-white/30 cursor-not-allowed"
+                                                        : "bg-white/3 border-white/5 text-indigo-400 hover:bg-indigo-500/10 hover:border-indigo-500/30"
+                                                )}
+                                            >
+                                                {testingConnection ? (
+                                                    <>
+                                                        <span className="animate-spin w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full" />
+                                                        Testing Connection...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span className="material-symbols-outlined text-xs">network_ping</span>
+                                                        Test Connection
+                                                    </>
+                                                )}
+                                            </button>
                                         </div>
                                     </section>
 
-                                    <section className="bg-white/3 border border-white/5 rounded-3xl p-8 space-y-4">
+                                    <section className="bg-white/3 border border-white/5 rounded-3xl p-8 space-y-6">
                                         <SectionTitle title="Synthesis Engine Model" />
-                                        <div className="space-y-3">
-                                            <label className="text-[10px] uppercase tracking-[0.2em] text-white/40 block">Preferred AI Model</label>
-                                            <select
-                                                value={selectedModel}
-                                                onChange={(e) => handleModelChange(e.target.value as AIModelId)}
-                                                className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-xs text-white focus:outline-none focus:border-indigo-500/50 transition-colors"
-                                            >
-                                                {Object.entries(AI_MODELS).map(([id, label]) => (
-                                                    <option key={id} value={id} className="bg-[#0A0B14]">{label}</option>
-                                                ))}
-                                            </select>
+                                        <div className="space-y-4">
+                                            <div className="space-y-3">
+                                                <label className="text-[10px] uppercase tracking-[0.2em] text-white/40 block">Preferred AI Model</label>
+                                                {aiProvider === 'ollama' ? (
+                                                    <div className="space-y-3">
+                                                        <input
+                                                            type="text"
+                                                            value={aiModel}
+                                                            onChange={(e) => handleModelChange(e.target.value)}
+                                                            placeholder="e.g. llama3, mistral, custom-model"
+                                                            className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-xs text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 transition-colors mb-2"
+                                                        />
+                                                        <div className="flex flex-wrap gap-2">
+                                                            <span className="text-[9px] text-white/30 uppercase tracking-[0.1em] py-1">Quick Select:</span>
+                                                            {PROVIDER_MODELS.ollama?.map((model) => (
+                                                                <button
+                                                                    key={model}
+                                                                    onClick={() => handleModelChange(model)}
+                                                                    className={clsx(
+                                                                        "px-3 py-1 rounded-full text-[10px] border transition-all",
+                                                                        aiModel === model 
+                                                                            ? "bg-indigo-500/10 border-indigo-500 text-white" 
+                                                                            : "bg-white/3 border-white/5 text-white/40 hover:bg-white/5"
+                                                                    )}
+                                                                >
+                                                                    {model}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <select
+                                                        value={aiModel}
+                                                        onChange={(e) => handleModelChange(e.target.value)}
+                                                        className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-xs text-white focus:outline-none focus:border-indigo-500/50 transition-colors"
+                                                    >
+                                                        {PROVIDER_MODELS[aiProvider]?.map((model) => (
+                                                            <option key={model} value={model} className="bg-[#0A0B14]">
+                                                                {model}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                )}
+                                            </div>
                                         </div>
                                     </section>
                                 </div>

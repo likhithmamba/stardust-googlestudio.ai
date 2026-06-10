@@ -1,5 +1,6 @@
 import { World } from '../World';
 import type { Vector2 } from '../layout/LayoutConstants';
+import { useSettingsStore } from '../../ui/settings/settingsStore';
 
 const PHYSICS_CONFIG = {
     springStrength: 0.1,
@@ -51,10 +52,15 @@ export class PhysicsSystem {
                     addForce(note.id, dx * 1000, dy * 1000); // Super spring
                 } else {
                     let strength = PHYSICS_CONFIG.springStrength;
-                    // Mode Tuning
-                    if (this.world.mode === 'prism' || this.world.mode === 'matrix') strength = 0.2;
-                    else if (this.world.mode === 'timeline') strength = 0.15;
-                    else if (this.world.mode === 'orbital') strength = 0.03;
+                    const isEntering = useSettingsStore.getState().transitionPhase === 'entering';
+                    if (isEntering) {
+                        strength = 0.45; // Snappy mode transition interpolation
+                    } else {
+                        // Mode Tuning
+                        if (this.world.mode === 'prism' || this.world.mode === 'matrix') strength = 0.2;
+                        else if (this.world.mode === 'timeline') strength = 0.15;
+                        else if (this.world.mode === 'orbital') strength = 0.03;
+                    }
 
                     addForce(note.id, dx * strength, dy * strength);
                 }

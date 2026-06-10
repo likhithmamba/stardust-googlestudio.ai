@@ -24,6 +24,15 @@ export function useKeyboardShortcuts() {
                 return;
             }
 
+            // Space: pan mode
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (!document.body.classList.contains('space-pan-active')) {
+                    document.body.classList.add('space-pan-active');
+                }
+                return;
+            }
+
             const isMod = e.ctrlKey || e.metaKey;
 
             // Mode switching: 1-5
@@ -190,7 +199,24 @@ export function useKeyboardShortcuts() {
             }
         };
 
+        const keyupHandler = (e: KeyboardEvent) => {
+            if (e.code === 'Space') {
+                document.body.classList.remove('space-pan-active');
+            }
+        };
+
+        const blurHandler = () => {
+            document.body.classList.remove('space-pan-active');
+        };
+
         window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
+        window.addEventListener('keyup', keyupHandler);
+        window.addEventListener('blur', blurHandler);
+
+        return () => {
+            window.removeEventListener('keydown', handler);
+            window.removeEventListener('keyup', keyupHandler);
+            window.removeEventListener('blur', blurHandler);
+        };
     }, [setViewMode]);
 }

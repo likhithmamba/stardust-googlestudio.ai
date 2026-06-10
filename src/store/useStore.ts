@@ -7,9 +7,10 @@
 // Cross-slice coordination is handled here (DB persistence, settings sync).
 
 import { create } from 'zustand';
-import { initDB } from '../db/idb';
+import { stardustDB } from '../db/StardustDB';
 import { NoteType } from '../constants';
 import type { ViewMode } from '../constants';
+import { sanitizeNoteContent } from '../utils/sanitize';
 
 // ── Re-export types & utilities so consumers don't need to change imports ──
 import type { NoteSlice } from './noteSlice';
@@ -26,6 +27,8 @@ import {
     deletedConnectionIds,
     setDebouncedSave,
     setFullSave,
+    type Note,
+    type Connection,
 } from './noteSlice';
 import { createUISlice } from './uiSlice';
 import { createPersistenceSlice } from './persistenceSlice';
@@ -47,55 +50,53 @@ const debouncedSave = () => {
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(async () => {
         try {
+            const state = useStore.getState();
             const hasDirtyData = dirtyNoteIds.size > 0 || deletedNoteIds.size > 0 ||
                 dirtyConnectionIds.size > 0 || deletedConnectionIds.size > 0 || graveyardDirty;
             if (!hasDirtyData) return;
 
-            const db = await initDB();
-            const stores = ['notes', 'connections'] as const;
-            const needsGraveyard = graveyardDirty;
-            const storeNames = needsGraveyard ? [...stores, 'graveyard' as const] : [...stores];
-            const tx = db.transaction(storeNames, 'readwrite');
-            const noteStore = tx.objectStore('notes');
-            const connStore = tx.objectStore('connections');
-            const state = useStore.getState();
-
-            // Write dirty notes
+            // Resolve dirty notes
+            const notesToUpsert: Note[] = [];
             for (const id of dirtyNoteIds) {
                 const note = state.notes.find(n => n.id === id);
-                if (note) await noteStore.put(note);
+                if (note) {
+                    const sanitizedContent = note.content ? sanitizeNoteContent(note.content) : note.content;
+                    notesToUpsert.push({ ...note, content: sanitizedContent });
+                }
             }
-            // Delete removed notes
-            for (const id of deletedNoteIds) {
-                await noteStore.delete(id);
-            }
-            // Write dirty connections
+
+            // Resolve dirty connections
+            const connsToUpsert: Connection[] = [];
             for (const id of dirtyConnectionIds) {
                 const conn = state.connections.find(c => c.id === id);
-                if (conn) await connStore.put(conn);
+                if (conn) connsToUpsert.push(conn);
             }
-            // Delete removed connections
-            for (const id of deletedConnectionIds) {
-                await connStore.delete(id);
+
+            // Execute DB writes
+            if (notesToUpsert.length > 0) {
+                await stardustDB.bulkUpsertNotes(notesToUpsert);
             }
-            // Persist graveyard (full replace — it's small)
-            if (needsGraveyard) {
-                const graveyardStore = tx.objectStore('graveyard');
-                await graveyardStore.clear();
-                for (const note of state.graveyard) {
-                    await graveyardStore.put(note);
-                }
+            if (deletedNoteIds.size > 0) {
+                await stardustDB.bulkDeleteNotes(Array.from(deletedNoteIds));
+            }
+            if (connsToUpsert.length > 0) {
+                await stardustDB.bulkUpsertConnections(connsToUpsert);
+            }
+            if (deletedConnectionIds.size > 0) {
+                await stardustDB.bulkDeleteConnections(Array.from(deletedConnectionIds));
+            }
+            if (graveyardDirty) {
+                await stardustDB.saveGraveyard(state.graveyard);
                 graveyardDirty = false;
             }
 
+            // Clear dirty sets ONLY after successful write
             dirtyNoteIds.clear();
             deletedNoteIds.clear();
             dirtyConnectionIds.clear();
             deletedConnectionIds.clear();
-
-            await tx.done;
         } catch (e) {
-            console.error('Failed to save to DB:', e);
+            console.error('[Store Persistence] Failed to save to DB:', e);
         }
     }, 500);
 };
@@ -112,25 +113,27 @@ useStore.subscribe((state, prevState) => {
 const fullSaveToDB = async () => {
     try {
         const state = useStore.getState();
-        const db = await initDB();
-        const tx = db.transaction(['notes', 'connections', 'graveyard'], 'readwrite');
-        const noteStore = tx.objectStore('notes');
-        const connStore = tx.objectStore('connections');
-        const graveyardStore = tx.objectStore('graveyard');
-        await Promise.all([noteStore.clear(), connStore.clear(), graveyardStore.clear()]);
+        await stardustDB.clearAll();
+        
+        // Sanitize all contents before saving
+        const sanitizedNotes = state.notes.map(note => ({
+            ...note,
+            content: note.content ? sanitizeNoteContent(note.content) : note.content
+        }));
+
         await Promise.all([
-            ...state.notes.map(note => noteStore.put(note)),
-            ...state.connections.map(conn => connStore.put(conn)),
-            ...state.graveyard.map(note => graveyardStore.put(note)),
+            stardustDB.bulkUpsertNotes(sanitizedNotes),
+            stardustDB.bulkUpsertConnections(state.connections),
+            stardustDB.saveGraveyard(state.graveyard)
         ]);
-        await tx.done;
+
         dirtyNoteIds.clear();
         deletedNoteIds.clear();
         dirtyConnectionIds.clear();
         deletedConnectionIds.clear();
         graveyardDirty = false;
     } catch (e) {
-        console.error('Failed to save to DB:', e);
+        console.error('[Store Persistence] Failed to full save to DB:', e);
     }
 };
 
@@ -139,139 +142,147 @@ setDebouncedSave(debouncedSave);
 setFullSave(fullSaveToDB);
 
 // ── Load from DB on init ────────────────────────────────────────
-const loadFromDB = async () => {
-    const db = await initDB();
-    const notes = await db.getAll('notes');
-    const connections = await db.getAll('connections');
-    const graveyard = await db.getAll('graveyard');
+export const loadFromDB = async () => {
+    try {
+        const notes = await stardustDB.getAllNotes();
+        const connections = await stardustDB.getAllConnections();
+        const graveyard = await stardustDB.getAllGraveyard();
 
-    if (notes.length === 0) {
-        // Place demo notes centered on screen so they are visible immediately
-        const CX = window.innerWidth / 2;
-        const CY = window.innerHeight / 2;
+        if (notes.length === 0) {
+            // Place demo notes centered on screen so they are visible immediately
+            const CX = window.innerWidth / 2 || 500;
+            const CY = window.innerHeight / 2 || 400;
 
-        const welcomeNote = {
-            id: 'welcome-nebula',
-            x: CX - 120,
-            y: CY - 120,
-            w: 0,
-            h: 0,
-            type: NoteType.Nebula,
-            title: 'Welcome to Stardust ✨',
-            content: 'Double-click anywhere to create a new planet.\n\nDrag handles to connect thoughts.\n\nSwitch modes with the dock below.',
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            originMode: 'void' as ViewMode,
-            status: 'captured' as const,
-            visibleInModes: ['orbital' as ViewMode, 'matrix' as ViewMode],
-            luminance: 1.0,
-            lastAccessedAt: Date.now(),
-        };
-        const instructionPlanet = {
-            id: 'instruction-earth',
-            x: CX + 180,
-            y: CY - 80,
-            w: 0,
-            h: 0,
-            type: NoteType.Earth,
-            title: 'I am a Planet!',
-            content: 'Try changing my color or type in the toolbar.',
-            priority: 'high' as const,
-            createdAt: Date.now() - 1000,
-            updatedAt: Date.now(),
-            originMode: 'orbital' as ViewMode,
-            luminance: 1.0,
-            lastAccessedAt: Date.now(),
-        };
-        const sunNote = {
-            id: 'demo-sun',
-            x: CX - 60,
-            y: CY - 300,
-            w: 0,
-            h: 0,
-            type: NoteType.Sun,
-            title: 'Core Idea',
-            priority: 'critical' as const,
-            fixed: true,
-            createdAt: Date.now() - 2000,
-            updatedAt: Date.now(),
-            originMode: 'matrix' as ViewMode,
-            urgency: 'urgent' as const,
-            importance: 'important' as const,
-            status: 'todo' as const,
-            luminance: 1.0,
-            lastAccessedAt: Date.now(),
-        };
-        const moonNote = {
-            id: 'demo-moon',
-            x: CX - 280,
-            y: CY + 80,
-            w: 0,
-            h: 0,
-            type: NoteType.Moon,
-            title: 'Supporting thought',
-            priority: 'low' as const,
-            createdAt: Date.now() - 500,
-            updatedAt: Date.now(),
-            originMode: 'timeline' as ViewMode,
-            dueDate: Date.now() + 86400000,
-            status: 'todo' as const,
-            luminance: 1.0,
-            lastAccessedAt: Date.now(),
-        };
-        const archiveNote = {
-            id: 'demo-archive',
-            x: CX + 300,
-            y: CY + 200,
-            w: 0,
-            h: 0,
-            type: NoteType.Asteroid,
-            title: 'Old idea',
-            createdAt: Date.now() - 10000,
-            updatedAt: Date.now(),
-            originMode: 'archive' as ViewMode,
-            status: 'archived' as const,
-            luminance: 0.3,
-            lastAccessedAt: Date.now() - 10000,
-        };
-        useStore.getState().setNotes([sunNote, welcomeNote, instructionPlanet, moonNote, archiveNote]);
-        useStore.getState().setConnections([{
-            id: 'intro-conn',
-            from: 'demo-sun',
-            to: 'welcome-nebula',
-            label: 'Start here'
-        }, {
-            id: 'intro-conn-2',
-            from: 'welcome-nebula',
-            to: 'instruction-earth',
-        }]);
-        // Set viewport to show all demo notes
-        useStore.getState().setViewport({ x: 0, y: 0, zoom: 0.75 });
-    } else {
-        // SANITIZATION: Fix NaN/Corrupted Notes from previous crashes
-        const sanitizedNotes = notes.map(n => ({
-            ...n,
-            x: Number.isFinite(n.x) ? n.x : window.innerWidth / 2,
-            y: Number.isFinite(n.y) ? n.y : window.innerHeight / 2,
-            vx: 0, // Force Static Start
-            vy: 0,
-            originMode: n.originMode || ('void' as ViewMode),
-            status: n.status || 'captured',
-            luminance: n.luminance ?? 1.0,
-            lastAccessedAt: n.lastAccessedAt ?? Date.now(),
-        }));
-        useStore.getState().setNotes(sanitizedNotes);
-        useStore.getState().setConnections(connections);
-        if (graveyard.length > 0) {
-            useStore.setState({ graveyard });
+            const welcomeNote = {
+                id: 'welcome-nebula',
+                x: CX - 120,
+                y: CY - 120,
+                w: 0,
+                h: 0,
+                type: NoteType.Nebula,
+                title: 'Welcome to Stardust ✨',
+                content: 'Double-click anywhere to create a new planet.\n\nDrag handles to connect thoughts.\n\nSwitch modes with the dock below.',
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                originMode: 'void' as ViewMode,
+                status: 'captured' as const,
+                visibleInModes: ['orbital' as ViewMode, 'matrix' as ViewMode],
+                luminance: 1.0,
+                lastAccessedAt: Date.now(),
+            };
+            const instructionPlanet = {
+                id: 'instruction-earth',
+                x: CX + 180,
+                y: CY - 80,
+                w: 0,
+                h: 0,
+                type: NoteType.Earth,
+                title: 'I am a Planet!',
+                content: 'Try changing my color or type in the toolbar.',
+                priority: 'high' as const,
+                createdAt: Date.now() - 1000,
+                updatedAt: Date.now(),
+                originMode: 'orbital' as ViewMode,
+                luminance: 1.0,
+                lastAccessedAt: Date.now(),
+            };
+            const sunNote = {
+                id: 'demo-sun',
+                x: CX - 60,
+                y: CY - 300,
+                w: 0,
+                h: 0,
+                type: NoteType.Sun,
+                title: 'Core Idea',
+                priority: 'critical' as const,
+                fixed: true,
+                createdAt: Date.now() - 2000,
+                updatedAt: Date.now(),
+                originMode: 'matrix' as ViewMode,
+                urgency: 'urgent' as const,
+                importance: 'important' as const,
+                status: 'todo' as const,
+                luminance: 1.0,
+                lastAccessedAt: Date.now(),
+            };
+            const moonNote = {
+                id: 'demo-moon',
+                x: CX - 280,
+                y: CY + 80,
+                w: 0,
+                h: 0,
+                type: NoteType.Moon,
+                title: 'Supporting thought',
+                priority: 'low' as const,
+                createdAt: Date.now() - 500,
+                updatedAt: Date.now(),
+                originMode: 'timeline' as ViewMode,
+                dueDate: Date.now() + 86400000,
+                status: 'todo' as const,
+                luminance: 1.0,
+                lastAccessedAt: Date.now(),
+            };
+            const archiveNote = {
+                id: 'demo-archive',
+                x: CX + 300,
+                y: CY + 200,
+                w: 0,
+                h: 0,
+                type: NoteType.Asteroid,
+                title: 'Old idea',
+                createdAt: Date.now() - 10000,
+                updatedAt: Date.now(),
+                originMode: 'archive' as ViewMode,
+                status: 'archived' as const,
+                luminance: 0.3,
+                lastAccessedAt: Date.now() - 10000,
+            };
+
+            const demoNotes = [sunNote, welcomeNote, instructionPlanet, moonNote, archiveNote];
+            const demoConnections = [
+                { id: 'intro-conn', from: 'demo-sun', to: 'welcome-nebula', label: 'Start here' },
+                { id: 'intro-conn-2', from: 'welcome-nebula', to: 'instruction-earth' }
+            ];
+
+            useStore.getState().hydrateFromDB({
+                notes: demoNotes,
+                connections: demoConnections,
+                graveyard: []
+            });
+            useStore.getState().setViewport({ x: 0, y: 0, zoom: 0.75 });
+
+            // Persist the newly created demo notes
+            await Promise.all([
+                stardustDB.bulkUpsertNotes(demoNotes),
+                stardustDB.bulkUpsertConnections(demoConnections)
+            ]);
+        } else {
+            // SANITIZATION: Fix NaN/Corrupted Notes from previous crashes
+            const sanitizedNotes = notes.map(n => ({
+                ...n,
+                x: Number.isFinite(n.x) ? n.x : window.innerWidth / 2,
+                y: Number.isFinite(n.y) ? n.y : window.innerHeight / 2,
+                vx: 0, // Force Static Start
+                vy: 0,
+                originMode: n.originMode || ('void' as ViewMode),
+                status: n.status || 'captured',
+                luminance: n.luminance ?? 1.0,
+                lastAccessedAt: n.lastAccessedAt ?? Date.now(),
+            }));
+            useStore.getState().hydrateFromDB({
+                notes: sanitizedNotes,
+                connections: connections,
+                graveyard: graveyard
+            });
         }
+    } catch (err) {
+        console.error('[Store Hydration] DB hydration failure, app still works:', err);
+        useStore.getState().hydrateFromDB({ notes: [], connections: [], graveyard: [] });
+        window.dispatchEvent(new CustomEvent('stardust:toast', {
+            detail: { message: 'Database hydration failed. Working in memory.', type: 'error' }
+        }));
     }
 };
-
-loadFromDB().catch(err => {
-    console.error('DB unavailable, starting fresh:', err);
-    useStore.getState().setNotes([]);
-});
 
 // Persist UI settings to localStorage
 useStore.subscribe((state) => {

@@ -10,6 +10,7 @@ import { useZoomLOD, type ZoomLOD } from '../hooks/useZoomLOD';
 import { useSettingsStore } from '../ui/settings/settingsStore';
 import { touchNote, getDecayOpacity } from '../engine/decayEngine';
 import { sanitizePlainText } from '../utils/sanitize';
+import { clampCoord } from '../utils/clampCoord';
 
 interface PlanetNoteProps {
     note: Note;
@@ -241,8 +242,8 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
             const ux = (memo && memo.ux !== undefined) ? memo.ux : dragPositionRef.current.x;
             const uy = (memo && memo.uy !== undefined) ? memo.uy : dragPositionRef.current.y;
 
-            const newX = ux + dx / zoom;
-            const newY = uy + dy / zoom;
+            const newX = clampCoord(ux + dx / zoom);
+            const newY = clampCoord(uy + dy / zoom);
 
             let displayX = newX;
             let displayY = newY;
@@ -947,8 +948,8 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                     '--planet-size': `${size}px`,
                     zIndex: isDragging.current ? 100 : 1,
                     // Dynamic type-specific boundary and glowing shadows
-                    borderColor: note.color || baseStyle.color || 'var(--mode-accent, rgba(255,255,255,0.2))',
-                    boxShadow: `0 0 20px -5px ${note.color || baseStyle.color || 'var(--mode-accent, transparent)'}`,
+                    borderColor: note.color || (viewMode === 'orbital' ? (note.priority === 'critical' ? '#ef4444' : note.priority === 'high' ? '#fb923c' : note.priority === 'medium' ? '#3b82f6' : '#94a3b8') : baseStyle.color) || 'var(--mode-accent, rgba(255,255,255,0.2))',
+                    boxShadow: `0 0 20px -5px ${note.color || (viewMode === 'orbital' ? (note.priority === 'critical' ? '#ef4444' : note.priority === 'high' ? '#fb923c' : note.priority === 'medium' ? '#3b82f6' : '#94a3b8') : baseStyle.color) || 'var(--mode-accent, transparent)'}`,
                     filter: (viewMode === 'orbital' && (note.priority === 'low' || !note.priority) && getDecayLevel(note) >= 3)
                         ? 'grayscale(100%) brightness(0.6)'
                         : getDecayLevel(note) >= 2
@@ -957,8 +958,8 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                 } as any}
                 initial={false}
                 animate={{
-                    width: size,
-                    height: size,
+                    width: note.isDying ? 0 : size,
+                    height: note.isDying ? 0 : size,
                     opacity: note.isDying ? 0 : (isDimmed ? 0.2 : getDecayOpacity(note)),
                 }}
                 transition={{
@@ -974,7 +975,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                         position: 'absolute',
                         inset: 0,
                         borderRadius: '50%',
-                        background: `radial-gradient(circle, ${note.color || baseStyle.color || '#6366f1'} 0%, transparent 70%)`,
+                        background: `radial-gradient(circle, ${note.color || (viewMode === 'orbital' ? (note.priority === 'critical' ? '#ef4444' : note.priority === 'high' ? '#fb923c' : note.priority === 'medium' ? '#3b82f6' : '#94a3b8') : baseStyle.color) || '#6366f1'} 0%, transparent 70%)`,
                         opacity: 0.6,
                         pointerEvents: 'none',
                         zIndex: 0

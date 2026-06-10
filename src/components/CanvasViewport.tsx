@@ -24,7 +24,15 @@ import { LayoutVisuals } from './LayoutVisuals';
 import { StarfieldLayer } from './StarfieldLayer';
 import { soundManager } from '../utils/sound';
 import { Toolbar } from './Toolbar';
+import { SpatialIndex } from '../utils/spatial';
 import { workerBridge } from '../workers/WorkerBridge';
+import { clampCoord } from '../utils/clampCoord';
+
+const VoidMode = React.lazy(() => import('../ui/modes/VoidMode').then(m => ({ default: m.VoidMode })));
+const MatrixMode = React.lazy(() => import('../ui/modes/MatrixMode').then(m => ({ default: m.MatrixMode })));
+const OrbitalMode = React.lazy(() => import('../ui/modes/OrbitalMode').then(m => ({ default: m.OrbitalMode })));
+const PrismMode = React.lazy(() => import('../ui/modes/PrismMode').then(m => ({ default: m.PrismMode })));
+const TimelineMode = React.lazy(() => import('../ui/modes/TimelineMode').then(m => ({ default: m.TimelineMode })));
 
 // Mode Overlays
 import { DecayOverlay } from './modes/DecayView';
@@ -530,8 +538,8 @@ export const CanvasViewport: React.FC = () => {
             const rect = containerRef.current?.getBoundingClientRect();
             if (rect) {
                 const currentViewport = useStore.getState().viewport;
-                const worldX = (x - rect.left - currentViewport.x) / currentViewport.zoom;
-                const worldY = (y - rect.top - currentViewport.y) / currentViewport.zoom;
+                const worldX = clampCoord((x - rect.left - currentViewport.x) / currentViewport.zoom);
+                const worldY = clampCoord((y - rect.top - currentViewport.y) / currentViewport.zoom);
 
                 if (viewMode === 'archive') {
                     window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'Archive is read-only. Send notes here from other modes.', type: 'info' } }));
@@ -560,8 +568,8 @@ export const CanvasViewport: React.FC = () => {
             const rect = containerRef.current?.getBoundingClientRect();
             if (rect) {
                 const currentViewport = useStore.getState().viewport;
-                const worldX = (x - rect.left - currentViewport.x) / currentViewport.zoom;
-                const worldY = (y - rect.top - currentViewport.y) / currentViewport.zoom;
+                const worldX = clampCoord((x - rect.left - currentViewport.x) / currentViewport.zoom);
+                const worldY = clampCoord((y - rect.top - currentViewport.y) / currentViewport.zoom);
 
                 if (viewMode === 'archive') {
                     window.dispatchEvent(new CustomEvent('stardust:toast', { detail: { message: 'Archive is read-only. Send notes here from other modes.', type: 'info' } }));
@@ -590,8 +598,8 @@ export const CanvasViewport: React.FC = () => {
             const rect = containerRef.current?.getBoundingClientRect();
             if (rect) {
                 const currentViewport = useStore.getState().viewport;
-                const worldX = (x - rect.left - currentViewport.x) / currentViewport.zoom;
-                const worldY = (y - rect.top - currentViewport.y) / currentViewport.zoom;
+                const worldX = clampCoord((x - rect.left - currentViewport.x) / currentViewport.zoom);
+                const worldY = clampCoord((y - rect.top - currentViewport.y) / currentViewport.zoom);
 
                 handleCreateNote(NoteType.BlackHole, worldX, worldY);
             }
@@ -602,8 +610,8 @@ export const CanvasViewport: React.FC = () => {
             const rect = containerRef.current?.getBoundingClientRect();
             if (rect) {
                 const currentViewport = useStore.getState().viewport;
-                const worldX = (x - rect.left - currentViewport.x) / currentViewport.zoom;
-                const worldY = (y - rect.top - currentViewport.y) / currentViewport.zoom;
+                const worldX = clampCoord((x - rect.left - currentViewport.x) / currentViewport.zoom);
+                const worldY = clampCoord((y - rect.top - currentViewport.y) / currentViewport.zoom);
 
                 handleCreateNote(NoteType.Earth, worldX, worldY);
             }
@@ -611,8 +619,8 @@ export const CanvasViewport: React.FC = () => {
 
         const handleCreateNoteAtCenter = () => {
             const currentViewport = useStore.getState().viewport;
-            const worldX = (-currentViewport.x + window.innerWidth / 2) / currentViewport.zoom;
-            const worldY = (-currentViewport.y + window.innerHeight / 2) / currentViewport.zoom;
+            const worldX = clampCoord((-currentViewport.x + window.innerWidth / 2) / currentViewport.zoom);
+            const worldY = clampCoord((-currentViewport.y + window.innerHeight / 2) / currentViewport.zoom);
 
             const allowedTypes = ALLOWED_TYPES_PER_MODE[viewMode || 'void'] || ALLOWED_TYPES_PER_MODE['void'];
             const type = allowedTypes[0] || NoteType.Asteroid;
@@ -683,19 +691,27 @@ export const CanvasViewport: React.FC = () => {
             const target = event.target as HTMLElement;
             if (isUIEvent(target)) return;
 
+            const rect = containerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+
             if (connectionStart) {
-                const rect = containerRef.current?.getBoundingClientRect();
-                if (rect) {
-                    const clientX = (event as any).clientX;
-                    const clientY = (event as any).clientY;
-                    const worldX = (clientX - rect.left - viewport.x) / viewport.zoom;
-                    const worldY = (clientY - rect.top - viewport.y) / viewport.zoom;
-                    setTempConnectionEnd({ x: worldX, y: worldY });
-                }
+                const clientX = (event as any).clientX;
+                const clientY = (event as any).clientY;
+                const worldX = (clientX - rect.left - viewport.x) / viewport.zoom;
+                const worldY = (clientY - rect.top - viewport.y) / viewport.zoom;
+                setTempConnectionEnd({ x: worldX, y: worldY });
                 return;
             }
 
-            if (!spacePressed && (target.closest('[data-note-id]') || target.closest('.handle-base'))) return;
+            const worldX = (ix - rect.left - viewport.x) / viewport.zoom;
+            const worldY = (iy - rect.top - viewport.y) / viewport.zoom;
+
+            if (!spacePressed) {
+                if (target.closest('[data-note-id]') || target.closest('.handle-base')) return;
+
+                const hitNote = SpatialIndex.hitTest(visibleNotes, worldX, worldY);
+                if (hitNote) return;
+            }
 
             // Shift+Drag lasso selection!
             if (event.shiftKey && !spacePressed) {
@@ -967,8 +983,15 @@ export const CanvasViewport: React.FC = () => {
         )}>
 
             {/* Visual Layer: Starfield & Background */}
-            <DashboardBackground />
-            {designSystem === 'zero-point' && <StarfieldLayer />}
+            <React.Suspense fallback={<div className="absolute inset-0 bg-[#020617]" />}>
+                {viewMode === 'void' && <VoidMode />}
+                {viewMode === 'matrix' && <MatrixMode />}
+                {viewMode === 'orbital' && <OrbitalMode />}
+                {viewMode === 'prism' && <PrismMode />}
+                {viewMode === 'timeline' && <TimelineMode />}
+                {(viewMode === 'free' || viewMode === 'archive') && <DashboardBackground />}
+            </React.Suspense>
+            {designSystem === 'zero-point' && viewMode !== 'void' && viewMode !== 'matrix' && viewMode !== 'orbital' && <StarfieldLayer />}
 
             {/* MODE OVERLAYS (Static Grids/Layouts) */}
             {viewMode === 'archive' && <DecayOverlay />}
@@ -1038,6 +1061,7 @@ export const CanvasViewport: React.FC = () => {
                         viewMode={viewMode}
                         layoutOrigin={layoutOrigin}
                         minDimension={Math.min(window.innerWidth, window.innerHeight)}
+                        notes={visibleNotes}
                     />
 
                     {/* Alignment Lines (Pro Mode) */}

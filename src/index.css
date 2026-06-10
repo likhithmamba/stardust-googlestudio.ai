@@ -782,4 +782,15 @@ body.landing-active {
 .text-white\/30 {
   color: rgba(255, 255, 255, 0.48) !important;
 }
+
+/* Space Pan Panning Cursor & Overrides */
+body.space-pan-active {
+  cursor: grab !important;
+}
+body.space-pan-active:active {
+  cursor: grabbing !important;
+}
+body.space-pan-active .note-planet {
+  pointer-events: none !important;
+}
 

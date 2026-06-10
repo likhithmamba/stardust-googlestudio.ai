@@ -25,6 +25,10 @@ export class LayoutManager {
             return new Map(); // No forced targets in free mode
         }
 
+        if (this.world.mode !== 'orbital' && this.world.layoutTargets && this.world.layoutTargets.size > 0) {
+            return this.world.layoutTargets;
+        }
+
         const strategy = this.strategies.get(this.world.mode);
         if (!strategy) return new Map();
 

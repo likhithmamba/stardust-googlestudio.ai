@@ -78,6 +78,8 @@ export class World {
         this.isDirty = true;
     }
 
+    public layoutTargets: Map<string, { x: number; y: number }> = new Map();
+
     public syncConnections(incoming: any[]) {
         this.connections.clear();
         incoming.forEach(c => {
@@ -85,10 +87,14 @@ export class World {
         });
     }
 
-    public setMode(mode: LayoutMode) {
+    public setMode(mode: LayoutMode, targets?: Map<string, { x: number; y: number }>) {
         const SUPPORTED_MODES: LayoutMode[] = ['free', 'void', 'orbital', 'matrix', 'prism', 'timeline'];
         this.mode = SUPPORTED_MODES.includes(mode) ? mode : 'free';
-        // Optionally freeze physics or reset velocities here
+        if (targets) {
+            this.layoutTargets = targets;
+        } else {
+            this.layoutTargets.clear();
+        }
     }
 
     public updateViewport(w: number, h: number, z: number, x: number, y: number) {

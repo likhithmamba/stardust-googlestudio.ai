@@ -4,16 +4,12 @@ import './index.css'
 
 import { GlobalErrorBoundary } from './components/GlobalErrorBoundary';
 
+import { registerServiceWorker } from './pwa/registration';
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <GlobalErrorBoundary>
         <App />
     </GlobalErrorBoundary>,
 )
 
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('ServiceWorker registered:', reg))
-            .catch(err => console.error('ServiceWorker registration failed:', err));
-    });
-}
+registerServiceWorker();

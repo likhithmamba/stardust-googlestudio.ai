@@ -3,6 +3,7 @@ import { engine } from '../engine/Engine';
 import { useStore } from '../store/useStore';
 import { useSettingsStore } from '../ui/settings/settingsStore';
 import type { LayoutMode } from '../engine/types/EngineTypes';
+import { workerBridge } from '../workers/WorkerBridge';
 
 export const useEngine = () => {
     const notes = useStore((state) => state.notes);
@@ -14,6 +15,9 @@ export const useEngine = () => {
     useEffect(() => {
         // Initialize Engine
         engine.start();
+        workerBridge.waitForReady().catch(err => {
+            console.error('[useEngine] Worker failed to get ready:', err);
+        });
         return () => {
             engine.stop();
         };
@@ -43,10 +47,71 @@ export const useEngine = () => {
         });
     }, [viewport]);
 
-    // Sync Mode
+    // Sync Mode & Layout via Web Worker Bridge
     useEffect(() => {
-        engine.setMode(viewMode as LayoutMode);
-    }, [viewMode]);
+        let active = true;
+
+        const updateWorkerTargets = async () => {
+            if (viewMode === 'free' || viewMode === 'void' || viewMode === 'archive') {
+                engine.setMode(viewMode as LayoutMode);
+                return;
+            }
+
+            try {
+                // Strip notes to satisfy strict security requirements (NEVER send content)
+                const strippedNotes = notes.map(n => ({
+                    id: n.id,
+                    type: n.type,
+                    touchedAt: n.updatedAt || n.createdAt || Date.now(),
+                    wordCount: n.content ? n.content.split(/\s+/).length : 0,
+                    connectionCount: connections.filter(c => c.from === n.id || c.to === n.id).length,
+                    priority: n.priority,
+                    urgency: n.urgency,
+                    importance: n.importance,
+                    status: n.status,
+                    dueDate: n.dueDate
+                }));
+
+                const center = { x: 0, y: 0 };
+                let targetsObj: Record<string, { x: number; y: number }> = {};
+
+                if (viewMode === 'orbital') {
+                    const scores = await workerBridge.calculateGravityScores(strippedNotes as any);
+                    targetsObj = await workerBridge.getOrbitalTargets(strippedNotes as any, center, scores);
+                } else if (viewMode === 'matrix') {
+                    targetsObj = await workerBridge.getMatrixTargets(strippedNotes as any, center, {
+                        width: window.innerWidth,
+                        height: window.innerHeight
+                    });
+                } else if (viewMode === 'prism') {
+                    targetsObj = await workerBridge.getPrismTargets(strippedNotes as any, center);
+                } else if (viewMode === 'timeline') {
+                    targetsObj = await workerBridge.getTimelineTargets(strippedNotes as any, center);
+                }
+
+                if (!active) return;
+
+                // Convert Record back to a Map
+                const targetsMap = new Map<string, { x: number; y: number }>();
+                Object.entries(targetsObj).forEach(([id, pos]) => {
+                    targetsMap.set(id, { x: pos.x, y: pos.y });
+                });
+
+                engine.setMode(viewMode as LayoutMode, targetsMap);
+            } catch (e) {
+                console.error('[Engine Worker Bridge] Worker layout failed, falling back to heuristic:', e);
+                if (!active) return;
+                // Fallback to local heuristic calculations on failure
+                engine.setMode(viewMode as LayoutMode);
+            }
+        };
+
+        updateWorkerTargets();
+
+        return () => {
+            active = false;
+        };
+    }, [viewMode, notes, connections]);
 
     // Listen for Engine Deletions
     useEffect(() => {

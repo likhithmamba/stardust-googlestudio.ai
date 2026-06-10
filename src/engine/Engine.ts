@@ -43,6 +43,10 @@ export class Engine {
         window.dispatchEvent(new CustomEvent('stardust:delete-note', { detail: { id: victimId } }));
     };
 
+    private lastTime: number = 0;
+    private accumulator: number = 0;
+    private readonly TIMESTEP: number = 1000 / 60; // 60 FPS target timestep (16.67ms)
+
     public static getInstance(): Engine {
         if (!Engine.instance) {
             Engine.instance = new Engine();
@@ -53,8 +57,9 @@ export class Engine {
     public start() {
         if (this.isRunning) return;
         this.isRunning = true;
+        this.lastTime = performance.now();
+        this.accumulator = 0;
         this.loop();
-
     }
 
     public stop() {
@@ -73,23 +78,35 @@ export class Engine {
     private loop = () => {
         if (!this.isRunning) return;
 
-        // 1. Calculate Layout Targets
-        let targets = new Map<string, { x: number; y: number }>();
-        if (FLAGS.ENABLE_LAYOUT) {
-            targets = this.layoutManager.getTargets();
+        const currentTime = performance.now();
+        let deltaTime = currentTime - this.lastTime;
+        // Clamp deltaTime to prevent spiral of death during lag spikes
+        if (deltaTime > 250) deltaTime = 250;
+        this.lastTime = currentTime;
+
+        this.accumulator += deltaTime;
+
+        while (this.accumulator >= this.TIMESTEP) {
+            // 1. Calculate Layout Targets
+            let targets = new Map<string, { x: number; y: number }>();
+            if (FLAGS.ENABLE_LAYOUT) {
+                targets = this.layoutManager.getTargets();
+            }
+
+            // 2. Physics Step
+            if (FLAGS.ENABLE_PHYSICS) {
+                this.physicsSystem.step(targets);
+            }
+
+            // 3. Singularity Step
+            if (FLAGS.ENABLE_SINGULARITY) {
+                this.singularitySystem.step();
+            }
+
+            this.accumulator -= this.TIMESTEP;
         }
 
-        // 2. Physics Step (general N-body forces — can be disabled for stability)
-        if (FLAGS.ENABLE_PHYSICS) {
-            this.physicsSystem.step(targets);
-        }
-
-        // 3. Singularity Step (black hole suction — independent, always-on when flagged)
-        if (FLAGS.ENABLE_SINGULARITY) {
-            this.singularitySystem.step();
-        }
-
-        // 4. Visual Sync
+        // 4. Visual Sync (once per rendering frame)
         if (FLAGS.ENABLE_RENDER) {
             this.notifyVisuals();
         }
@@ -125,8 +142,8 @@ export class Engine {
 
     // --- Public API for React ---
 
-    public setMode(mode: LayoutMode) {
-        this.world.setMode(mode);
+    public setMode(mode: LayoutMode, targets?: Map<string, { x: number; y: number }>) {
+        this.world.setMode(mode, targets);
     }
 
     public updateConfig(viewport: { width: number; height: number; zoom: number; x: number; y: number }) {

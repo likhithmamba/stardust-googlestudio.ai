@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { sanitizePlainText } from '../utils/sanitize';
-import { initDB } from '../db/idb';
+import { stardustDB } from '../db/StardustDB';
 import { useSettingsStore } from '../ui/settings/settingsStore';
 
 interface FeedbackEntry {
@@ -16,20 +16,12 @@ interface FeedbackEntry {
 }
 
 async function saveFeedback(entry: Partial<FeedbackEntry>): Promise<void> {
-    try {
-        const db = await initDB();
-        const tx = db.transaction('feedback', 'readwrite');
-        await tx.objectStore('feedback').put({ id: 'first-launch', ...entry });
-        await tx.done;
-    } catch (e) {
-        console.error('[Feedback] Save failed:', e);
-    }
+    await stardustDB.putFeedbackEntry(entry);
 }
 
 export async function getFeedbackStatus(): Promise<'completed' | 'skipped' | 'pending'> {
     try {
-        const db = await initDB();
-        const entry = await db.get('feedback', 'first-launch');
+        const entry = await stardustDB.getFeedbackEntry();
         if (!entry) return 'pending';
         if (entry.skipped) return 'skipped';
         if (entry.completedAt) return 'completed';

@@ -17,10 +17,26 @@ export class SpatialIndex {
 
         return notes.filter(note => {
             return (
-                note.x + note.w > viewX &&
+                note.x + (note.w || 100) > viewX &&
                 note.x < viewX + viewW &&
-                note.y + note.h > viewY &&
+                note.y + (note.h || 100) > viewY &&
                 note.y < viewY + viewH
+            );
+        });
+    }
+
+    /**
+     * Hit test a point (x, y) in world space against note bounds (with optional tolerance padding).
+     */
+    static hitTest(notes: Note[], x: number, y: number, padding = 10): Note | undefined {
+        return notes.find(note => {
+            const w = note.w || 80;
+            const h = note.h || 80;
+            return (
+                x >= note.x - padding &&
+                x <= note.x + w + padding &&
+                y >= note.y - padding &&
+                y <= note.y + h + padding
             );
         });
     }

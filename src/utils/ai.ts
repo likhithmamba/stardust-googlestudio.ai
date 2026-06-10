@@ -1,56 +1,45 @@
-// src/utils/ai.ts — OpenRouter BYOK Multi-Model AI Service
-// Supports multiple AI providers via OpenRouter's unified API
+// src/utils/ai.ts — Client-Side Multi-Model AI Service Routing
+import { aiGateway } from '../ai/AIGateway';
+import { runCognitivePipeline } from '../ai/CognitivePipeline';
+import { stardustDB } from '../db/StardustDB';
+import { useStore } from '../store/useStore';
+import { useSettingsStore } from '../ui/settings/settingsStore';
 
-const STORAGE_KEY = 'stardust_ai_key';
-const MODEL_KEY = 'stardust_ai_model';
-
-// Available models via OpenRouter
 export const AI_MODELS = {
-    'google/gemini-2.0-flash-exp:free': 'Gemini 2.0 Flash (Free)',
-    'google/gemini-2.5-pro-preview': 'Gemini 2.5 Pro',
-    'anthropic/claude-sonnet-4': 'Claude Sonnet 4',
-    'openai/gpt-4o': 'GPT-4o',
-    'openai/gpt-4o-mini': 'GPT-4o Mini',
-    'meta-llama/llama-3.3-70b-instruct': 'Llama 3.3 70B',
-    'deepseek/deepseek-chat-v3-0324:free': 'DeepSeek V3 (Free)',
+    'gemini-2.0-flash-exp': 'Gemini 2.0 Flash',
+    'gpt-4o-mini': 'GPT-4o Mini',
+    'claude-3-5-haiku-latest': 'Claude 3.5 Haiku',
+    'llama3': 'Llama 3 (Local)'
 } as const;
 
 export type AIModelId = keyof typeof AI_MODELS;
 
-const DEFAULT_MODEL: AIModelId = 'google/gemini-2.0-flash-exp:free';
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-
-// --- Key Management ---
+// --- Key Management (secured in IndexedDB) ---
 
 export const saveApiKey = async (key: string) => {
-    const encoded = btoa(key);
-    localStorage.setItem(STORAGE_KEY, encoded);
+    const provider = await stardustDB.getSetting('ai_provider', 'gemini');
+    await stardustDB.saveApiKey(provider, key);
 };
 
 export const getApiKey = async (): Promise<string | null> => {
-    const encoded = localStorage.getItem(STORAGE_KEY);
-    if (!encoded) return null;
-    try {
-        return atob(encoded);
-    } catch {
-        return null;
-    }
+    const provider = await stardustDB.getSetting('ai_provider', 'gemini');
+    if (provider === 'ollama') return '';
+    return stardustDB.getApiKey(provider);
 };
 
-export const clearApiKey = () => {
-    localStorage.removeItem(STORAGE_KEY);
+export const clearApiKey = async () => {
+    const provider = await stardustDB.getSetting('ai_provider', 'gemini');
+    await stardustDB.clearApiKey(provider);
 };
 
 // --- Model Selection ---
 
-export const saveModel = (modelId: AIModelId) => {
-    localStorage.setItem(MODEL_KEY, modelId);
+export const saveModel = async (modelId: string) => {
+    await stardustDB.saveSetting('ai_model', modelId);
 };
 
-export const getModel = (): AIModelId => {
-    const saved = localStorage.getItem(MODEL_KEY);
-    if (saved && saved in AI_MODELS) return saved as AIModelId;
-    return DEFAULT_MODEL;
+export const getModel = async (): Promise<string> => {
+    return stardustDB.getSetting('ai_model', 'gemini-2.0-flash-exp');
 };
 
 // --- Core Generation ---
@@ -62,58 +51,21 @@ export interface AIMessage {
 
 export interface AIGenerateOptions {
     messages: AIMessage[];
-    model?: AIModelId;
+    model?: string;
     temperature?: number;
     maxTokens?: number;
 }
 
 export const generateContent = async (prompt: string, context: string = ''): Promise<string> => {
-    const messages: AIMessage[] = [];
-    if (context) {
-        messages.push({ role: 'system', content: context });
-    }
-    messages.push({ role: 'user', content: prompt });
-
-    return generateChat({ messages });
+    return aiGateway.generate(prompt, context);
 };
 
 export const generateChat = async (options: AIGenerateOptions): Promise<string> => {
-    const key = await getApiKey();
-    if (!key) throw new Error("No API Key configured. Add your OpenRouter key in Settings.");
-
-    const model = options.model || getModel();
-    const cleanKey = key.replace(/[\r\n]/g, '');
-    const cleanOrigin = window.location.origin.replace(/[\r\n]/g, '');
-
-    try {
-        const response = await fetch(OPENROUTER_URL, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${cleanKey}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': cleanOrigin,
-                'X-Title': 'Stardust',
-            },
-            body: JSON.stringify({
-                model,
-                messages: options.messages,
-                temperature: options.temperature ?? 0.7,
-                max_tokens: options.maxTokens ?? 2048,
-            }),
-        });
-
-        if (!response.ok) {
-            const err = await response.json().catch(() => ({}));
-            const msg = err.error?.message || err.message || `HTTP ${response.status}`;
-            throw new Error(`AI Request Failed: ${msg}`);
-        }
-
-        const data = await response.json();
-        return data.choices?.[0]?.message?.content || '';
-    } catch (error) {
-        console.error("AI Error:", error);
-        throw error;
-    }
+    const lastUserMsg = options.messages.filter(m => m.role === 'user').pop();
+    const systemMsg = options.messages.find(m => m.role === 'system');
+    const prompt = lastUserMsg ? lastUserMsg.content : '';
+    const system = systemMsg ? systemMsg.content : '';
+    return aiGateway.generate(prompt, system);
 };
 
 // --- Stardust-Specific AI Features ---
@@ -121,12 +73,15 @@ export const generateChat = async (options: AIGenerateOptions): Promise<string> 
 /**
  * Stellar Synthesis: Analyze a set of notes and suggest connections/groupings
  */
-export const stellarSynthesis = async (notes: { title: string; type: string }[]): Promise<string> => {
-    const noteList = notes.map((n, i) => `${i + 1}. [${n.type}] ${n.title}`).join('\n');
-    return generateContent(
-        `Analyze these notes and suggest meaningful connections, groupings, or patterns. Be concise.\n\n${noteList}`,
-        'You are Stardust AI, an intelligent assistant for a spatial note-taking app called Stardust. Notes are represented as celestial objects (stars, planets, moons). Analyze patterns, suggest connections, and help organize thoughts spatially. Always be concise and insightful.'
+export const stellarSynthesis = async (_notes: any[]): Promise<string> => {
+    const fullNotes = useStore.getState().notes;
+    const viewMode = useSettingsStore.getState().viewMode;
+    const result = await runCognitivePipeline(
+        fullNotes,
+        "Analyze these notes and suggest meaningful connections, groupings, or patterns.",
+        viewMode
     );
+    return result.content;
 };
 
 /**
@@ -137,7 +92,8 @@ export const planetExpander = async (title: string, existingContent: string = ''
         ? `Expand this note with more detail, research, and actionable insights:\n\nTitle: ${title}\nExisting Content: ${existingContent}`
         : `Create detailed content for this note topic: "${title}". Include key points, insights, and actionable items.`;
 
-    return generateContent(prompt,
+    return aiGateway.generate(
+        prompt,
         'You are Stardust AI. Expand notes with well-researched, concise content. Use bullet points where appropriate. Keep total length under 300 words.'
     );
 };
@@ -145,12 +101,15 @@ export const planetExpander = async (title: string, existingContent: string = ''
 /**
  * Constellation Mapper: Suggest how to organize notes into modes
  */
-export const constellationMapper = async (notes: { title: string; type: string }[]): Promise<string> => {
-    const noteList = notes.map((n, i) => `${i + 1}. [${n.type}] ${n.title}`).join('\n');
-    return generateContent(
-        `Suggest which Stardust mode each note belongs to:\n- VOID: freeform brainstorm\n- MATRIX: decision grid (urgent/important)\n- PRISM: column-based prioritization\n- ORBITAL: hierarchical focus rings\n- TIMELINE: chronological events\n\nNotes:\n${noteList}`,
-        'You are Stardust AI. Classify notes into the most appropriate mode. For each note, output: "Note N → MODE (reason)". Be very concise.'
+export const constellationMapper = async (_notes: any[]): Promise<string> => {
+    const fullNotes = useStore.getState().notes;
+    const viewMode = useSettingsStore.getState().viewMode;
+    const result = await runCognitivePipeline(
+        fullNotes,
+        "Suggest which Stardust mode each note belongs to:\n- VOID: freeform brainstorm\n- MATRIX: decision grid (urgent/important)\n- PRISM: column-based prioritization\n- ORBITAL: hierarchical focus rings\n- TIMELINE: chronological events",
+        viewMode
     );
+    return result.content;
 };
 
 /**
@@ -158,7 +117,7 @@ export const constellationMapper = async (notes: { title: string; type: string }
  */
 export const autoSummarize = async (notes: { title: string }[]): Promise<string> => {
     const noteList = notes.map(n => `- ${n.title}`).join('\n');
-    return generateContent(
+    return aiGateway.generate(
         `Summarize these notes into a concise paragraph:\n${noteList}`,
         'You are Stardust AI. Summarize clearly and concisely in 2-3 sentences.'
     );
