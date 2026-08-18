@@ -36,6 +36,8 @@ export interface Note {
 
     // Strategic Metadata
     priority: 'critical' | 'high' | 'medium' | 'low';
+    urgency?: 'urgent' | 'not-urgent';
+    importance?: 'important' | 'not-important';
     impact: number;          // [0, 1] for Matrix Mode
     effort: number;          // [0, 1] for Matrix Mode
 

@@ -181,9 +181,28 @@ async function autoLayoutForMode(targetMode: ViewMode) {
         }
     }
 
-    positions.forEach((pos, i) => {
-        setTimeout(() => { viewStore.updateNote(pos.id, { x: pos.x, y: pos.y, vx: 0, vy: 0, fixed: false }); }, i * 35);
+    const currentNotes = viewStore.notes;
+    const currentGraveyard = viewStore.graveyard || [];
+    const posMap = new Map(positions.map(p => [p.id, p]));
+
+    const newNotes = currentNotes.map(n => {
+        const pos = posMap.get(n.id);
+        if (pos) {
+            return { ...n, x: pos.x, y: pos.y, vx: 0, vy: 0, fixed: false };
+        }
+        return n;
     });
+
+    const newGraveyard = currentGraveyard.map(n => {
+        const pos = posMap.get(n.id);
+        if (pos) {
+            return { ...n, x: pos.x, y: pos.y, vx: 0, vy: 0, fixed: false };
+        }
+        return n;
+    });
+
+    viewStore.setNotes(newNotes);
+    useStore.setState({ graveyard: newGraveyard });
 }
 
 export const useSettingsStore = create<SettingsState>()(

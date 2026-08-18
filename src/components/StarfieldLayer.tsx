@@ -7,11 +7,19 @@ export const StarfieldLayer: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Subscribe only to values needed for background
-    const viewport = useStore((state) => state.viewport);
     const theme = useStore((state) => state.theme);
     const mode = useSettingsStore((state) => state.mode);
     const designSystem = useSettingsStore((state) => state.designSystem);
     const proMode = mode === 'pro' || mode === 'ultra';
+
+    // Fix #4: Use ref for viewport and update it via subscribe to avoid restarting 
+    // the RAF loop on every single pan/zoom/scroll frame.
+    const viewportRef = useRef(useStore.getState().viewport);
+    useEffect(() => {
+        return useStore.subscribe((state) => {
+            viewportRef.current = state.viewport;
+        });
+    }, []);
 
     const stars = useRef<{ x: number; y: number; size: number; opacity: number; speed: number; layer: 'back' | 'mid' | 'front' }[]>([]);
     const nebulas = useRef<{ x: number; y: number; size: number; color: string; speed: number }[]>([]);
@@ -98,6 +106,7 @@ export const StarfieldLayer: React.FC = () => {
         const render = () => {
             const { width, height } = sizeRef.current;
             const dpr = window.devicePixelRatio || 1;
+            const currentViewport = viewportRef.current;
 
             ctx.resetTransform();
             ctx.scale(dpr, dpr);
@@ -126,8 +135,8 @@ export const StarfieldLayer: React.FC = () => {
             if (theme !== 'zen' && proMode) {
                 ctx.globalCompositeOperation = 'screen';
                 nebulas.current.forEach(nebula => {
-                    const parallaxX = (nebula.x - viewport.x * nebula.speed) % (width * 1.5);
-                    const parallaxY = (nebula.y - viewport.y * nebula.speed) % (height * 1.5);
+                    const parallaxX = (nebula.x - currentViewport.x * nebula.speed) % (width * 1.5);
+                    const parallaxY = (nebula.y - currentViewport.y * nebula.speed) % (height * 1.5);
                     const drawX = parallaxX < -nebula.size ? parallaxX + width * 1.5 : parallaxX;
                     const drawY = parallaxY < -nebula.size ? parallaxY + height * 1.5 : parallaxY;
 
@@ -154,8 +163,8 @@ export const StarfieldLayer: React.FC = () => {
                 if (star.layer === 'mid') parallaxFactor = 0.5;
                 if (star.layer === 'front') parallaxFactor = 1.0;
 
-                const x = (star.x - viewport.x * star.speed * parallaxFactor) % (width * 2);
-                const y = (star.y - viewport.y * star.speed * parallaxFactor) % (height * 2);
+                const x = (star.x - currentViewport.x * star.speed * parallaxFactor) % (width * 2);
+                const y = (star.y - currentViewport.y * star.speed * parallaxFactor) % (height * 2);
 
                 const drawX = x < 0 ? x + width * 2 : x;
                 const drawY = y < 0 ? y + height * 2 : y;
@@ -173,10 +182,10 @@ export const StarfieldLayer: React.FC = () => {
             if (proMode) {
                 ctx.strokeStyle = theme === 'cyberpunk' ? 'rgba(0, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.03)';
                 ctx.lineWidth = 1;
-                const gridSize = 100 * viewport.zoom;
+                const gridSize = 100 * currentViewport.zoom;
                 if (gridSize > 5) {
-                    const offsetX = (viewport.x % gridSize);
-                    const offsetY = (viewport.y % gridSize);
+                    const offsetX = (currentViewport.x % gridSize);
+                    const offsetY = (currentViewport.y % gridSize);
                     ctx.beginPath();
                     for (let x = offsetX; x < width; x += gridSize) {
                         ctx.moveTo(x, 0);
@@ -195,7 +204,7 @@ export const StarfieldLayer: React.FC = () => {
 
         render();
         return () => cancelAnimationFrame(animationFrameId);
-    }, [viewport, theme, proMode]); // Only reubin when these change
+    }, [theme, proMode]); // Only recreate when theme/proMode changes, NOT viewport
 
     if (designSystem !== 'zero-point') {
         return null;

@@ -24,30 +24,26 @@ const MATRIX_THRESHOLDS = {
  * Returns quadrant assignment and pruning recommendation.
  */
 export function evaluateNote(note: Note): MatrixCoordinate {
-    const impact = note.impact ?? estimateImpact(note);
-    const effort = note.effort ?? estimateEffort(note);
+    // Resolve quadrant directly from note's urgency and importance fields
+    const u = note.urgency || 'not-urgent';
+    const i = note.importance || 'important';
 
     let quadrant: MatrixCoordinate['quadrant'];
-    let shouldPrune = false;
 
-    if (impact >= MATRIX_THRESHOLDS.IMPACT_MIDPOINT &&
-        effort < MATRIX_THRESHOLDS.EFFORT_MIDPOINT) {
-        quadrant = 'do';        // High Impact, Low Effort (Quick Wins)
-    } else if (impact >= MATRIX_THRESHOLDS.IMPACT_MIDPOINT &&
-        effort >= MATRIX_THRESHOLDS.EFFORT_MIDPOINT) {
-        quadrant = 'plan';      // High Impact, High Effort (Strategic)
-    } else if (impact < MATRIX_THRESHOLDS.IMPACT_MIDPOINT &&
-        effort < MATRIX_THRESHOLDS.EFFORT_MIDPOINT) {
-        quadrant = 'delegate';  // Low Impact, Low Effort (Delegate)
+    if (u === 'urgent' && i === 'important') {
+        quadrant = 'do';        // Top-left
+    } else if (u === 'not-urgent' && i === 'important') {
+        quadrant = 'plan';      // Top-right
+    } else if (u === 'urgent' && i === 'not-important') {
+        quadrant = 'delegate';  // Bottom-left
     } else {
-        quadrant = 'eliminate'; // Low Impact, High Effort (PRUNE!)
-
-        // Trigger pruning event for extreme cases
-        if (impact <= MATRIX_THRESHOLDS.PRUNE_IMPACT_MAX &&
-            effort >= MATRIX_THRESHOLDS.PRUNE_EFFORT_MIN) {
-            shouldPrune = true;
-        }
+        quadrant = 'eliminate'; // Bottom-right
     }
+
+    // Maintain mock impact and effort values for telemetry / compatibility
+    const impact = (quadrant === 'do' || quadrant === 'plan') ? 0.8 : 0.2;
+    const effort = (quadrant === 'plan' || quadrant === 'eliminate') ? 0.8 : 0.2;
+    const shouldPrune = quadrant === 'eliminate';
 
     return {
         noteId: note.id,
@@ -70,76 +66,6 @@ export function evaluateAllNotes(notes: Note[]): MatrixCoordinate[] {
  */
 export function getPruningCandidates(notes: Note[]): Note[] {
     return notes.filter(note => evaluateNote(note).shouldPrune);
-}
-
-// === HEURISTIC ESTIMATORS ===
-
-/**
- * Estimate impact score based on note metadata
- * Uses priority, link count, and tags
- */
-function estimateImpact(note: Note): number {
-    let impact = 0.5; // Default to medium
-
-    // Priority weight
-    switch (note.priority) {
-        case 'critical': impact = 0.95; break;
-        case 'high': impact = 0.75; break;
-        case 'medium': impact = 0.5; break;
-        case 'low': impact = 0.25; break;
-    }
-
-    // Link count boost (well-connected = important)
-    const linkBonus = Math.min((note.linkCount || 0) * 0.05, 0.2);
-    impact = Math.min(impact + linkBonus, 1.0);
-
-    // Tag indicators
-    const tags = (note.tags || []).map(t => t.toLowerCase());
-    if (tags.some(t => ['critical', 'urgent', 'important', 'key'].includes(t))) {
-        impact = Math.min(impact + 0.15, 1.0);
-    }
-    if (tags.some(t => ['minor', 'nice-to-have', 'optional'].includes(t))) {
-        impact = Math.max(impact - 0.2, 0);
-    }
-
-    return impact;
-}
-
-/**
- * Estimate effort score based on note metadata
- * Uses content length, complexity tags, and access patterns
- */
-function estimateEffort(note: Note): number {
-    let effort = 0.5; // Default to medium
-
-    // Content length as proxy for complexity
-    const contentLength = (note.content || '').length;
-    if (contentLength > 2000) effort = 0.8;
-    else if (contentLength > 1000) effort = 0.6;
-    else if (contentLength < 200) effort = 0.3;
-
-    // Tag indicators
-    const tags = (note.tags || []).map(t => t.toLowerCase());
-    if (tags.some(t => ['complex', 'difficult', 'long-term', 'deep-dive'].includes(t))) {
-        effort = Math.min(effort + 0.2, 1.0);
-    }
-    if (tags.some(t => ['quick', 'easy', 'simple', 'trivial'].includes(t))) {
-        effort = Math.max(effort - 0.2, 0);
-    }
-
-    // Type-based estimation
-    switch (note.type) {
-        case 'nebula':
-        case 'galaxy':
-            effort = 0.9; // Large scope = high effort
-            break;
-        case 'asteroid':
-        case 'comet':
-            effort = 0.2; // Small items = low effort
-            break;
-    }
-
-    return effort;
 }
 
 // === GHOST LAYER OVERLAYS ===

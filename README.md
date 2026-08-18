@@ -75,6 +75,7 @@ Inside every note is an AI core.
 *   **Expand**: Turn a bullet point into a paragraph.
 *   **Summarize**: Collapse a wall of text into a haiku.
 *   **Connect**: Ask the AI to find relationships between two distant notes.
+*   **PDF Constellations**: Upload any startup pitch, document, or PDF. The app extracts text locally in the browser (via `pdfjs-dist`) and uses AI to map a structured radial constellation of Sun/Jupiter/Asteroid nodes onto the canvas, automatically creating connection lines centered around the current camera viewport.
 
 ---
 
@@ -86,6 +87,7 @@ Stardust is optimized for professional appeal and tactile immersion:
 *   **Space Ambient Effects**: Deep space drifting atmospheric blurs that rotate and shift slowly behind the canvas.
 *   **Comparison & Triage Grid**: Detailed comparative feature sets demonstrating advantages over linear document layouts.
 *   **Accessibility Contrast Boost**: High-legibility text overrides and `prefers-reduced-motion` compliance.
+*   **Selected Note Actions**: A floating dashboard for selected notes that lets you instantly open the Cosmos editor, change themes, or delete the star system directly.
 
 ---
 
@@ -102,18 +104,23 @@ Stardust is built on the bleeding edge of web technologies to ensure 120FPS perf
 *   **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) (Utility-first, high performance)
 *   **Animations**: [Framer Motion](https://www.framer.com/motion/) (Complex UI transitions, custom animated spring tooltips)
 *   **Physics Loop**: Custom `requestAnimationFrame` engine detached from React render cycle for maximum smoothness.
-*   **Ambient space blurs**: Drifting glowing background spheres that respond dynamically.
+*   **Direct DOM Rendering**: Visual positioning is performed at 60fps directly on DOM nodes via `visualRegistry` to avoid React re-render cycles.
+*   **10fps Zustand Write-Back**: Store synchronization is throttled to 10fps (every 100ms), reducing React state updates by 83% and optimizing performance for complex constellations.
+*   **$O(1)$ Coordinate Map Lookups**: Physics calculations use index map lookups rather than array iterations.
+*   **Web Worker Decoupling**: Stable structural identity hashes are used to separate background worker layout cycles from position-only updates.
 
 ### State & Data
 *   **State Management**: [Zustand](https://zustand-demo.pmnd.rs/) + [Immer](https://immerjs.github.io/immer/) (Transient updates for high-frequency physics)
-*   **Persistence**: [Dexie.js](https://dexie.org/) (IndexedDB wrapper for offline-first, local-only storage via SQLite sandbox)
+*   **Persistence**: [Dexie.js](https://dexie.org/) (IndexedDB wrapper for offline-first, local-only storage)
+*   **PDF Parsing**: [PDF.js](https://mozilla.github.io/pdf.js/) (`pdfjs-dist` client-side browser text extraction, zero React dependency)
 *   **Rich Text**: [Lexical](https://lexical.dev/) (extensible text editor framework)
+*   **Undo/Redo History**: Replaced JSON stringification with browser-native `structuredClone()` coupled with a 300ms debouncing mechanism to avoid snapshot spam.
 
 ### Performance & Chunking
 To minimize initial load size, the production bundle is code-split into distinct cacheable chunks:
 - `framework`: React & ReactDOM core runtime
 - `animation`: Framer Motion assets
-- `vendor`: Utility libraries and workspace UI
+- `vendor`: Utility libraries, PDF.js assets, and workspace UI
 
 
 ---

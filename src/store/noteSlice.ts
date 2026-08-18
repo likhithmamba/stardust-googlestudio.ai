@@ -173,6 +173,10 @@ export const setFullSave = (fn: () => void) => { _fullSave = fn; };
 const triggerFullSave = () => _fullSave();
 
 // ─── Slice Creator ──────────────────────────────────────────────
+// Fix #3: Debounce snapshot to prevent spam during rapid interactions
+let _lastSnapshotTime = 0;
+const SNAPSHOT_DEBOUNCE_MS = 300;
+
 export const createNoteSlice: StateCreator<NoteSlice, [], [], NoteSlice> = (set, _get) => ({
     notes: [],
     connections: [],
@@ -181,10 +185,15 @@ export const createNoteSlice: StateCreator<NoteSlice, [], [], NoteSlice> = (set,
     future: [],
 
     takeSnapshot: () => {
+        const now = Date.now();
+        if (now - _lastSnapshotTime < SNAPSHOT_DEBOUNCE_MS) return;
+        _lastSnapshotTime = now;
+
         set((s) => {
+            // Fix #3: structuredClone is 2-3x faster than JSON.parse(JSON.stringify())
             const current = {
-                notes: JSON.parse(JSON.stringify(s.notes)),
-                connections: JSON.parse(JSON.stringify(s.connections))
+                notes: structuredClone(s.notes),
+                connections: structuredClone(s.connections)
             };
             const newPast = [...s.past, current].slice(-30);
             return {
@@ -199,8 +208,8 @@ export const createNoteSlice: StateCreator<NoteSlice, [], [], NoteSlice> = (set,
             if (s.past.length === 0) return s;
             const previous = s.past[s.past.length - 1];
             const current = {
-                notes: JSON.parse(JSON.stringify(s.notes)),
-                connections: JSON.parse(JSON.stringify(s.connections))
+                notes: structuredClone(s.notes),
+                connections: structuredClone(s.connections)
             };
             const newPast = s.past.slice(0, -1);
             
@@ -222,8 +231,8 @@ export const createNoteSlice: StateCreator<NoteSlice, [], [], NoteSlice> = (set,
             if (s.future.length === 0) return s;
             const next = s.future[0];
             const current = {
-                notes: JSON.parse(JSON.stringify(s.notes)),
-                connections: JSON.parse(JSON.stringify(s.connections))
+                notes: structuredClone(s.notes),
+                connections: structuredClone(s.connections)
             };
             const newFuture = s.future.slice(1);
             
@@ -290,12 +299,18 @@ export const createNoteSlice: StateCreator<NoteSlice, [], [], NoteSlice> = (set,
     },
 
     updateNotePositions: (positions) => {
+        // Fix #2b: Build a Map for O(1) lookups instead of O(n) find() per note
+        const posMap = new Map<string, { x: number; y: number }>();
+        for (const p of positions) {
+            posMap.set(p.id, { x: p.x, y: p.y });
+        }
+
         set((s) => {
             let changed = false;
-            const hasActive = s.notes.some(n => positions.some(p => p.id === n.id));
+            const hasActive = s.notes.some(n => posMap.has(n.id));
             if (hasActive) {
                 const newNotes = s.notes.map((n) => {
-                    const pos = positions.find((p) => p.id === n.id);
+                    const pos = posMap.get(n.id);
                     if (pos) {
                         const dx = Math.abs(n.x - pos.x);
                         const dy = Math.abs(n.y - pos.y);
@@ -310,7 +325,7 @@ export const createNoteSlice: StateCreator<NoteSlice, [], [], NoteSlice> = (set,
                 return { notes: newNotes };
             } else {
                 const newGraveyard = s.graveyard.map((n) => {
-                    const pos = positions.find((p) => p.id === n.id);
+                    const pos = posMap.get(n.id);
                     if (pos) {
                         const dx = Math.abs(n.x - pos.x);
                         const dy = Math.abs(n.y - pos.y);
@@ -325,8 +340,10 @@ export const createNoteSlice: StateCreator<NoteSlice, [], [], NoteSlice> = (set,
                 return { graveyard: newGraveyard };
             }
         });
+        // Fix #2: Only mark dirty — do NOT triggerSave() for position-only updates.
+        // Positions are persisted lazily on mode switch (saveModePositions),
+        // or when the next non-position operation triggers a save.
         positions.forEach(pos => dirtyNoteIds.add(pos.id));
-        triggerSave();
     },
 
     saveModePositions: (mode) => {

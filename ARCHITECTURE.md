@@ -13,15 +13,19 @@ The system is anchored by several highly connected, central abstractions:
 ### State Management
 * **`useSettingsStore`**: The most connected module in the system (49 edges). It dictates UI settings, user preferences, and configuration across almost all components (from `AppShell` to individual `CanvasViewport` components).
 * **`useStore`**: The primary application state (40 edges). Manages active data, node structures, and interactions.
+  * *Optimizations:* Uses browser-native `structuredClone()` for transaction state snapshots (undo/redo history) with a 300ms debounce.
+  * *Dispatches:* Zustand state updates are throttled to **10fps** during physics ticks to prevent React component rendering fatigue.
 
 ### Engine & Simulation
 * **`Engine`** (11 edges) & **`World`** (12 edges): The core systems responsible for orchestrating the canvas, managing the physics simulation step-loop, and applying attraction/repulsion forces.
-* **`WorkerBridge`** (22 edges): Crucial for performance. It acts as a bridge to Web Workers, offloading complex layout calculations (like Barnes-Hut calculations or force-directed graph resolution) off the main UI thread.
+  * *Visual Registry:* Coordinates 60fps DOM element transformations directly, detaching hot positional ticks from React updates.
+* **`WorkerBridge`** (22 edges): Crucial for performance. It acts as a bridge to Web Workers, offloading complex layout calculations (like Barnes-Hut calculations or force-directed graph resolution) off the main UI thread. Decoupled from position-only updates via structural identity hashes.
 
 ### Data & Presentation
 * **`NoteType`** (15 edges): The central data structure representing a piece of knowledge in the Stardust universe.
 * **`VisualRegistry`** (12 edges): A central registry that maps underlying data models (like `NoteType`) to their corresponding visual components on the canvas.
 * **`SoundManager`** (11 edges): Centralized orchestrator for auditory feedback and ambient soundscapes.
+* **`PDF Parser`**: Fully client-side parsing pipeline powered by `pdfjs-dist` to automatically generate radial note constellations based on startup roadmap details or document reference structures.
 
 ## 3. Structural Bridges & Data Flow
 

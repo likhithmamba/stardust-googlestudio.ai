@@ -8,10 +8,12 @@ import {
     Palette,
     Layout,
     Search,
-    Settings
+    Settings,
+    FileText
 } from 'lucide-react';
 import { NoteType, NOTE_STYLES } from '../constants';
 import clsx from 'clsx';
+import { automateNotesFromPDF } from '../utils/ai';
 
 export const Toolbar: React.FC = () => {
     const addNote = useStore((state) => state.addNote);
@@ -51,6 +53,42 @@ export const Toolbar: React.FC = () => {
     const isSettingsOpen = useStore((state) => state.isSettingsOpen);
 
     const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [isParsingPdf, setIsParsingPdf] = useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const handlePdfImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsParsingPdf(true);
+        window.dispatchEvent(new CustomEvent('stardust:toast', { 
+            detail: { message: "Cosmic parsing initiated: extracting PDF text...", type: "info" } 
+        }));
+
+        try {
+            const { notes: newNotes, connections: newConns } = await automateNotesFromPDF(file, viewport);
+            
+            const currentNotes = useStore.getState().notes;
+            const currentConnections = useStore.getState().connections;
+            
+            useStore.getState().setContents(
+                [...currentNotes, ...newNotes],
+                [...currentConnections, ...newConns]
+            );
+
+            window.dispatchEvent(new CustomEvent('stardust:toast', { 
+                detail: { message: `Constellation formed! Generated ${newNotes.length} celestial notes from PDF.`, type: "success" } 
+            }));
+        } catch (err: any) {
+            console.error(err);
+            window.dispatchEvent(new CustomEvent('stardust:toast', { 
+                detail: { message: err.message || "Failed to automate notes from PDF.", type: "error" } 
+            }));
+        } finally {
+            setIsParsingPdf(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
 
     // Online/Offline tracking
     React.useEffect(() => {
@@ -288,6 +326,13 @@ export const Toolbar: React.FC = () => {
                         isCollapsed && "px-2 py-2"
                     )}
                 >
+                    <input 
+                        ref={fileInputRef} 
+                        type="file" 
+                        accept="application/pdf" 
+                        className="hidden" 
+                        onChange={handlePdfImport} 
+                    />
 
                     {/* Collapsed Logic: Hide most items */}
                     {(!isCollapsed) && (
@@ -303,6 +348,14 @@ export const Toolbar: React.FC = () => {
                                 title="Search Notes"
                                 shortcut="⌘ K"
                                 active={isSearchOpen}
+                            />
+
+                            <Button
+                                onClick={() => fileInputRef.current?.click()}
+                                icon={FileText}
+                                title={isParsingPdf ? "Forming Constellation..." : "Import PDF & Automate Notes"}
+                                active={isParsingPdf}
+                                highlight={isParsingPdf}
                             />
 
                             <div className="w-6 h-px bg-white/5 my-1" />

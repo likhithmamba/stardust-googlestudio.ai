@@ -87,6 +87,9 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
     const setCosmosOpen = useStore((state) => state.setCosmosOpen);
     const isCosmosOpen = useStore((state) => state.isCosmosOpen);
 
+    // Fix #5b: Memoize plain text extraction to avoid O(n) parsing/traversal on every render
+    const plainText = React.useMemo(() => extractPlainText(note.content), [note.content]);
+
     const designSystem = useSettingsStore((state) => state.designSystem);
     const isSolar = designSystem === 'solar';
     const mode = useSettingsStore((state) => state.mode);
@@ -106,6 +109,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
 
     const dragPositionRef = useRef({ x: note.x, y: note.y });
     const isDragging = useRef(false);
+    const lastClickRef = useRef<number>(0);
     const noteRef = useRef<HTMLDivElement>(null);
     const textRef = useRef<HTMLDivElement>(null);
     const [isHovered, setIsHovered] = React.useState(false);
@@ -139,12 +143,12 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
         };
     }, []);
 
-    // Sync visual position only when ID changes or component mounts
+    // Sync visual position when ID or coordinates change in store
     // Positioning is owned by VisualRegistry during physics/drag
     React.useLayoutEffect(() => {
         dragPositionRef.current = { x: note.x, y: note.y };
         visualRegistry.updatePosition(note.id, note.x, note.y);
-    }, [note.id]);
+    }, [note.id, note.x, note.y]);
 
     // Text Auto-fit Logic
     const autoFitText = React.useCallback(() => {
@@ -324,6 +328,13 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
             } else {
                 setSelectedId(note.id);
             }
+
+            // Manual double click/tap detection as gesture-library can swallow native dblclick
+            const now = Date.now();
+            if (now - lastClickRef.current < 250) {
+                handleDoubleClick();
+            }
+            lastClickRef.current = now;
         }
     }, {
         drag: { filterTaps: true, threshold: 5, from: () => [dragPositionRef.current.x, dragPositionRef.current.y] },
@@ -479,7 +490,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                 {note.content && (
                                     <div className="text-[10px] text-white/60 leading-normal line-clamp-2 overflow-hidden"
                                          style={{ fontFamily: note.fontFamily ? getNoteTextStyle(note, isSolar).fontFamily : undefined }}>
-                                        {extractPlainText(note.content)}
+                                        {plainText}
                                     </div>
                                 )}
                                 <div className="mt-auto flex items-center justify-between gap-1">
@@ -639,7 +650,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                 {note.content && (
                                     <div className="text-[10px] text-white/60 leading-normal line-clamp-2 overflow-hidden"
                                          style={{ fontFamily: note.fontFamily ? getNoteTextStyle(note, isSolar).fontFamily : undefined }}>
-                                        {extractPlainText(note.content)}
+                                        {plainText}
                                     </div>
                                 )}
                                 {note.dueDate && (
@@ -776,7 +787,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                 {note.content && (
                                     <div className="text-[9px] text-white/60 leading-normal line-clamp-2 overflow-hidden"
                                          style={{ fontFamily: note.fontFamily ? getNoteTextStyle(note, isSolar).fontFamily : undefined }}>
-                                        {extractPlainText(note.content)}
+                                        {plainText}
                                     </div>
                                 )}
                                 {note.dueDate && (
@@ -1084,7 +1095,7 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                             textShadow: isSolar ? 'none' : '0 1px 2px rgba(0,0,0,0.8)',
                                         })}
                                     >
-                                        {extractPlainText(note.content)}
+                                        {plainText}
                                     </div>
                                 )}
                             </div>
@@ -1165,6 +1176,20 @@ const PlanetNoteComponent: React.FC<PlanetNoteProps> = ({
                                 className="p-1 text-white/50 hover:text-white transition-colors"
                             >
                                 <span className="material-symbols-outlined text-[16px]">palette</span>
+                            </button>
+                            <div className="w-px h-3 bg-white/10 mx-1" />
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm('Are you sure you want to delete this star?')) {
+                                        useStore.getState().deleteNote(note.id);
+                                        setSelectedId(undefined);
+                                    }
+                                }}
+                                className="p-1 text-red-500/80 hover:text-red-400 transition-colors flex items-center justify-center"
+                                title="Delete Star"
+                            >
+                                <span className="material-symbols-outlined text-[16px] text-red-500">delete</span>
                             </button>
                         </motion.div>
                     )}
@@ -1294,8 +1319,11 @@ export const PlanetNote = React.memo(PlanetNoteComponent, (prev, next) => {
     if (prev.viewMode !== next.viewMode) return false;
     const pNote = prev.note;
     const nNote = next.note;
-    // CRITICAL: Skip x/y comparison for physics performance.
-    // engine + visualRegistry handles the positioning.
+    // CRITICAL: Compare x/y coordinates so that the React component
+    // re-renders and updates its drag references when positions change.
+    // Throttled write-backs make this extremely cheap.
+    if (pNote.x !== nNote.x) return false;
+    if (pNote.y !== nNote.y) return false;
     if (pNote.id !== nNote.id) return false;
     if (pNote.title !== nNote.title) return false;
     if (pNote.color !== nNote.color) return false;
@@ -1308,6 +1336,7 @@ export const PlanetNote = React.memo(PlanetNoteComponent, (prev, next) => {
     if (pNote.urgency !== nNote.urgency) return false;
     if (pNote.importance !== nNote.importance) return false;
     if (pNote.content !== nNote.content) return false;
+    if (pNote.status !== nNote.status) return false;
     if (pNote.luminance !== nNote.luminance) return false;
     if (pNote.dueDate !== nNote.dueDate) return false;
     if (pNote.textColor !== nNote.textColor) return false;

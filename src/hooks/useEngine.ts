@@ -1,9 +1,22 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { engine } from '../engine/Engine';
 import { useStore } from '../store/useStore';
 import { useSettingsStore } from '../ui/settings/settingsStore';
 import type { LayoutMode } from '../engine/types/EngineTypes';
 import { workerBridge } from '../workers/WorkerBridge';
+
+/**
+ * Compute a stable identity hash for the notes collection.
+ * This changes when notes are added, removed, or their layout-relevant
+ * metadata changes — but NOT when x/y positions change.
+ * Used to prevent worker recalculations on position-only updates.
+ */
+function computeNotesIdentity(notes: any[]): string {
+    // Intentionally excludes x, y, vx, vy, w, h, luminance, lastAccessedAt
+    return notes.map(n =>
+        `${n.id}|${n.type}|${n.priority}|${n.urgency}|${n.importance}|${n.status}|${n.dueDate}|${n.constellation}|${n.originMode}`
+    ).join(';');
+}
 
 export const useEngine = () => {
     const notes = useStore((state) => state.notes);
@@ -47,7 +60,17 @@ export const useEngine = () => {
         });
     }, [viewport]);
 
+    // ─── Fix #6: Stable identity hash for worker layout ───
+    // Only recalculate layout when notes are added/removed or their
+    // layout-relevant metadata changes — NOT on position-only updates.
+    const notesIdentity = useMemo(() => computeNotesIdentity(notes), [notes]);
+    const connectionsIdentity = useMemo(
+        () => connections.map(c => `${c.id}|${c.from}|${c.to}`).join(';'),
+        [connections]
+    );
+
     // Sync Mode & Layout via Web Worker Bridge
+    // Depends on stable identity hashes, not raw array references
     useEffect(() => {
         let active = true;
 
@@ -57,14 +80,18 @@ export const useEngine = () => {
                 return;
             }
 
+            // Read latest notes from store (we need the actual data, not the stale closure)
+            const currentNotes = useStore.getState().notes;
+            const currentConnections = useStore.getState().connections;
+
             try {
                 // Strip notes to satisfy strict security requirements (NEVER send content)
-                const strippedNotes = notes.map(n => ({
+                const strippedNotes = currentNotes.map(n => ({
                     id: n.id,
                     type: n.type,
                     touchedAt: n.updatedAt || n.createdAt || Date.now(),
                     wordCount: n.content ? n.content.split(/\s+/).length : 0,
-                    connectionCount: connections.filter(c => c.from === n.id || c.to === n.id).length,
+                    connectionCount: currentConnections.filter(c => c.from === n.id || c.to === n.id).length,
                     priority: n.priority,
                     urgency: n.urgency,
                     importance: n.importance,
@@ -111,7 +138,7 @@ export const useEngine = () => {
         return () => {
             active = false;
         };
-    }, [viewMode, notes, connections]);
+    }, [viewMode, notesIdentity, connectionsIdentity]);
 
     // Listen for Engine Deletions
     useEffect(() => {
@@ -135,25 +162,36 @@ export const useEngine = () => {
         };
     }, []);
 
-    // ─── requestAnimationFrame Write-Back Loop ───
+    // ─── Fix #1: Throttled Write-Back Loop (10fps instead of 60fps) ───
+    // DOM positioning is handled at 60fps by visualRegistry.updatePosition()
+    // in Engine.ts. This loop only syncs engine→React for state persistence,
+    // so 10fps (100ms interval) is sufficient and eliminates frame-drop jank.
+    // Fix #7: Uses Map for O(1) note lookups instead of Array.find()
     useEffect(() => {
-        let frameId: number;
+        const SYNC_INTERVAL_MS = 100; // 10fps write-back
 
-        const tick = () => {
+        const intervalId = setInterval(() => {
             const world = engine.getWorld();
             const currentMode = useSettingsStore.getState().viewMode;
             const isArchive = currentMode === 'archive';
             const currentNotes = isArchive ? useStore.getState().graveyard : useStore.getState().notes;
+
+            // Fix #7: Build a Map for O(1) lookups instead of O(n) Array.find()
+            const noteMap = new Map<string, { x: number; y: number }>();
+            for (const n of currentNotes) {
+                noteMap.set(n.id, { x: n.x, y: n.y });
+            }
+
             const updates: { id: string; x: number; y: number }[] = [];
 
             world.notes.forEach((wnote, id) => {
                 if (wnote.fixed) return; // Skip updating notes that are currently locked/dragged!
-                const snote = currentNotes.find(n => n.id === id);
-                if (snote) {
-                    const dx = Math.abs(snote.x - wnote.x);
-                    const dy = Math.abs(snote.y - wnote.y);
-                    // 0.3px threshold reduces unnecessary renders
-                    if (dx > 0.3 || dy > 0.3) {
+                const spos = noteMap.get(id);
+                if (spos) {
+                    const dx = Math.abs(spos.x - wnote.x);
+                    const dy = Math.abs(spos.y - wnote.y);
+                    // 1px threshold (relaxed from 0.3px since we're at 10fps now)
+                    if (dx > 1 || dy > 1) {
                         updates.push({ id, x: wnote.x, y: wnote.y });
                     }
                 }
@@ -162,13 +200,10 @@ export const useEngine = () => {
             if (updates.length > 0) {
                 useStore.getState().updateNotePositions(updates);
             }
+        }, SYNC_INTERVAL_MS);
 
-            frameId = requestAnimationFrame(tick);
-        };
-
-        frameId = requestAnimationFrame(tick);
         return () => {
-            cancelAnimationFrame(frameId);
+            clearInterval(intervalId);
         };
     }, []);
 
